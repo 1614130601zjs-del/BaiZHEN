@@ -193,3 +193,44 @@ describe('Shizhen Vibe groups and name fallback', () => {
     expect(native.vibes.map(v => v.enabled)).toEqual([false, false, true]);
   });
 });
+
+
+describe('partial artist and Vibe combos', () => {
+  const makeNai = (combo: { artistId: string; vibeId: string; vibeGroup?: string }, size = '') => ({
+    activeArtistId: 'native-artist',
+    vibes: [
+      { id: 'native-vibe', group: 'native', enabled: true },
+      { id: 'group-vibe', group: 'group', enabled: false },
+    ],
+    portraitSize: '832x1216',
+    landscapeSize: '1216x832',
+    shizhenArtistProfiles: {
+      ...profiles,
+      combos: [{ id: 'partial', name: 'Partial', ...combo, updatedAt: 1 }],
+      global: { ...profiles.global, body: { comboId: 'partial', size } },
+    },
+  }) as unknown as import('@/state/settings').NaiSettings;
+
+  it('artist-only combo keeps native Vibe selections', () => {
+    const source = makeNai({ artistId: 'artist-new', vibeId: '' });
+    const result = applyArtistProfileToNai(source, '', 'body');
+    expect(result.nai.activeArtistId).toBe('artist-new');
+    expect(result.nai.vibes.map(v => v.enabled)).toEqual([true, false]);
+  });
+
+  it('Vibe-only combo keeps the native artist selection', () => {
+    const source = makeNai({ artistId: '', vibeId: 'group-vibe' });
+    const result = applyArtistProfileToNai(source, '', 'body');
+    expect(result.nai.activeArtistId).toBe('native-artist');
+    expect(result.nai.vibes.map(v => v.enabled)).toEqual([false, true]);
+  });
+
+  it('applies portrait and landscape dimensions independently', () => {
+    const portrait = applyArtistProfileToNai(makeNai({ artistId: '', vibeId: '' }, '768x1344'), '', 'body');
+    expect(portrait.nai.portraitSize).toBe('768x1344');
+    expect(portrait.nai.landscapeSize).toBe('1216x832');
+    const landscape = applyArtistProfileToNai(makeNai({ artistId: '', vibeId: '' }, '1344x768'), '', 'body');
+    expect(landscape.nai.portraitSize).toBe('832x1216');
+    expect(landscape.nai.landscapeSize).toBe('1344x768');
+  });
+});

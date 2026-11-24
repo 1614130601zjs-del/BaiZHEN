@@ -142,9 +142,11 @@ async function importBackup() {
     let bindingAdded = 0, bindingSkipped = 0;
     for (const item of value.bindings) {
       const sourceIndex = Number(item.characterIndex);
-      const sourceCharacter = Number.isInteger(sourceIndex) && sourceIndex >= 0
+      const indexedCharacter = Number.isInteger(sourceIndex) && sourceIndex >= 0
         ? getContext()?.characters?.[sourceIndex]
         : undefined;
+      const sourceCharacter = indexedCharacter && (!item.characterName.trim()
+        || indexedCharacter.name?.trim() === item.characterName.trim()) ? indexedCharacter : undefined;
       const characterName = item.characterName.trim() || sourceCharacter?.name || '';
       const key = sourceCharacter
         ? makeCharacterBindingKey(sourceCharacter.avatar, sourceCharacter.name || characterName, sourceIndex)
@@ -156,7 +158,6 @@ async function importBackup() {
         && !!characterName && binding.characterName.trim() === characterName.trim(),
       );
       if (exactExists || legacyNameExists) { bindingSkipped++; continue; }
-      if (exists) { bindingSkipped++; continue; }
       profiles.bindings.push({
         characterKey: key,
         characterName,
@@ -192,7 +193,10 @@ async function exportBackup() {
   try {
     const artists = [...BUILTIN_NAI_ARTISTS, ...settings.nai.artistPresets];
     const artistIndex = new Map(artists.map((item, index) => [item.id, index]));
-    const groups = [...new Set(settings.nai.vibes.map(item => item.group.trim()).filter(Boolean))];
+    const groups = [...new Set([
+      ...settings.nai.vibes.map(item => item.group.trim()).filter(Boolean),
+      ...settings.nai.shizhenArtistProfiles.combos.map(item => item.vibeGroup?.trim()).filter((name): name is string => !!name),
+    ])];
     const pool: Array<Record<string, unknown>> = [];
     const refsByGroup = new Map<string, Array<{ poolId: string; strength: number; informationExtracted?: number }>>();
     const refsUngrouped: Array<{ poolId: string; strength: number; informationExtracted?: number }> = [];

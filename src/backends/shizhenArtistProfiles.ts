@@ -129,18 +129,28 @@ export function applyArtistProfileToNai(
 
   const next: NaiSettings = { ...nai };
   if (combo) {
-    next.activeArtistId = combo.artistId;
-    // A selected combo owns the Vibe choice for this request, including an explicit "none".
-    next.vibes = nai.vibes.map(vibe => ({
-      ...vibe,
-      enabled: combo.vibeGroup
-        ? vibe.group === combo.vibeGroup
-        : !!combo.vibeId && vibe.id === combo.vibeId,
-    }));
+    // Artist-only and Vibe-only combos are both valid: an omitted half must not erase
+    // the corresponding native selection for this request.
+    if (combo.artistId) next.activeArtistId = combo.artistId;
+    if (combo.vibeGroup || combo.vibeId) {
+      next.vibes = nai.vibes.map(vibe => ({
+        ...vibe,
+        enabled: combo.vibeGroup
+          ? vibe.group === combo.vibeGroup
+          : vibe.id === combo.vibeId,
+      }));
+    }
   }
   if (size) {
-    next.portraitSize = size;
-    next.landscapeSize = size;
+    const [width, height] = size.split(/[x×]/i).map(Number);
+    if (width === height) {
+      next.portraitSize = size;
+      next.landscapeSize = size;
+    } else if (width > height) {
+      next.landscapeSize = size;
+    } else {
+      next.portraitSize = size;
+    }
   }
   return { nai: next, applied: true, size };
 }
