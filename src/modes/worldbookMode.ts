@@ -171,10 +171,10 @@ function readPersisted(): PersistedWorldbookMode {
 
 function setPersistedProfileEnabled(state: PersistedWorldbookMode, enabled: boolean): void {
   state.profile.enabled = enabled;
-  const identity = currentProfileIdentity();
-  if (state.profile.profileType === 'independent' && identity) {
-    const stored = state.cardProfiles[identity.key];
-    if (stored) state.cardProfiles[identity.key] = { ...stored, enabled };
+  const activeKey = state.activeProfileKey;
+  if (state.profile.profileType === 'independent' && activeKey) {
+    const stored = state.cardProfiles[activeKey];
+    if (stored) state.cardProfiles[activeKey] = { ...stored, enabled };
   } else {
     state.defaultProfile = { ...state.defaultProfile, enabled };
   }
