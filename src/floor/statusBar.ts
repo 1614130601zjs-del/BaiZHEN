@@ -32,6 +32,7 @@ interface StatusBarStore { tasks: Record<string, StatusBarTask> }
 let memoryStore: StatusBarStore = { tasks: {} };
 const observedBodies = new WeakSet<Node>();
 const hookedIframes = new WeakSet<HTMLIFrameElement>();
+const liveCards = new WeakSet<Element>();
 const activeTasks = new Set<string>();
 let bound = false;
 
@@ -163,6 +164,7 @@ function renderCard(frame: HTMLElement, task: StatusBarTask): void {
   controls.append(previous, count, next, reroll, remove);
   card.append(controls);
   frame.append(card);
+  liveCards.add(card);
 }
 
 function showTrigger(frame: HTMLElement, prompt: string, identity: ReturnType<typeof taskIdentity>): void {
@@ -281,9 +283,21 @@ async function generateForFrame(frame: HTMLElement, prompt: string, task: Status
   }
 }
 
+function repairSerializedCards(doc: Document): void {
+  for (const card of Array.from(doc.querySelectorAll<HTMLElement>('.bbi-statusbar-card'))) {
+    if (liveCards.has(card)) continue;
+    const taskKey = card.dataset.taskKey || '';
+    const frame = card.parentElement;
+    const task = taskKey ? store().tasks[taskKey] : undefined;
+    card.remove();
+    if (frame && task?.images?.length) renderCard(frame, task);
+  }
+}
+
 function processFrames(): void {
   if (!settings.enabled) return;
   for (const doc of collectDocs()) {
+    repairSerializedCards(doc);
     const frames = Array.from(doc.querySelectorAll<HTMLElement>('.scanning, [data-qlPrompt]')).filter(frame => {
       const prompt = statusBarPromptForTarget(frame);
       if (!prompt) return false;
