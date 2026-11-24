@@ -62,7 +62,7 @@ export function resolveArtistTarget(
   const local = binding?.[target];
   const global = profiles.global[target];
   return {
-    comboId: local?.comboId || (target === 'body' ? global.comboId : local?.comboId || global.comboId),
+    comboId: local?.comboId || global.comboId,
     size: local?.size || global.size,
   };
 }
