@@ -2174,6 +2174,9 @@ function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
     ? o.artistPresets.map(normalizeArtistPreset)
     : def.artistPresets;
   const endpoints = migrateNaiEndpoints(o);
+  const vibes = Array.isArray(o.vibes)
+    ? o.vibes.map((v, i) => normalizeVibe(v, i)).filter((v): v is NaiVibe => v !== null)
+    : def.vibes;
   // 悬空 id 一律清成空串(= 不使用)。**不**照抄 normalizeComfyUI 的「回落第一条」:
   // 用户删掉当前画师串后本该「什么都不加」,回落会给他静默换一套画风,而下拉显示的
   // 也正是那一条(看起来就是自己设的),几乎无法排查。
@@ -2223,15 +2226,13 @@ function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
         : def.comicAntiPossession,
     ...normalizeComicRuleTabs(o, def.comicExtraRules),
     concurrency: Math.round(clampNumber(o.concurrency, def.concurrency, 1, 4)),
-    vibes: Array.isArray(o.vibes)
-      ? o.vibes.map((v, i) => normalizeVibe(v, i)).filter((v): v is NaiVibe => v !== null)
-      : def.vibes,
+    vibes,
     artistPresets,
     activeArtistId,
     shizhenArtistProfiles: normalizeShizhenArtistProfiles(
       o.shizhenArtistProfiles,
       new Set([...artistPresets.map(item => item.id), ...BUILTIN_NAI_ARTISTS.map(item => item.id)]),
-      new Set((Array.isArray(o.vibes) ? o.vibes : def.vibes).map(item => item.id)),
+      new Set(vibes.map(item => item.id)),
       def.shizhenArtistProfiles,
     ),
     // 老配置缺这两个字段:回落默认 = 开着自然语言、不锁方向,即改动前的行为
