@@ -20,7 +20,7 @@ const selectedMode = ref<'native' | 'worldbook'>(profile.value.enabled ? 'worldb
 const books = ref<string[]>([]);
 const worldviews = ref<string[]>([]);
 const coreEntries = ref<Array<{ uid: string; title: string; enabled: boolean }>>([]);
-const worldviewEntries = ref<Array<{ uid: string; title: string; enabled: boolean; worldview: boolean }>>([]);
+const worldviewEntries = ref<Array<{ uid: string; title: string; enabled: boolean; baselineEnabled: boolean; worldview: boolean }>>([]);
 const loading = ref(false);
 const busy = ref(false);
 const message = ref('');
@@ -78,6 +78,7 @@ async function refreshEntryLists(revision = profileRefreshRevision) {
   }));
   worldviewEntries.value = worldData.map(entry => ({
     ...entry,
+    baselineEnabled: entry.enabled,
     enabled: typeof worldOverrides[entry.uid] === 'boolean' ? worldOverrides[entry.uid] : entry.enabled,
   }));
 }
@@ -129,7 +130,7 @@ function clearWorldviewEntryOverride(book: string, uid: string) {
     const worldviewName = comment.startsWith(prefix) ? comment.slice(prefix.length).trim() : '';
     item.enabled = item.worldview && worldviewName
       ? worldviewName === profile.value.worldview
-      : item.enabled;
+      : item.baselineEnabled;
   }
 }
 
