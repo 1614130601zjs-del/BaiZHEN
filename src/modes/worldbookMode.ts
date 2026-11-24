@@ -84,7 +84,7 @@ function readPersisted(): PersistedWorldbookMode {
   const profile = value.profile && typeof value.profile === 'object'
     ? { ...clone(DEFAULT_PROFILE), ...value.profile }
     : clone(DEFAULT_PROFILE);
-  const snapshot = value.snapshot && typeof value.snapshot === 'object'
+  const snapshot: Snapshot = value.snapshot && typeof value.snapshot === 'object'
     ? value.snapshot
     : { entries: {}, managedBooks: [] };
   return {
@@ -269,6 +269,7 @@ export function applyWorldbookMode(): Promise<void> {
     await applyEntryOverrides(worldviewBook, profile.entryOverrides[worldviewBook] ?? {}, snapshot);
 
     // 自动世界观单选：只有符合命名约定的条目才由此功能管理。
+    await captureBook(snapshot, worldviewBook);
     const data = await loadBook(worldviewBook);
     let changed = false;
     for (const [uid, entry] of Object.entries(data.entries)) {
@@ -283,10 +284,7 @@ export function applyWorldbookMode(): Promise<void> {
         changed = true;
       }
     }
-    if (changed) {
-      await captureBook(snapshot, worldviewBook);
-      await saveBook(worldviewBook, data);
-    }
+    if (changed) await saveBook(worldviewBook, data);
 
     snapshot.managedBooks = [...new Set([core, worldviewBook])];
     state.snapshot = snapshot;
