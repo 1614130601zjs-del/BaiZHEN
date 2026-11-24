@@ -79,11 +79,11 @@ export function normalizeWorkEntries(raw: unknown): WorkLibraryEntry[] {
   return out;
 }
 export function normalizeWorkName(value: string): string {
-  return value.trim().toLowerCase().replace(/[\\s_]+/g, ' ');
+  return value.trim().toLowerCase().replace(/[\s_]+/g, ' ');
 }
 export function parseWorkLibraryText(text: string): Array<Omit<WorkLibraryEntry, 'id'>> {
   const out: Array<Omit<WorkLibraryEntry, 'id'>> = [];
-  for (const raw of String(text || '').split(/\\r?\\n/)) {
+  for (const raw of String(text || '').split(/\r?\n/)) {
     const line = raw.trim();
     if (!line || line.startsWith('#')) continue;
     const eq = line.indexOf('=');
@@ -91,7 +91,7 @@ export function parseWorkLibraryText(text: string): Array<Omit<WorkLibraryEntry,
     const name = line.slice(0, eq).trim();
     const canonical = line.slice(eq + 1).trim();
     if (!name || !canonical) continue;
-    const match = canonical.match(/^([\\s\\S]+?)\\(([^()]+)\\)\\s*$/);
+    const match = canonical.match(/^([\s\S]+?)\(([^()]+)\)\s*$/);
     out.push({ name, canonical, work: match ? match[2].trim() : '' });
   }
   return out;
@@ -132,7 +132,7 @@ export function findWorkEntry(entries: WorkLibraryEntry[], name: string): WorkLi
   if (!needle) return undefined;
   for (const entry of entries) {
     const aliases = entry.name.split('|').map(value => normalizeWorkName(value)).filter(Boolean);
-    const bare = normalizeWorkName(entry.canonical.replace(/\\([^()]*\\)\\s*$/, ''));
+    const bare = normalizeWorkName(entry.canonical.replace(/\([^()]*\)\s*$/, ''));
     if (bare) aliases.push(bare);
     if (aliases.includes(needle)) return entry;
   }
