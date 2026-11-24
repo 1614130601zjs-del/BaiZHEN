@@ -118,7 +118,7 @@ export function applyArtistProfileToNai(
     // A selected combo owns the Vibe choice for this request, including an explicit "none".
     vibes: nai.vibes.map(vibe => ({ ...vibe, enabled: !!combo.vibeId && vibe.id === combo.vibeId })),
   };
-  const size = /^\\d+\\s*[x×]\\s*\\d+$/i.test(selected.size) ? selected.size : '';
+  const size = /^\d+\s*[x×]\s*\d+$/i.test(selected.size) ? selected.size : '';
   if (size) {
     next.portraitSize = size;
     next.landscapeSize = size;
