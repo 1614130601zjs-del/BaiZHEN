@@ -71,16 +71,18 @@ function historyMessages(chat = getContext()?.chat ?? []): Array<{ role: string;
       content: message.mes.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 3000),
     }));
 }
-async function buildGenerationMessages(userInput: string, styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', sourceChat: typeof getContext extends () => infer T ? NonNullable<T>['chat'] : never): Promise<Array<{ role: string; content: string }>> {
+async function buildGenerationMessages(userInput: string, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', sourceChat: typeof getContext extends () => infer T ? NonNullable<T>['chat'] : never): Promise<Array<{ role: string; content: string }>> {
   const context = getContext();
   if (!context) throw new Error('酒馆上下文尚未就绪');
   const chat = sourceChat;
   const floors = chat.map((_, index) => index).slice(-12);
-  const profile = getWorldbookModeProfile();
-  const allowedBooks = profile.enabled ? [profile.coreBook, profile.worldviewBook].filter(Boolean) : undefined;
-  const world = await fetchWorldInfo(chat, floors, context.name1, context.name2, undefined, undefined, allowedBooks);
+  const name1 = context.name1;
+  const name2 = context.name2;
   const card = fetchCharCard(context);
   const persona = fetchUserPersona(context);
+  const profile = getWorldbookModeProfile();
+  const allowedBooks = profile.enabled ? [profile.coreBook, profile.worldviewBook].filter(Boolean) : undefined;
+  const world = await fetchWorldInfo(chat, floors, name1, name2, undefined, undefined, allowedBooks);
   const system = [
     '你是小剧场编剧。根据用户给出的画面词或剧情词，结合聊天上下文、角色卡和已激活世界书，写出小剧场内容。',
     '严格输出纯文本标记，不要 Markdown 代码块。格式：',
@@ -101,7 +103,7 @@ async function buildGenerationMessages(userInput: string, styleValue: 'egg' | 'c
   return [
     { role: 'system', content: system },
     ...historyMessages(chat),
-    { role: 'user', content: (mode.value === 'plot' ? '剧情词：' : '画面词：') + userInput },
+    { role: 'user', content: (modeValue === 'plot' ? '剧情词：' : '画面词：') + userInput },
   ];
 }
 async function createRecord(userInput: string, parsed: ParsedTheaterOutput, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', comboIdValue = '', sourceSnapshot?: Pick<TheaterRecord, 'chatSnapshot' | 'characterName' | 'characterKey' | 'sourceChatId'>): Promise<TheaterRecord> {
@@ -150,6 +152,8 @@ async function generateTheater(): Promise<void> {
     const context = getContext();
     if (!context?.generateRaw) throw new Error('当前酒馆版本未提供 generateRaw，无法调用主 API 静默生成');
     const styleValue = style.value;
+    const modeValue = mode.value;
+    const comboIdValue = comboId.value;
     // 在发起文本模型请求前固定本次图片的聊天/角色快照，避免生成期间聊天切换造成错配。
     const contextAtStart = context;
     const characterAtStart = contextAtStart?.characters?.[Number(contextAtStart.characterId)];
@@ -159,7 +163,7 @@ async function generateTheater(): Promise<void> {
       characterName: characterAtStart?.name || contextAtStart?.name2 || '',
       characterKey: makeCharacterBindingKey(characterAtStart?.avatar, characterAtStart?.name, contextAtStart?.characterId),
     };
-    const messages = await buildGenerationMessages(text, styleValue, contextAtStart.chat.slice());
+    const messages = await buildGenerationMessages(text, modeValue, styleValue, contextAtStart.chat.slice());
     // 保存本次真正提交给文本模型的完整消息（含角色卡/世界书系统上下文），按图片记录独立留档。
     sourceSnapshot.chatSnapshot = messages;
     status.value = '正在生成小剧场文本…';
@@ -169,7 +173,7 @@ async function generateTheater(): Promise<void> {
     if (!parsed.prompt) throw new Error('模型输出中没有找到 image###…### 画面提示词');
     if (!parsed.eggBlocks.length) throw new Error('模型输出中没有找到 eggroom###…eggend### 聊天室内容');
     status.value = '正在通过柏宝绘后端生成图片…';
-    const record = await createRecord(text, parsed, mode.value, styleValue, comboId.value, sourceSnapshot);
+    const record = await createRecord(text, parsed, modeValue, styleValue, comboIdValue, sourceSnapshot);
     const nextRecords = [record, ...records.value];
     const removed = nextRecords.splice(200);
     records.value = nextRecords;
