@@ -17,6 +17,8 @@ import {
   clampVibeStrength,
   saveVibeFiles,
   deleteVibeData,
+  deleteVibeFile,
+  getUnreferencedVibeCleanupPaths,
   vibeFingerprint,
   vibeMetaFromData,
 } from '@/backends/vibeStore';
@@ -2828,12 +2830,38 @@ export async function hydrateSettings(): Promise<void> {
   // A cleanup entry can only reach disk alongside the metadata that stopped referencing
   // the old file. Drain it on a later load, never in the same debounced save window.
   for (const item of [...settings.nai.vibeCleanupQueue]) {
-    try {
-      await deleteVibeData(item);
-      const index = settings.nai.vibeCleanupQueue.indexOf(item);
-      if (index >= 0) settings.nai.vibeCleanupQueue.splice(index, 1);
-    } catch (error) {
-      console.warn('[柏宝绘] Vibe 旧文件延后清理失败，将在下次启动重试：', item, error);
+    const referencedPaths = new Set<string>();
+    for (const vibe of settings.nai.vibes) {
+      if (vibe.dataPath) referencedPaths.add(vibe.dataPath);
+      if (vibe.thumbnailPath) referencedPaths.add(vibe.thumbnailPath);
+    }
+    for (const vibe of settings.nai.vibePool) {
+      if (vibe.dataPath) referencedPaths.add(vibe.dataPath);
+      if (vibe.thumbnailPath) referencedPaths.add(vibe.thumbnailPath);
+    }
+    const candidates = getUnreferencedVibeCleanupPaths(item, referencedPaths);
+    let failed = false;
+    for (const path of [candidates.dataPath, candidates.thumbnailPath]) {
+      if (!path) continue;
+      try {
+        await deleteVibeFile(path);
+      } catch (error) {
+        failed = true;
+        console.warn('[柏宝绘] Vibe 旧文件延后清理失败，将在下次启动重试：', path, error);
+      }
+    }
+    // Paths still referenced by another Vibe are intentionally retained; only failed
+    // unreferenced deletions stay queued for a future retry.
+    const index = settings.nai.vibeCleanupQueue.indexOf(item);
+    if (index >= 0) {
+      if (failed) {
+        settings.nai.vibeCleanupQueue.splice(index, 1, {
+          dataPath: candidates.dataPath && failed ? candidates.dataPath : '',
+          thumbnailPath: candidates.thumbnailPath && failed ? candidates.thumbnailPath : '',
+        });
+        const replacement = settings.nai.vibeCleanupQueue[index];
+        if (!replacement.dataPath && !replacement.thumbnailPath) settings.nai.vibeCleanupQueue.splice(index, 1);
+      } else settings.nai.vibeCleanupQueue.splice(index, 1);
     }
   }
   for (const cb of readyCbs.splice(0)) {

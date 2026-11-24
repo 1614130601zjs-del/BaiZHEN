@@ -240,11 +240,28 @@ export async function deleteVibeData(vibe: Pick<NaiVibe, 'dataPath' | 'thumbnail
   for (const path of [vibe.dataPath, vibe.thumbnailPath]) {
     if (!path) continue;
     try {
-      if (path.startsWith(LOCAL_PATH_PREFIX)) await deleteLocalData(path);
-      else await deleteUploadedFile(path);
+      await deleteVibeFile(path);
     } catch (error) {
       firstError ??= error;
     }
   }
   if (firstError) throw firstError;
+}
+
+/** Return queued file paths that are no longer referenced by any Vibe metadata. */
+export function getUnreferencedVibeCleanupPaths(
+  item: { dataPath: string; thumbnailPath: string },
+  referencedPaths: ReadonlySet<string>,
+): { dataPath: string; thumbnailPath: string } {
+  return {
+    dataPath: item.dataPath && !referencedPaths.has(item.dataPath) ? item.dataPath : '',
+    thumbnailPath: item.thumbnailPath && !referencedPaths.has(item.thumbnailPath) ? item.thumbnailPath : '',
+  };
+}
+
+/** Delete one Vibe file path; exported for reference-aware deferred cleanup. */
+export async function deleteVibeFile(path: string): Promise<void> {
+  if (!path) return;
+  if (path.startsWith(LOCAL_PATH_PREFIX)) await deleteLocalData(path);
+  else await deleteUploadedFile(path);
 }

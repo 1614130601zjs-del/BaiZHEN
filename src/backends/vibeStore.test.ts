@@ -13,6 +13,7 @@ vi.mock('@/floor/upload', () => ({
 import {
   clampVibeStrength,
   deleteVibeData,
+  getUnreferencedVibeCleanupPaths,
   loadVibeData,
   saveVibeFiles,
   vibeMetaFromData,
@@ -268,3 +269,21 @@ describe('vibeFingerprint', () => {
       vibeFingerprint({ model: { encoding, infoExtracted: 0.01 } }),
     );
   });
+
+
+describe('deferred Vibe cleanup references', () => {
+  it('does not schedule a path still referenced by another Vibe or pool entry', () => {
+    const queued = { dataPath: '/data/old.json', thumbnailPath: '/thumb/old.jpg' };
+    const candidates = getUnreferencedVibeCleanupPaths(queued, new Set(['/data/old.json']));
+    expect(candidates).toEqual({ dataPath: '', thumbnailPath: '/thumb/old.jpg' });
+  });
+  it('returns both paths when metadata no longer references either file', () => {
+    expect(getUnreferencedVibeCleanupPaths(
+      { dataPath: 'idb:old', thumbnailPath: '/thumb/old.jpg' }, new Set(),
+    )).toEqual({ dataPath: 'idb:old', thumbnailPath: '/thumb/old.jpg' });
+  });
+  it('ignores empty paths', () => {
+    expect(getUnreferencedVibeCleanupPaths({ dataPath: '', thumbnailPath: '' }, new Set()))
+      .toEqual({ dataPath: '', thumbnailPath: '' });
+  });
+});
