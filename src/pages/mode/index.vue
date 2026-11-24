@@ -80,6 +80,15 @@ async function refreshEntryLists(revision = profileRefreshRevision) {
   }));
 }
 
+function changeCoreMode(event: Event) {
+  const next = (event.target as HTMLSelectElement).value === 'group' ? 'group' : 'pair';
+  const current = profile.value.mode;
+  profile.value.coreBooks[current] = profile.value.coreBook;
+  profile.value.mode = next;
+  profile.value.coreBook = profile.value.coreBooks[next] || '';
+  void refreshEntryLists(profileRefreshRevision);
+}
+
 function setCoreEntry(uid: string, event: Event) {
   const enabled = (event.target as HTMLInputElement).checked;
   const mode = profile.value.mode;
