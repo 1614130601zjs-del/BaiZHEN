@@ -475,12 +475,16 @@ export function applyWorldbookMode(): Promise<void> {
       notifyWorldbookModeChanged();
       assertProfileStillCurrent();
       await writeGlobalSelection(runtime, next);
+      assertProfileStillCurrent();
       await applyEntryOverrides(core, profile.entryOverrides[core] ?? {}, snapshot);
+      assertProfileStillCurrent();
       await applyEntryOverrides(worldviewBook, {
         ...(profile.entryOverrides[worldviewBook] ?? {}),
         ...(profile.worldviewEntryOverrides[worldviewBook] ?? {}),
       }, snapshot);
+      assertProfileStillCurrent();
       await applyModeEntryBindings(core, profile.mode, profile, snapshot);
+      assertProfileStillCurrent();
 
       // 自动世界观单选：只有符合命名约定的条目才由此功能管理。
       await captureBook(snapshot, worldviewBook);
@@ -500,6 +504,7 @@ export function applyWorldbookMode(): Promise<void> {
         }
       }
       if (changed) await saveBook(worldviewBook, data);
+      assertProfileStillCurrent();
 
       state.snapshot = snapshot;
       persist(state);
