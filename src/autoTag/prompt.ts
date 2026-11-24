@@ -21,7 +21,7 @@ import {
 import type { BookMemoryContext } from '@/autoTag/bookMemory';
 import { buildSimpleComicPrompt } from '@/autoTag/comicSimplePrompt';
 import { readVisualArchive } from '@/autoTag/visualArchive';
-import { getWorldbookModeProfile } from '@/modes/worldbookMode';
+import { getWorldbookModeProfile, type WorldbookModeProfile } from '@/modes/worldbookMode';
 import { buildWorldbookModeSystem } from '@/modes/worldbookPrompt';
 import { isAiStoryMessage, isStoryMessage, type STContext } from '@/st/context';
 import type { AutoTagSettings, NaiSettings, BackendId } from '@/state/settings';
@@ -228,6 +228,7 @@ export async function buildAutoTagMessages(
   environment: AutoTagEnvironment = captureAutoTagEnvironment(profile),
   /** 流式标记已指定画面,只替换漫画清单的自由选图步骤;普通/文末补图保持默认。 */
   planning: AutoTagPlanning = 'select-scenes',
+  worldbookModeOverride?: WorldbookModeProfile,
 ): Promise<ChatMsg[]> {
   const target = context.chat[targetFloor];
   const preparedTarget =
@@ -256,7 +257,8 @@ export async function buildAutoTagMessages(
     ...Array.from((library ?? '').matchAll(/^- (.+?)(?: \[locked\])?: /gm), match => match[1]),
     ...Object.keys(readVisualArchive(context.chat, targetFloor, settings.excludes.customStripTags).changes),
   ]) : undefined;
-  const worldbookMode = getWorldbookModeProfile();
+  // Every task uses the mode snapshot captured at dispatch time, never a later live profile.
+  const worldbookMode = worldbookModeOverride ?? getWorldbookModeProfile();
   const allowedWorldNames = worldbookMode.enabled
     ? [worldbookMode.coreBook, worldbookMode.worldviewBook].filter(Boolean)
     : undefined;

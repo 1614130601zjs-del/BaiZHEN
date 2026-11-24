@@ -17,7 +17,7 @@ import {
 import { prepareTargetText } from '@/autoTag/clean';
 import { beginGeneration, clearGeneration, consumeGeneration } from '@/autoTag/generationGate';
 import { autoTagProfile, buildAutoTagMessages, captureAutoTagEnvironment } from '@/autoTag/prompt';
-import { subscribeWorldbookModeChanges } from '@/modes/worldbookMode';
+import { getWorldbookModeProfile, subscribeWorldbookModeChanges } from '@/modes/worldbookMode';
 import { rebaseImagePositions, type RebaseReport } from '@/autoTag/rebase';
 import { buildSlotTaskNote } from '@/autoTag/slotPlan';
 import {
@@ -282,6 +282,7 @@ async function runForFloor(floor: number, opts: RunOptions = {}): Promise<void> 
       : settings.autoTag;
     // 协议形态开跑时快照一次:写协议、验收与收尾同一份,用户中途拨开关也不会前后不一
     const profile = autoTagProfile();
+    const worldbookMode = getWorldbookModeProfile();
     const environment = captureAutoTagEnvironment(profile);
     const renderProfile = captureRenderProfile(environment.nai, environment.backend);
     const anchors = resolveCharAnchors(entriesBefore, lockedNames,renderProfile.mode!=='illustration');
@@ -300,6 +301,8 @@ async function runForFloor(floor: number, opts: RunOptions = {}): Promise<void> 
       note,
       profile,
       environment,
+      'select-scenes',
+      worldbookMode,
     );
     const channel = getTagGenChannel();
     const comicMode = environment.nai.comicAnalysisMode === 'simple' ? 'simple' : 'standard';

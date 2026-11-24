@@ -12,6 +12,7 @@ import { openLightbox } from '@/floor/lightbox';
 import { comicReasoningKey, comicReasoningOverride } from '@/api/comicReasoning';
 import { requestCompletion, requestViaMainApi, type ChatMsg } from '@/api/client';
 import { buildAutoTagMessages, captureAutoTagEnvironment, type AutoTagEnvironment } from '@/autoTag/prompt';
+import { getWorldbookModeProfile, type WorldbookModeProfile } from '@/modes/worldbookMode';
 import { maskStreamStorySource, prepareTargetText, type PreparedTargetText } from '@/autoTag/clean';
 import { readBookMemory } from '@/autoTag/bookMemory';
 import { applyPositionedCharRefs, resolveCharAnchors } from '@/autoTag/charAnchors';
@@ -49,7 +50,7 @@ interface Session {
   scanner: MarkerScanner; core: StreamRun<Payload, GenerateOutput>;
   options: AutoTagSettings; generation: GenerationSnapshot; profile: RenderProfile;
   stripTags: string[];
-  promptEnvironment: AutoTagEnvironment; existingCount: number; continuing: boolean; inputFinished?: boolean; hostFinished?: boolean; baselineOps: CharTagAutoOp[]; channel: ReturnType<typeof getTagGenChannel>; body?: string; prepared?: PreparedTargetText; latestText?:string;
+  promptEnvironment: AutoTagEnvironment; worldbookMode: WorldbookModeProfile; existingCount: number; continuing: boolean; inputFinished?: boolean; hostFinished?: boolean; baselineOps: CharTagAutoOp[]; channel: ReturnType<typeof getTagGenChannel>; body?: string; prepared?: PreparedTargetText; latestText?:string;
   binding?: { floor: number; message: STMessage; swipeId: number; expectedSwipe: number | null };
   inline?: StreamInlinePreview;
   inlineOwner?: { processor: NonNullable<STContext['streamingProcessor']>; floor: number; message: STMessage; swipe: number | null };
@@ -114,7 +115,7 @@ export function beginStreamSession(chatId: string, type = 'normal'): void {
     scanner: new MarkerScanner(), options: jsonCopy(settings.autoTag),
     stripTags: [...settings.excludes.customStripTags,'bbi_image',...STREAM_NON_STORY_TAGS],
     generation: captureGenerationSnapshot(), profile: captureRenderProfile(settings.nai, settings.defaultBackend),
-    promptEnvironment: captureAutoTagEnvironment(), existingCount: type === 'continue' ? parseImageTags(ctx.chat.at(-1)?.mes ?? '').length : 0,
+    promptEnvironment: captureAutoTagEnvironment(), worldbookMode: getWorldbookModeProfile(), existingCount: type === 'continue' ? parseImageTags(ctx.chat.at(-1)?.mes ?? '').length : 0,
     continuing: type === 'continue', baselineOps: [], wardrobe:new ComicWardrobeLedger(),
     channel: getTagGenChannel() ? jsonCopy(getTagGenChannel()) : null,
     controller: new AbortController(), chain: Promise.resolve(), written: new Map(), established: new Map(), changeOps: new Map(), completed: false, supplementDone: false,
@@ -373,7 +374,7 @@ async function streamAnalysisRequest(s: Session, jobs: Job[], batch: ReturnType<
   const context = { ...ctx, chat: [...ctx.chat] };
   context.chat[floor] = { name: s.context.name2 || 'Assistant', is_user: false, is_system: false, mes: scanText };
   const messages = await buildAutoTagMessages(context, floor, { ...s.options, minImages: jobs.length, maxImages: jobs.length },
-    memory, batch.target, anchors.text, note, s.promptEnvironment.profile, s.promptEnvironment, 'fixed-markers');
+    memory, batch.target, anchors.text, note, s.promptEnvironment.profile, s.promptEnvironment, 'fixed-markers', s.worldbookMode);
   return { anchors, outfits, messages, reusedChars: originalPrefix.length - prefix.length };
 }
 
@@ -642,7 +643,7 @@ async function supplement(s: Session, count: number): Promise<void> {
     const messages = await buildAutoTagMessages(s.context, s.binding!.floor, { ...s.options, minImages: needed, maxImages: needed },
       archive ? null : readBookMemory(s.binding!.floor, s.body!, s.context.name1), target, anchors.text,
       archive ? [note, visualArchiveNote(archive)].join('\n') : note,
-      s.promptEnvironment.profile, s.promptEnvironment, 'select-scenes');
+      s.promptEnvironment.profile, s.promptEnvironment, 'select-scenes', s.worldbookMode);
     for (let attempt = 0; attempt <= Math.max(0, s.options.retryCount); attempt++) {
       if (controller.signal.aborted) return;
       try {
