@@ -550,8 +550,16 @@ async function runForFloor(floor: number, opts: RunOptions = {}): Promise<void> 
             key: BBI_CHAR_EXTRA_KEY,
             value: makeCharTagFloorDelta(floorOps, swipeId ?? 0),
           },
-      { afterSave: () => { if (marked) startMarkedFloorGeneration(chatId, floor, markSwipeId); } },
+      { afterSave: () => { if (marked && !controller.signal.aborted) startMarkedFloorGeneration(chatId, floor, markSwipeId); } },
     );
+    if (controller.signal.aborted) {
+      processed.delete(identity);
+      if (marked) {
+        if (slot) consumeAutoGenerate(chatId, floor, markSwipeId, slot.seq);
+        else clearAutoGenerateForFloor(chatId, floor);
+      }
+      return;
+    }
     if (result === 'saved') {
       if (slot) {
         toastr.success(`已重写第 ${slot.seq + 1} 张的提示词，正在按新提示词出图`, '柏宝绘');
