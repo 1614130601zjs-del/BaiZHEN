@@ -124,25 +124,29 @@ async function createRecord(userInput: string, parsed: ParsedTheaterOutput, mode
     characterName,
     renderProfile: inferRenderProfile(prompt),
   }, undefined, {}, snapshot);
-  const base64 = await resultToBase64ForUpload(output.result);
-  const format = /^[a-z0-9]+$/i.test(output.result.format) ? output.result.format.toLowerCase() : 'png';
-  const id = generationId();
-  const imagePath = await uploadUserImage(FOLDER, `theater_${id}.${format}`, base64, format);
-  return {
-    ...parsed,
-    id,
-    input: userInput,
-    mode: modeValue,
-    style: styleValue,
-    comboId: comboIdValue,
-    imagePath,
-    createdAt: Date.now(),
-    chatId: resolveTheaterSourceChatId(sourceSnapshot, context.getCurrentChatId() ?? ''),
-    sourceChatId: resolveTheaterSourceChatId(sourceSnapshot, context.getCurrentChatId() ?? ''),
-    chatSnapshot: sourceSnapshot?.chatSnapshot ?? historyMessages(),
-    characterName,
-    characterKey,
-  };
+  try {
+    const base64 = await resultToBase64ForUpload(output.result);
+    const format = /^[a-z0-9]+$/i.test(output.result.format) ? output.result.format.toLowerCase() : 'png';
+    const id = generationId();
+    const imagePath = await uploadUserImage(FOLDER, `theater_${id}.${format}`, base64, format);
+    return {
+      ...parsed,
+      id,
+      input: userInput,
+      mode: modeValue,
+      style: styleValue,
+      comboId: comboIdValue,
+      imagePath,
+      createdAt: Date.now(),
+      chatId: resolveTheaterSourceChatId(sourceSnapshot, context.getCurrentChatId() ?? ''),
+      sourceChatId: resolveTheaterSourceChatId(sourceSnapshot, context.getCurrentChatId() ?? ''),
+      chatSnapshot: sourceSnapshot?.chatSnapshot ?? historyMessages(),
+      characterName,
+      characterKey,
+    };
+  } finally {
+    output.result.revoke();
+  }
 }
 async function generateTheater(): Promise<void> {
   if (busy.value) return;
@@ -176,12 +180,7 @@ async function generateTheater(): Promise<void> {
     if (!parsed.eggBlocks.length) throw new Error('模型输出中没有找到 eggroom###…eggend### 聊天室内容');
     status.value = '正在通过柏宝绘后端生成图片…';
     const record = await createRecord(text, parsed, modeValue, styleValue, comboIdValue, sourceSnapshot);
-    const nextRecords = [record, ...records.value];
-    const removed = nextRecords.splice(200);
-    records.value = nextRecords;
-    current.value = record;
-    persist();
-    await Promise.all(removed.map(item => deleteUserImage(item.imagePath).catch(() => undefined)));
+    await commitRecord(record);
     status.value = parsed.extraImages ? `完成（模型多输出了 ${parsed.extraImages} 张图片标记，本次只生成第一张）` : '小剧场已生成并保存';
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause);
@@ -189,6 +188,24 @@ async function generateTheater(): Promise<void> {
     busy.value = false;
   }
 }
+async function commitRecord(record: TheaterRecord): Promise<void> {
+  const previousRecords = records.value;
+  const previousCurrent = current.value;
+  const nextRecords = [record, ...previousRecords];
+  const removed = nextRecords.splice(200);
+  records.value = nextRecords;
+  current.value = record;
+  try {
+    persist();
+  } catch (cause) {
+    records.value = previousRecords;
+    current.value = previousCurrent;
+    await deleteUserImage(record.imagePath).catch(() => undefined);
+    throw cause;
+  }
+  await Promise.all(removed.map(item => deleteUserImage(item.imagePath).catch(() => undefined)));
+}
+
 function savePrompt(): void {
   if (!current.value) return;
   const prompt = promptDraft.value.trim();
@@ -205,12 +222,7 @@ async function reroll(): Promise<void> {
     const parsed: ParsedTheaterOutput = { ...current.value, prompt: promptDraft.value.trim() };
     if (!parsed.prompt) throw new Error('画面提示词不能为空');
     const next = await createRecord(current.value.input, parsed, current.value.mode, current.value.style || 'egg', current.value.comboId ?? comboId.value, current.value);
-    const nextRecords = [next, ...records.value];
-    const removed = nextRecords.splice(200);
-    records.value = nextRecords;
-    current.value = next;
-    persist();
-    await Promise.all(removed.map(item => deleteUserImage(item.imagePath).catch(() => undefined)));
+    await commitRecord(next);
     status.value = '已生成新的候选图片，旧图片仍保留在历史中';
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause);
