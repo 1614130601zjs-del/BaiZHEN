@@ -77,6 +77,57 @@ describe('parseShizhenVibeJson', () => {
     expect(result.items[0]?.data.encodings['v4-5full'].encoding).toBe(payload);
   });
 
+  it('兼容拾帧 Vibe 池条目以 image 保存编码的结构', () => {
+    const result = parseShizhenVibeJson({
+      groups: [{
+        name: '池迁移',
+        entries: [{
+          name: '池条目',
+          image: payload,
+          strength: 0.78,
+          informationExtracted: 0.66,
+        }],
+      }],
+    }, 'v4-5full');
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      name: '池条目',
+      group: '池迁移',
+      strength: 0.78,
+      data: {
+        encodings: { 'v4-5full': { encoding: payload, infoExtracted: 0.66 } },
+      },
+    });
+  });
+
+  it('从拾帧原始对象兼容 reference_strength 与 informationExtracted', () => {
+    const result = parseShizhenVibeJson({
+      identifier: 'novelai-vibe-transfer',
+      name: '兼容元数据',
+      reference_strength: 0.74,
+      informationExtracted: 0.63,
+      encodings: { 'v4-5full': payload },
+    }, 'v4-5full');
+
+    expect(result.items[0]).toMatchObject({
+      strength: 0.74,
+      data: { encodings: { 'v4-5full': { encoding: payload, infoExtracted: 0.63 } } },
+    });
+  });
+
+  it('V3 image 编码同时保留给 V3 后端使用', () => {
+    const result = parseShizhenVibeJson({
+      identifier: 'novelai-vibe-transfer',
+      name: 'V3 image 编码',
+      image: payload,
+      importInfo: { strength: 0.6 },
+    }, 'v3');
+
+    expect(result.items[0]?.data.image).toBe(payload);
+    expect(result.items[0]?.data.encodings.v3.encoding).toBe(payload);
+  });
+
   it('忽略没有可用编码的条目并计数', () => {
     const result = parseShizhenVibeJson({
       groups: [{ name: '空组', entries: [{ name: '普通图片', image: 'not-an-encoding' }] }],
