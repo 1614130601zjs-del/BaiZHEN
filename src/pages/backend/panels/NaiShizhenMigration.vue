@@ -243,8 +243,15 @@ async function exportBackup() {
       comboIndex: target.comboId ? comboToIndex.get(target.comboId) ?? -1 : -1,
       size: target.size,
     });
-    const bindings = settings.nai.shizhenArtistProfiles.bindings.map(item => ({
-      characterKey: item.characterKey.startsWith('legacy-index:') ? item.characterKey.slice('legacy-index:'.length) : '',
+    const hostCharacters = getContext()?.characters || [];
+    const bindings = settings.nai.shizhenArtistProfiles.bindings.map(item => {
+      const avatar = item.characterKey.startsWith('avatar:') ? item.characterKey.slice('avatar:'.length) : '';
+      const legacyIndex = item.characterKey.startsWith('legacy-index:') ? item.characterKey.slice('legacy-index:'.length) : '';
+      const currentIndex = hostCharacters.findIndex(character =>
+        (avatar && character.avatar === avatar) || (!avatar && !!item.characterName && character.name === item.characterName),
+      );
+      return {
+      characterKey: currentIndex >= 0 ? String(currentIndex) : legacyIndex,
       characterName: item.characterName,
       combinationIndex: exportTarget(item.body).comboIndex,
       bodySize: item.body.size,
@@ -252,7 +259,7 @@ async function exportBackup() {
       sbSize: item.statusBar.size,
       eggComboIndex: exportTarget(item.egg).comboIndex,
       eggSize: item.egg.size,
-    }));
+    }; });
     const data = {
       presets: artists.map(item => ({ name: item.name, positive: item.prompt, negative: item.negative, quality: item.quality })),
       combinations: exportCombos,
