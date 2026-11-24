@@ -24,6 +24,7 @@ interface TheaterRecord extends ParsedTheaterOutput {
   chatSnapshot?: Array<{ role: string; content: string }>;
   characterName?: string;
   characterKey?: string;
+  sourceChatId?: string;
 }
 interface TheaterStore { records: TheaterRecord[] }
 const STORE_KEY = 'baibai_image_theater';
@@ -63,22 +64,21 @@ function load(): void {
 load();
 watch(() => current.value?.id, () => { promptDraft.value = current.value?.prompt ?? ''; style.value = current.value?.style || 'egg'; comboId.value = current.value?.comboId ?? ''; }, { immediate: true });
 
-function historyMessages(): Array<{ role: string; content: string }> {
-  const context = getContext();
-  if (!context) return [];
-  return context.chat.slice(-12).filter(message => message && typeof message.mes === 'string' && message.mes.trim())
+function historyMessages(chat = getContext()?.chat ?? []): Array<{ role: string; content: string }> {
+  return chat.slice(-12).filter(message => message && typeof message.mes === 'string' && message.mes.trim())
     .map(message => ({
       role: message.is_user ? 'user' : 'assistant',
       content: message.mes.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 3000),
     }));
 }
-async function buildGenerationMessages(userInput: string, styleValue: 'egg' | 'comic' | 'comic2' | 'comic4'): Promise<Array<{ role: string; content: string }>> {
+async function buildGenerationMessages(userInput: string, styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', sourceChat: typeof getContext extends () => infer T ? NonNullable<T>['chat'] : never): Promise<Array<{ role: string; content: string }>> {
   const context = getContext();
   if (!context) throw new Error('酒馆上下文尚未就绪');
-  const floors = context.chat.map((_, index) => index).slice(-12);
+  const chat = sourceChat;
+  const floors = chat.map((_, index) => index).slice(-12);
   const profile = getWorldbookModeProfile();
   const allowedBooks = profile.enabled ? [profile.coreBook, profile.worldviewBook].filter(Boolean) : undefined;
-  const world = await fetchWorldInfo(context.chat, floors, context.name1, context.name2, undefined, undefined, allowedBooks);
+  const world = await fetchWorldInfo(chat, floors, context.name1, context.name2, undefined, undefined, allowedBooks);
   const card = fetchCharCard(context);
   const persona = fetchUserPersona(context);
   const system = [
@@ -100,7 +100,7 @@ async function buildGenerationMessages(userInput: string, styleValue: 'egg' | 'c
   ].filter(Boolean).join('\n\n');
   return [
     { role: 'system', content: system },
-    ...historyMessages(),
+    ...historyMessages(chat),
     { role: 'user', content: (mode.value === 'plot' ? '剧情词：' : '画面词：') + userInput },
   ];
 }
@@ -135,7 +135,7 @@ async function createRecord(userInput: string, parsed: ParsedTheaterOutput, mode
     comboId: comboIdValue,
     imagePath,
     createdAt: Date.now(),
-    chatId: context.getCurrentChatId() || '',
+    chatId: sourceSnapshot?.sourceChatId ?? context.getCurrentChatId() ?? '',
     chatSnapshot: sourceSnapshot?.chatSnapshot ?? historyMessages(),
     characterName,
     characterKey,
@@ -154,11 +154,12 @@ async function generateTheater(): Promise<void> {
     const contextAtStart = getContext();
     const characterAtStart = contextAtStart?.characters?.[Number(contextAtStart.characterId)];
     const sourceSnapshot = {
-      chatSnapshot: historyMessages(),
+      chatSnapshot: historyMessages(contextAtStart?.chat ?? []),
+      sourceChatId: contextAtStart?.getCurrentChatId() || '',
       characterName: characterAtStart?.name || contextAtStart?.name2 || '',
       characterKey: makeCharacterBindingKey(characterAtStart?.avatar, characterAtStart?.name, contextAtStart?.characterId),
     };
-    const messages = await buildGenerationMessages(text, styleValue);
+    const messages = await buildGenerationMessages(text, styleValue, contextAtStart.chat.slice());
     // 保存本次真正提交给文本模型的完整消息（含角色卡/世界书系统上下文），按图片记录独立留档。
     sourceSnapshot.chatSnapshot = messages;
     status.value = '正在生成小剧场文本…';
