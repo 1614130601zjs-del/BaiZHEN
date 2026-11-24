@@ -198,6 +198,7 @@ describe('Shizhen Vibe strength fallback', () => {
       },
     }, 'v4-5full');
     expect(plan.vibes[0].strength).toBe(0);
-    expect(plan.vibes[0].data.encodings['v4-5full'].infoExtracted).toBe(0);
+    expect(plan.vibes[0].informationExtracted).toBe(0);
+    expect(plan.vibes[0].data.encodings['v4-5full'].infoExtracted).toBe(0.8);
   });
 });
