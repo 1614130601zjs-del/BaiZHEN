@@ -155,3 +155,33 @@ describe('Shizhen Vibe pool reference metadata', () => {
   });
 
 });
+
+describe('Shizhen Vibe strength fallback', () => {
+  it('does not turn missing or blank reference strength into zero', () => {
+    for (const raw of [undefined, null, '', '   ', true]) {
+      const plan = parseShizhenFullBackup({
+        format: 'shizhen-lite-full-backup',
+        data: {
+          presets: [], combinations: [],
+          vibes: [{ name: 'fallback', refs: [{ poolId: 'p', strength: raw }] }],
+          vibePool: [{ id: 'p', name: 'fallback', strength: 0.64, raw: { encodings: { 'v4-5full': { encoding: payload, infoExtracted: 0.77 } } } }],
+        },
+      }, 'v4-5full');
+      expect(plan.vibes[0].strength).toBe(0.64);
+      expect(plan.vibes[0].data.encodings['v4-5full'].infoExtracted).toBe(0.77);
+    }
+  });
+
+  it('preserves an explicit zero reference value', () => {
+    const plan = parseShizhenFullBackup({
+      format: 'shizhen-lite-full-backup',
+      data: {
+        presets: [], combinations: [],
+        vibes: [{ name: 'zero', refs: [{ poolId: 'p', strength: 0, informationExtracted: 0 }] }],
+        vibePool: [{ id: 'p', raw: { encodings: { 'v4-5full': { encoding: payload, infoExtracted: 0.8 } } } }],
+      },
+    }, 'v4-5full');
+    expect(plan.vibes[0].strength).toBe(0);
+    expect(plan.vibes[0].data.encodings['v4-5full'].infoExtracted).toBe(0);
+  });
+});

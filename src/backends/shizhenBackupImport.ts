@@ -1,5 +1,6 @@
 import type { NaiVibeData } from '@/state/settings';
 import { parseShizhenVibeJson } from '@/backends/shizhenVibeImport';
+import { clampVibeStrength } from '@/backends/vibeStore';
 
 export interface ShizhenImportArtist {
   name: string;
@@ -46,8 +47,7 @@ function target(combo: unknown, dimension: unknown): ShizhenImportTarget {
   return { comboIndex: index(combo), size: size(dimension) };
 }
 function strength(value: unknown, fallback = 0.6): number {
-  const n = typeof value === 'number' || typeof value === 'string' ? Number(value) : NaN;
-  return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback;
+  return clampVibeStrength(value, fallback);
 }
 
 /** Parse the exact Shizhen full-backup schema without mutating either source or destination. */
