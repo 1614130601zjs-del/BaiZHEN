@@ -528,10 +528,8 @@ async function reencodeVibe(vibe: NaiVibe) {
     vibe.modelKeys = Object.keys(data.encodings);
     vibe.fingerprint = vibeFingerprint(data.encodings);
     syncPoolResource(vibe);
-    try {
-      await deleteVibeData(previousFiles);
-    } catch (cleanupError) {
-      console.warn('[柏宝绘] Vibe 已更新，但旧版本文件清理失败：', previousFiles, cleanupError);
+    if (previousFiles.dataPath || previousFiles.thumbnailPath) {
+      settings.nai.vibeCleanupQueue.push(previousFiles);
     }
     toastr.success(`「${vibe.name}」已补 ${settings.nai.model} 编码`, 'Vibe');
   } catch (error) {
@@ -639,12 +637,11 @@ async function removePoolResource(poolId: string) {
   settings.nai.vibes = settings.nai.vibes.filter(vibe => vibe.id !== poolId);
   settings.nai.vibePool = settings.nai.vibePool.filter(item => item.id !== poolId);
   selectedPoolIds.value = new Set([...selectedPoolIds.value].filter(id => id !== poolId));
-  try {
-    await deleteVibeData(resource);
-    toastr.success(`已删除「${resource.name}」及其全部分组引用。`, 'Vibe 池');
-  } catch (error) {
-    toastr.warning(`索引已删除，但编码文件清理失败：${errorMessage(error)}`, 'Vibe 池');
-  }
+  settings.nai.vibeCleanupQueue.push({
+    dataPath: resource.dataPath,
+    thumbnailPath: resource.thumbnailPath,
+  });
+  toastr.success(`已移除「${resource.name}」及其全部分组引用；文件将在设置安全落盘后清理。`, 'Vibe 池');
 }
 function renamePoolGroup(groupId: string) {
   const group = settings.nai.vibeGroups.find(item => item.id === groupId);
@@ -964,11 +961,11 @@ async function removeVibe(vibe: NaiVibe) {
   }
   const poolIndex = settings.nai.vibePool.findIndex(item => item.id === vibe.id);
   if (poolIndex >= 0) settings.nai.vibePool.splice(poolIndex, 1);
-  try {
-    await deleteVibeData(vibe);
-  } catch (error) {
-    toastr.warning(`索引已删除，但文件清理失败：${errorMessage(error)}`, 'Vibe');
-  }
+  settings.nai.vibeCleanupQueue.push({
+    dataPath: vibe.dataPath,
+    thumbnailPath: vibe.thumbnailPath,
+  });
+  toastr.info('Vibe 已从索引移除；文件将在设置安全落盘后清理。', 'Vibe');
 }
 </script>
 

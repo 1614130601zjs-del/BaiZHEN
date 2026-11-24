@@ -16,6 +16,7 @@ import {
 import {
   clampVibeStrength,
   saveVibeFiles,
+  deleteVibeData,
   vibeFingerprint,
   vibeMetaFromData,
 } from '@/backends/vibeStore';
@@ -290,6 +291,11 @@ export interface NaiEndpoint {
 }
 
 /** NAI 连接与出图参数。接入点(地址+密钥)可存多条,见 endpoints。 */
+export interface NaiVibeFileCleanup {
+  dataPath: string;
+  thumbnailPath: string;
+}
+
 export interface NaiSettings extends BackendConn {
   /**
    * 接入点列表。**不变式:恒非空,且必含内置官方那条**(normalize 缺则补回列表首位)。
@@ -339,6 +345,8 @@ export interface NaiSettings extends BackendConn {
   vibeGroups: NaiVibeGroup[];
   /** 当前选中的池分组 ID；空串表示沿用旧版扁平 Vibe 选择。 */
   activeVibeGroupId: string;
+  /** Old file versions queued for cleanup only after a later successful settings reload. */
+  vibeCleanupQueue: NaiVibeFileCleanup[];
   /**
    * NAI V5 漫画页模式。每张图是一页，页面布局与逐格人物走原生的独立提示词。
    */
@@ -1630,6 +1638,7 @@ function naiDefaults(): NaiSettings {
     vibePool: [],
     vibeGroups: [],
     activeVibeGroupId: '',
+    vibeCleanupQueue: [],
     // 用户库为空:库里只有用户自己建的配方,官方推荐的那条是内置只读条目
     // (BUILTIN_NAI_ARTISTS),不进 settings。
     artistPresets: [],
@@ -2297,6 +2306,15 @@ function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
     vibePool,
     vibeGroups,
     activeVibeGroupId,
+    vibeCleanupQueue: Array.isArray(o.vibeCleanupQueue)
+      ? o.vibeCleanupQueue
+          .filter((item): item is NaiVibeFileCleanup => !!item && typeof item === 'object')
+          .map(item => ({
+            dataPath: typeof item.dataPath === 'string' ? item.dataPath : '',
+            thumbnailPath: typeof item.thumbnailPath === 'string' ? item.thumbnailPath : '',
+          }))
+          .filter(item => item.dataPath || item.thumbnailPath)
+      : [],
     artistPresets,
     activeArtistId,
     shizhenArtistProfiles: normalizeShizhenArtistProfiles(
@@ -2808,6 +2826,17 @@ export async function hydrateSettings(): Promise<void> {
   hydrateSharedExcludes();
 
   ready = true;
+  // A cleanup entry can only reach disk alongside the metadata that stopped referencing
+  // the old file. Drain it on a later load, never in the same debounced save window.
+  for (const item of [...settings.nai.vibeCleanupQueue]) {
+    try {
+      await deleteVibeData(item);
+      const index = settings.nai.vibeCleanupQueue.indexOf(item);
+      if (index >= 0) settings.nai.vibeCleanupQueue.splice(index, 1);
+    } catch (error) {
+      console.warn('[柏宝绘] Vibe 旧文件延后清理失败，将在下次启动重试：', item, error);
+    }
+  }
   for (const cb of readyCbs.splice(0)) {
     try {
       cb();
