@@ -636,6 +636,10 @@ async function removePoolResource(poolId: string) {
   }));
   settings.nai.vibes = settings.nai.vibes.filter(vibe => vibe.id !== poolId);
   settings.nai.vibePool = settings.nai.vibePool.filter(item => item.id !== poolId);
+  // A single-resource combo must not retain a dangling reference after permanent deletion.
+  for (const combo of settings.nai.shizhenArtistProfiles.combos) {
+    if (combo.vibeId === poolId) combo.vibeId = '';
+  }
   selectedPoolIds.value = new Set([...selectedPoolIds.value].filter(id => id !== poolId));
   settings.nai.vibeCleanupQueue.push({
     dataPath: resource.dataPath,
@@ -961,6 +965,9 @@ async function removeVibe(vibe: NaiVibe) {
   }
   const poolIndex = settings.nai.vibePool.findIndex(item => item.id === vibe.id);
   if (poolIndex >= 0) settings.nai.vibePool.splice(poolIndex, 1);
+  for (const combo of settings.nai.shizhenArtistProfiles.combos) {
+    if (combo.vibeId === vibe.id) combo.vibeId = '';
+  }
   settings.nai.vibeCleanupQueue.push({
     dataPath: vibe.dataPath,
     thumbnailPath: vibe.thumbnailPath,
