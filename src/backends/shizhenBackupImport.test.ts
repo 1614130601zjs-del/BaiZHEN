@@ -115,4 +115,43 @@ describe('Shizhen Vibe pool reference metadata', () => {
     expect(plan.vibes[0].data.encodings.v3.infoExtracted).toBe(0.91);
     expect(plan.vibes[0].strength).toBe(0.55);
   });
+
+  it('preserves per-reference strength and Information Extracted when one pool item is reused', () => {
+    const plan = parseShizhenFullBackup({
+      format: 'shizhen-lite-full-backup',
+      data: {
+        presets: [], combinations: [],
+        vibes: [
+          { name: 'soft', refs: [{ poolId: 'shared', strength: 0.31, informationExtracted: 0.42 }] },
+          { name: 'strong', refs: [{ poolId: 'shared', strength: 0.87, informationExtracted: 0.93 }] },
+        ],
+        vibePool: [{
+          id: 'shared',
+          name: 'shared pool item',
+          raw: { encodings: {
+            'v4-5full': { encoding: payload, infoExtracted: 0.72 },
+            v3: { encoding: payload + 'X', infoExtracted: 0.81 },
+          } },
+        }],
+      },
+    }, 'v4-5full');
+    expect(plan.vibes).toHaveLength(2);
+    expect(plan.vibes[0]).toMatchObject({
+      group: 'soft',
+      strength: 0.31,
+      data: { encodings: {
+        'v4-5full': { encoding: payload, infoExtracted: 0.42 },
+        v3: { encoding: payload + 'X', infoExtracted: 0.42 },
+      } },
+    });
+    expect(plan.vibes[1]).toMatchObject({
+      group: 'strong',
+      strength: 0.87,
+      data: { encodings: {
+        'v4-5full': { encoding: payload, infoExtracted: 0.93 },
+        v3: { encoding: payload + 'X', infoExtracted: 0.93 },
+      } },
+    });
+  });
+
 });
