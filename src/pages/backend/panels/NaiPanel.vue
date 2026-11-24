@@ -620,6 +620,25 @@ function createPoolGroupFromSelection() {
   toastr.success(`已向「${name}」添加 ${added} 个资源；同一资源可继续加入其他组`, 'Vibe 池');
 }
 
+function renamePoolGroup(groupId: string) {
+  const group = settings.nai.vibeGroups.find(item => item.id === groupId);
+  if (!group) return;
+  const oldName = group.name;
+  const name = window.prompt('重命名 Vibe 组', oldName)?.trim();
+  if (!name || name === oldName) return;
+  if (settings.nai.vibeGroups.some(item => item.id !== groupId && item.name === name)) {
+    toastr.warning('已有同名分组，请使用其他名称。', 'Vibe 池');
+    return;
+  }
+  group.name = name;
+  for (const combo of settings.nai.shizhenArtistProfiles.combos) {
+    if (combo.vibeGroup === oldName) combo.vibeGroup = name;
+  }
+  for (const vibe of settings.nai.vibes) {
+    if (vibe.group.trim() === oldName) vibe.group = name;
+  }
+}
+
 function removePoolGroup(groupId: string) {
   const index = settings.nai.vibeGroups.findIndex(group => group.id === groupId);
   if (index < 0) return;
@@ -1528,7 +1547,8 @@ async function removeVibe(vibe: NaiVibe) {
               <div class="vibe-toolbar">
                 <strong>{{ group.name }}</strong>
                 <span class="vibe-count">{{ group.refs.length }} 个引用</span>
-                <button class="bbi-btn bbi-btn-sm" type="button" @click="settings.nai.activeVibeGroupId = group.id">本次生图使用此组</button>
+                <button class="bbi-btn bbi-btn-sm" type="button" @click="settings.nai.activeVibeGroupId = group.id">{{ settings.nai.activeVibeGroupId === group.id ? '当前使用中' : '本次生图使用此组' }}</button>
+                <button class="bbi-btn bbi-btn-sm" type="button" @click="renamePoolGroup(group.id)">重命名</button>
                 <button class="bbi-btn bbi-btn-sm" type="button" @click="removePoolGroup(group.id)">删除组</button>
               </div>
               <div v-for="ref in group.refs" :key="ref.poolId" class="vibe-pool-ref">
