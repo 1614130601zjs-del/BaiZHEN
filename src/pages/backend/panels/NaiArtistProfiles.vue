@@ -23,9 +23,12 @@ const artistOptions = computed(() => [
 ]);
 const vibeOptions = computed(() => [
   { value: '', label: '不使用 Vibe' },
-  ...settings.nai.vibes.map(item => ({ value: item.id, label: item.name || '未命名 Vibe' })),
+  ...settings.nai.vibePool.map(item => ({ value: item.id, label: item.name || '未命名 Vibe' })),
 ]);
-const vibeGroupOptions = computed(() => [...new Set(settings.nai.vibes.map(item => item.group.trim()).filter(Boolean))]);
+const vibeGroupOptions = computed(() => settings.nai.vibeGroups.map(item => ({
+  value: item.id,
+  label: item.name || '未命名 Vibe 分组',
+})));
 const comboOptions = computed(() => [
   { value: '', label: '跟随通用预设' },
   ...profiles.value.combos.map(item => ({ value: item.id, label: item.name || '未命名组合' })),
@@ -195,7 +198,7 @@ const globalTargets = computed(() => profiles.value.global);
             <span class="bbi-field-label">Vibe 分组（拾帧组合）</span>
             <select v-model="comboVibeGroup" class="bbi-input">
               <option value="">不使用分组</option>
-              <option v-for="name in vibeGroupOptions" :key="name" :value="name">{{ name }}</option>
+              <option v-for="item in vibeGroupOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
             </select>
           </label>
         </div>
@@ -208,7 +211,7 @@ const globalTargets = computed(() => profiles.value.global);
         <div v-for="combo in profiles.combos" :key="combo.id" class="sap-row">
           <div class="sap-info">
             <strong>{{ combo.name }}</strong>
-            <span>{{ artistOptions.find(item => item.value === combo.artistId)?.label || '不使用画师串' }} · {{ combo.vibeGroup || vibeOptions.find(item => item.value === combo.vibeId)?.label || '不使用 Vibe' }}</span>
+            <span>{{ artistOptions.find(item => item.value === combo.artistId)?.label || '不使用画师串' }} · {{ vibeGroupOptions.find(item => item.value === combo.vibeGroup || item.label === combo.vibeGroup)?.label || (combo.vibeGroup ? '缺失分组：' + combo.vibeGroup : vibeOptions.find(item => item.value === combo.vibeId)?.label || '不使用 Vibe') }}</span>
           </div>
           <button class="bbi-btn bbi-btn-sm" type="button" @click="editCombo(combo)">编辑</button>
           <button class="bbi-btn bbi-btn-sm am-btn-danger" type="button" @click="deleteCombo(combo.id)">删除</button>
