@@ -636,10 +636,8 @@ async function removePoolResource(poolId: string) {
   }));
   settings.nai.vibes = settings.nai.vibes.filter(vibe => vibe.id !== poolId);
   settings.nai.vibePool = settings.nai.vibePool.filter(item => item.id !== poolId);
-  // A single-resource combo must not retain a dangling reference after permanent deletion.
-  for (const combo of settings.nai.shizhenArtistProfiles.combos) {
-    if (combo.vibeId === poolId) combo.vibeId = '';
-  }
+  // Keep combo references dangling on purpose: the resolver treats them as an explicit
+  // empty selection instead of silently inheriting the currently active global Vibe group.
   selectedPoolIds.value = new Set([...selectedPoolIds.value].filter(id => id !== poolId));
   settings.nai.vibeCleanupQueue.push({
     dataPath: resource.dataPath,
@@ -675,9 +673,8 @@ function removePoolGroup(groupId: string) {
   for (const vibe of settings.nai.vibes) {
     if (vibe.group.trim() === removed.name) vibe.group = '';
   }
-  for (const combo of settings.nai.shizhenArtistProfiles.combos) {
-    if (combo.vibeGroup === removed.name || combo.vibeGroup === removed.id) combo.vibeGroup = '';
-  }
+  // Keep combo.vibeGroup as a stale explicit ID so it resolves to an empty list,
+  // rather than silently switching that combo to the global active group.
   if (settings.nai.activeVibeGroupId === groupId) settings.nai.activeVibeGroupId = '';
 }
 
@@ -965,9 +962,6 @@ async function removeVibe(vibe: NaiVibe) {
   }
   const poolIndex = settings.nai.vibePool.findIndex(item => item.id === vibe.id);
   if (poolIndex >= 0) settings.nai.vibePool.splice(poolIndex, 1);
-  for (const combo of settings.nai.shizhenArtistProfiles.combos) {
-    if (combo.vibeId === vibe.id) combo.vibeId = '';
-  }
   settings.nai.vibeCleanupQueue.push({
     dataPath: vibe.dataPath,
     thumbnailPath: vibe.thumbnailPath,

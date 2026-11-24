@@ -239,6 +239,30 @@ describe('partial artist and Vibe combos', () => {
     expect(result.nai.vibes.map(v => v.enabled)).toEqual([false, true]);
   });
 
+  it('does not inherit the global pool group when a combo group was deleted', () => {
+    const source = {
+      ...makeNai({ artistId: '', vibeId: '', vibeGroup: 'deleted-group' }),
+      vibeGroups: [{ id: 'global-group', name: 'Global', refs: [{ poolId: 'global-vibe', strength: 1, enabled: true }] }],
+      vibePool: [{ id: 'global-vibe', name: 'Global', dataPath: '/global', thumbnailPath: '', modelKeys: [], hasImage: false, fingerprint: '' }],
+      activeVibeGroupId: 'global-group',
+    } as unknown as import('@/state/settings').NaiSettings;
+    const result = applyArtistProfileToNai(source, '', 'body');
+    expect(result.nai.activeVibeGroupId).toBe('deleted-group');
+    expect(getNaiVibesForGeneration(result.nai)).toEqual([]);
+  });
+
+  it('does not inherit the global pool group when a combo Vibe resource was deleted', () => {
+    const source = {
+      ...makeNai({ artistId: '', vibeId: 'deleted-vibe' }),
+      vibeGroups: [{ id: 'global-group', name: 'Global', refs: [{ poolId: 'global-vibe', strength: 1, enabled: true }] }],
+      vibePool: [{ id: 'global-vibe', name: 'Global', dataPath: '/global', thumbnailPath: '', modelKeys: [], hasImage: false, fingerprint: '' }],
+      activeVibeGroupId: 'global-group',
+    } as unknown as import('@/state/settings').NaiSettings;
+    const result = applyArtistProfileToNai(source, '', 'body');
+    expect(result.nai.activeVibeGroupId).toBe('');
+    expect(result.nai.vibes.every(vibe => !vibe.enabled)).toBe(true);
+  });
+
   it('does not reactivate legacy Vibes when a combo references a missing group', () => {
     const source = {
       ...makeNai({ artistId: '', vibeId: '', vibeGroup: 'deleted-group' }),
