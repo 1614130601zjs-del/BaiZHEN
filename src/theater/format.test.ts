@@ -10,7 +10,7 @@ describe('parseTheaterOutput', () => {
       'eggmsg###left|小雪|你终于来了。###',
       'eggmsg###right|用户|我没有迟到。###',
       'eggend###',
-    ].join('\\n'));
+    ].join('\n'));
     expect(result.title).toBe('雨夜来信');
     expect(result.prompt).toBe('1girl, rainy street, letter');
     expect(result.eggBlocks).toHaveLength(1);
@@ -28,7 +28,7 @@ describe('parseTheaterOutput', () => {
       'eggmsg###unknown|甲|按左侧显示###',
       'eggroom###第二间|1|||###',
       'eggmsg###right|乙|未闭合房间###',
-    ].join('\\n'));
+    ].join('\n'));
     expect(result.eggBlocks).toHaveLength(2);
     expect(result.eggBlocks[0].messages[0].side).toBe('left');
     expect(result.eggBlocks[1].messages[0].text).toBe('未闭合房间');
