@@ -1531,6 +1531,8 @@ async function removeVibe(vibe: NaiVibe) {
           <div class="vibe-toolbar">
             <strong>独立 Vibe 池</strong>
             <span class="vibe-count">{{ settings.nai.vibePool.length }} 个资源 · {{ poolGroupCount }} 个组</span>
+            <span class="vibe-count">{{ settings.nai.activeVibeGroupId ? '当前使用：' + (settings.nai.vibeGroups.find(group => group.id === settings.nai.activeVibeGroupId)?.name || '分组') : '当前使用：原生 Vibe 库' }}</span>
+            <button v-if="settings.nai.activeVibeGroupId" class="bbi-btn bbi-btn-sm" type="button" @click="settings.nai.activeVibeGroupId = ''">切回原生 Vibe 库</button>
             <button v-if="!poolSelectionMode" class="bbi-btn bbi-btn-sm" type="button" @click="poolSelectionMode = true">
               从资源池选择组建 Vibe 组
             </button>
