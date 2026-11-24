@@ -309,12 +309,12 @@ async function exportBackup() {
 <template>
   <section class="bbi-field shizhen-migration">
     <div class="bbi-field-head">
-      <span class="bbi-field-label">拾帧数据迁移</span>
+      <span class="bbi-field-label">从拾帧迁移</span>
       <button class="bbi-btn bbi-btn-sm" type="button" :disabled="busy" @click="exportBackup">
         <Icon name="download" :size="12" /> 导出柏宝绘兼容备份
       </button>
     </div>
-    <p class="bbi-field-hint">导入拾帧「导出设置 JSON」生成的完整备份。仅合并画师串、组合、角色绑定和 Vibe 数据，不覆盖柏宝绘原有设置，也不会导入拾帧 API Key、聊天记录或影像缓存。</p>
+    <p class="bbi-field-hint">从拾帧导出的完整设置备份导入。仅合并画师串、组合、角色绑定和 Vibe 数据，不覆盖柏宝绘原有设置，也不会导入拾帧 API Key、聊天记录或影像缓存。</p>
     <div class="shizhen-actions">
       <input ref="fileInput" type="file" accept=".json,application/json" hidden @change="readFile" />
       <button class="bbi-btn" type="button" :disabled="busy" @click="openFile">
