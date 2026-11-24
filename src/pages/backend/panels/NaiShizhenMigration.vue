@@ -212,8 +212,9 @@ async function importBackup() {
       bindingAdded++;
     }
 
-    settings.nai.artistPresets.push(...pendingArtists);
-    settings.nai.vibes.push(...saved);
+    // Replace arrays atomically: the original references are rollback snapshots.
+    settings.nai.artistPresets = [...originalArtists, ...pendingArtists];
+    settings.nai.vibes = [...originalVibes, ...saved];
     settings.nai.shizhenArtistProfiles = profiles;
     summary.value = `导入完成：画师串映射 ${artistBySourceIndex.length} 条，Vibe 新增 ${saved.length} 条（重复跳过 ${duplicateVibes}），组合 ${comboBySourceIndex.length} 条，角色绑定新增 ${bindingAdded} 条（冲突跳过 ${bindingSkipped}）。新导入 Vibe 默认关闭。`;
     if (value.unsupportedVibes) summary.value += ` 未识别 Vibe：${value.unsupportedVibes} 条。`;
@@ -231,7 +232,7 @@ async function importBackup() {
       );
     const reason = cause instanceof Error ? cause.message : String(cause);
     error.value = failedCleanup.length
-      ? `${reason}；另外有 ${failedCleanup.length} 组新建 Vibe 文件未能自动清理，请检查存储：${failedCleanup.map(item => item.paths.dataPath).join('、')}`
+      ? `${reason}；另外有 ${failedCleanup.length} 组新建 Vibe 文件未能自动清理，请检查存储：${failedCleanup.flatMap(item => [item.paths.dataPath, item.paths.thumbnailPath]).join('、')}`
       : reason;
   } finally {
     busy.value = false;
