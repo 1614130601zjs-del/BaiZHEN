@@ -22,6 +22,7 @@ import type { BookMemoryContext } from '@/autoTag/bookMemory';
 import { buildSimpleComicPrompt } from '@/autoTag/comicSimplePrompt';
 import { readVisualArchive } from '@/autoTag/visualArchive';
 import { getWorldbookModeProfile } from '@/modes/worldbookMode';
+import { buildWorldbookModeSystem } from '@/modes/worldbookPrompt';
 import { isAiStoryMessage, isStoryMessage, type STContext } from '@/st/context';
 import type { AutoTagSettings, NaiSettings, BackendId } from '@/state/settings';
 import {
@@ -262,6 +263,7 @@ export async function buildAutoTagMessages(
   const worldInfo = await fetchWorldInfo(context.chat, scanFloors, context.name1, context.name2, visualReferences,
     knownCharacters ? { knownCharacters, targetText: preparedTarget.segments.map(segment => segment.text).join('\n') } : undefined,
     allowedWorldNames);
+  const worldbookModeSystem = buildWorldbookModeSystem(worldbookMode);
 
   // 自然语言模式(profile.nl):ComfyUI 当前工作流或 NAI 渠道开启了「生成自然语言」。
   // 开启后协议变为 tag/nl 两键——自然语言是配合短 tag 用的,不是替代。
@@ -478,6 +480,7 @@ ${comicOn ? '共同画面约束要求的同格动作关系用 images[].interacti
   if (charCard) messages.push({ role: 'system', content: buildCharCardSystem(charCard) });
   if (persona) messages.push({ role: 'system', content: buildPersonaSystem(persona) });
   if (worldInfo) messages.push({ role: 'system', content: buildWorldInfoSystem(worldInfo) });
+  if (worldbookModeSystem) messages.push({ role: 'system', content: worldbookModeSystem });
   // 后端书写规范(ComfyUI/NAI)压在固定协议之前;无适用规范时不占消息位。
   if (spec) messages.push({ role: 'system', content: spec });
   if (!simpleComicOn) messages.push({ role: 'system', content: fixedContract });
