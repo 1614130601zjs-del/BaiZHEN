@@ -83,7 +83,7 @@ async function buildGenerationMessages(userInput: string): Promise<Array<{ role:
     world ? buildWorldInfoSystem(world) : '',
     card ? buildCharCardSystem(card) : '',
     persona ? buildPersonaSystem(persona) : '',
-  ].filter(Boolean).join('\\n\\n');
+  ].filter(Boolean).join('\n\n');
   return [
     { role: 'system', content: system },
     ...historyMessages(),
