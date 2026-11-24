@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { comicReasoningKey, comicReasoningCapability, type ComicReasoning } from '@/api/comicReasoning';
-import { getTagGenChannel } from '@/state/settings';
+import { getTagGenChannel, queueVibeFileCleanup } from '@/state/settings';
 import { planPrefixGroups } from '@/backends/chatu8Vibe';
 import {
   buildNaiv4vibe,

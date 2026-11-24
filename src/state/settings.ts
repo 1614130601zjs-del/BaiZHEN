@@ -193,6 +193,8 @@ export interface NaiVibe {
 export type NaiVibePoolItem = Omit<NaiVibe, 'strength' | 'enabled' | 'group'>;
 export interface NaiVibeGroupRef { poolId: string; strength: number; enabled: boolean; informationExtracted?: number; }
 export interface NaiVibeGroup { id: string; name: string; refs: NaiVibeGroupRef[]; }
+/** Old Vibe files are reclaimed only after a later successful settings hydration. */
+export interface PendingVibeFileCleanup { dataPath: string; thumbnailPath: string; }
 /** 拾帧式画师串组合：引用柏宝绘稳定 ID，不使用数组下标。 */
 export interface NaiArtistCombo {
   id: string;
@@ -2490,6 +2492,39 @@ function normalize(raw: unknown): ImageSettings {
 // import 阶段 ST 往往尚未就绪,先以默认值建 reactive;真实值由 hydrateSettings 灌入。
 export const settings = reactive<ImageSettings>(defaults());
 
+/** Queue detached Vibe files for deletion after the next settings reload.
+ * The queue and the metadata mutation are serialized together in extension_settings,
+ * so a crash before persistence leaves the old files intact and still referenced.
+ */
+export function queueVibeFileCleanup(files: { dataPath: string; thumbnailPath: string }): void {
+  const paths = [files.dataPath, files.thumbnailPath].filter(Boolean);
+  if (!paths.length) return;
+  const existing = new Set(settings.nai.pendingVibeFileCleanup.flatMap(item => [item.dataPath, item.thumbnailPath]).filter(Boolean));
+  const fresh = paths.filter(path => !existing.has(path));
+  if (!fresh.length) return;
+  // Preserve data/thumb pairing when possible; split only when one path is already queued.
+  settings.nai.pendingVibeFileCleanup.push({ dataPath: fresh[0] ?? '', thumbnailPath: fresh[1] ?? '' });
+}
+
+async function cleanupPendingVibeFiles(): Promise<void> {
+  const pending = settings.nai.pendingVibeFileCleanup;
+  if (!pending.length) return;
+  const retained: PendingVibeFileCleanup[] = [];
+  for (const files of pending) {
+    try {
+      await deleteVibeData(files);
+    } catch (error) {
+      retained.push(files);
+      console.warn('[柏宝绘] 延迟清理旧 Vibe 文件失败，将在下次启动重试：', files, error);
+    }
+  }
+  if (retained.length !== pending.length) {
+    settings.nai.pendingVibeFileCleanup = retained;
+    // Persist the shortened queue; repeated deletion is idempotent if this write is interrupted.
+    persist();
+  }
+}
+
 // 守门标志:hydrate 完成前不回写,避免「默认值」覆盖服务器上已存的设置。
 let ready = false;
 
@@ -2809,6 +2844,7 @@ export async function hydrateSettings(): Promise<void> {
       throw migration.error;
     }
     applyInto(settings, normalize(stored));
+    await cleanupPendingVibeFiles();
     if (migration.migrated) {
       ctx.extensionSettings[SETTINGS_KEY] = JSON.parse(JSON.stringify(settings));
       ctx.saveSettingsDebounced?.();
