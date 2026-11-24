@@ -15,6 +15,7 @@ import {
 } from '@/state/settings';
 
 const profiles = computed(() => settings.nai.shizhenArtistProfiles);
+const targetTypes = ['body', 'statusBar', 'egg'] as const;
 const artistOptions = computed(() => [
   { value: '', label: '不使用画师串' },
   ...BUILTIN_NAI_ARTISTS.map(item => ({ value: item.id, label: `${item.name}（内置）` })),
@@ -93,7 +94,7 @@ function saveCombo() {
 }
 
 function deleteCombo(id: string) {
-  profiles.value = removeArtistCombo(profiles.value, id);
+  Object.assign(profiles.value, removeArtistCombo(profiles.value, id));
   if (editingId.value === id) beginNewCombo();
 }
 
@@ -195,7 +196,7 @@ const globalTargets = computed(() => profiles.value.global);
     <div class="sap-section">
       <div class="bbi-field-head"><span class="bbi-field-label">通用预设</span></div>
       <p class="bbi-field-hint">角色卡没有单独绑定时使用这里。状态栏和彩蛋留空时跟随正文；不会修改原生画师串的当前选择。</p>
-      <div v-for="target in (['body', 'statusBar', 'egg'] as const)" :key="target" class="sap-target">
+      <div v-for="target in targetTypes" :key="target" class="sap-target">
         <strong>{{ target === 'body' ? '正文' : target === 'statusBar' ? '状态栏' : '彩蛋' }}</strong>
         <select v-model="globalTargets[target].comboId" class="bbi-input">
           <option v-for="item in comboOptions" :key="item.value" :value="item.value">{{ target === 'body' && !item.value ? '不使用组合' : item.label }}</option>
