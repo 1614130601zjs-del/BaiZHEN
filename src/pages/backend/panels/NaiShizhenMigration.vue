@@ -20,18 +20,19 @@ const fileName = ref('');
 const error = ref('');
 const busy = ref(false);
 const summary = ref('');
+const existingVibeKeys = ref<Set<string>>(new Set());
 const preview = computed(() => {
   const value = plan.value;
   if (!value) return null;
   const existingArtists = new Set([...BUILTIN_NAI_ARTISTS, ...settings.nai.artistPresets].map(signature));
   const newArtists = value.artists.filter(item => !existingArtists.has(signature(item))).length;
-  const existingVibes = new Set(settings.nai.vibes.map(item => `${item.fingerprint}\\u0000${item.group}\\u0000${item.strength}`));
+  const separator = String.fromCharCode(0);
   const seenVibes = new Set<string>();
   let duplicateVibes = 0;
   let newVibes = 0;
   for (const item of value.vibes) {
-    const key = `${vibeFingerprint(item.data.encodings)}\\u0000${item.group}\\u0000${item.strength}`;
-    if (existingVibes.has(key) || seenVibes.has(key)) duplicateVibes++;
+    const key = [vibeFingerprint(item.data.encodings), item.group, String(item.strength)].join(separator);
+    if (existingVibeKeys.value.has(key) || seenVibes.has(key)) duplicateVibes++;
     else newVibes++;
     seenVibes.add(key);
   }
@@ -56,11 +57,24 @@ async function readFile(event: Event) {
   input.value = '';
   if (!file) return;
   plan.value = null;
+  existingVibeKeys.value = new Set();
   error.value = '';
   summary.value = '';
   try {
     const parsed: unknown = JSON.parse(await file.text());
     plan.value = parseShizhenFullBackup(parsed, vibeModelKey(settings.nai.model));
+    const separator = String.fromCharCode(0);
+    const keys = new Set<string>();
+    await Promise.all(settings.nai.vibes.map(async existing => {
+      let fingerprint = existing.fingerprint;
+      try {
+        fingerprint = vibeFingerprint((await loadVibeData(existing)).encodings);
+      } catch {
+        // Preserve a fallback for legacy entries whose payload cannot currently be read.
+      }
+      keys.add([fingerprint, existing.group, String(existing.strength)].join(separator));
+    }));
+    existingVibeKeys.value = keys;
     fileName.value = file.name;
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause);
