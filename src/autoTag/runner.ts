@@ -17,7 +17,8 @@ import {
 import { prepareTargetText } from '@/autoTag/clean';
 import { beginGeneration, clearGeneration, consumeGeneration } from '@/autoTag/generationGate';
 import { autoTagProfile, buildAutoTagMessages, captureAutoTagEnvironment } from '@/autoTag/prompt';
-import { getWorldbookModeProfile, subscribeWorldbookModeChanges } from '@/modes/worldbookMode';
+import { captureGenerationMode } from '@/modes/dispatcher';
+import { subscribeWorldbookModeChanges } from '@/modes/worldbookMode';
 import { rebaseImagePositions, type RebaseReport } from '@/autoTag/rebase';
 import { buildSlotTaskNote } from '@/autoTag/slotPlan';
 import {
@@ -282,7 +283,7 @@ async function runForFloor(floor: number, opts: RunOptions = {}): Promise<void> 
       : settings.autoTag;
     // 协议形态开跑时快照一次:写协议、验收与收尾同一份,用户中途拨开关也不会前后不一
     const profile = autoTagProfile();
-    const worldbookMode = getWorldbookModeProfile();
+    const generationMode = captureGenerationMode();
     const environment = captureAutoTagEnvironment(profile);
     const renderProfile = captureRenderProfile(environment.nai, environment.backend);
     const anchors = resolveCharAnchors(entriesBefore, lockedNames,renderProfile.mode!=='illustration');
@@ -302,7 +303,7 @@ async function runForFloor(floor: number, opts: RunOptions = {}): Promise<void> 
       profile,
       environment,
       'select-scenes',
-      worldbookMode,
+      generationMode,
     );
     // Worldbook mode can change while ST scans and renders activated entries.
     // Do not dispatch a request with a now-stale context, even if the transport
