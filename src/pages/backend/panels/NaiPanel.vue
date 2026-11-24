@@ -650,7 +650,7 @@ function removePoolGroup(groupId: string) {
     if (vibe.group.trim() === removed.name) vibe.group = '';
   }
   for (const combo of settings.nai.shizhenArtistProfiles.combos) {
-    if (combo.vibeGroup === removed.name) combo.vibeGroup = '';
+    if (combo.vibeGroup === removed.name || combo.vibeGroup === removed.id) combo.vibeGroup = '';
   }
   if (settings.nai.activeVibeGroupId === groupId) settings.nai.activeVibeGroupId = '';
 }
