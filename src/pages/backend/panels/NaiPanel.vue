@@ -627,6 +627,11 @@ function updatePoolRefInfo(groupId: string, poolId: string, raw: string) {
   else ref.informationExtracted = Math.max(0, Math.min(1, Number.parseFloat(raw) || 0));
 }
 
+function updatePoolRefEnabled(groupId: string, poolId: string, enabled: boolean) {
+  const ref = settings.nai.vibeGroups.find(group => group.id === groupId)?.refs.find(item => item.poolId === poolId);
+  if (ref) ref.enabled = enabled;
+}
+
 /* ============ Vibe 分组 ============ */
 
 /** 归拢/搜索/生效判定的纯逻辑在 backends/vibeGroups.ts,此处只做交互与落盘。 */
@@ -879,15 +884,22 @@ function commitVibeStrength(vibe: NaiVibe, event: Event) {
 }
 
 async function removeVibe(vibe: NaiVibe) {
-  let deleteError: unknown = null;
+  const index = settings.nai.vibes.indexOf(vibe);
+  if (index >= 0) settings.nai.vibes.splice(index, 1);
+  const referencedByPoolGroup = settings.nai.vibeGroups.some(group =>
+    group.refs.some(ref => ref.poolId === vibe.id),
+  );
+  if (referencedByPoolGroup) {
+    toastr.info('已从旧版列表移除；该资源仍被 Vibe 池分组引用，文件予以保留。', 'Vibe');
+    return;
+  }
+  const poolIndex = settings.nai.vibePool.findIndex(item => item.id === vibe.id);
+  if (poolIndex >= 0) settings.nai.vibePool.splice(poolIndex, 1);
   try {
     await deleteVibeData(vibe);
   } catch (error) {
-    deleteError = error;
+    toastr.warning(`索引已删除，但文件清理失败：${errorMessage(error)}`, 'Vibe');
   }
-  const index = settings.nai.vibes.indexOf(vibe);
-  if (index >= 0) settings.nai.vibes.splice(index, 1);
-  if (deleteError) toastr.warning(`索引已删除，但文件清理失败：${errorMessage(deleteError)}`, 'Vibe');
 }
 </script>
 
@@ -1506,6 +1518,7 @@ async function removeVibe(vibe: NaiVibe) {
               </div>
               <div v-for="ref in group.refs" :key="ref.poolId" class="vibe-pool-ref">
                 <span>{{ poolResourceById.get(ref.poolId)?.name || '缺失资源' }}</span>
+                <label><input type="checkbox" class="bbi-checkbox" :checked="ref.enabled" @change="updatePoolRefEnabled(group.id, ref.poolId, ($event.target as HTMLInputElement).checked)" />启用</label>
                 <label>强度 <input class="bbi-input" type="number" min="0" max="1" step="0.05" :value="ref.strength" @change="updatePoolRefStrength(group.id, ref.poolId, ($event.target as HTMLInputElement).value)" /></label>
                 <label>Information Extracted <input class="bbi-input" type="number" min="0" max="1" step="0.05" :value="ref.informationExtracted ?? ''" placeholder="沿用编码值" @change="updatePoolRefInfo(group.id, ref.poolId, ($event.target as HTMLInputElement).value)" /></label>
                 <button class="bbi-btn bbi-btn-sm" type="button" @click="group.refs.splice(group.refs.findIndex(item => item.poolId === ref.poolId), 1)">移出组</button>
