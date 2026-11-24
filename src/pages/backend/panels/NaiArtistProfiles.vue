@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { removeArtistCombo } from '@/backends/shizhenArtistProfiles';
+import { removeArtistCombo, resolveVibeGroupId } from '@/backends/shizhenArtistProfiles';
 import Collapsible from '@/components/Collapsible.vue';
 import Icon from '@/components/Icon.vue';
 import {
@@ -81,7 +81,7 @@ function editCombo(combo: NaiArtistCombo) {
   comboName.value = combo.name;
   comboArtistId.value = combo.artistId;
   comboVibeId.value = combo.vibeId;
-  comboVibeGroup.value = combo.vibeGroup || '';
+  comboVibeGroup.value = resolveVibeGroupId(combo.vibeGroup, settings.nai.vibeGroups);
 }
 
 function saveCombo() {
