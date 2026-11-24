@@ -153,6 +153,7 @@ async function importBackup() {
       }
     }
     let duplicateVibes = 0;
+    let referenceConflicts = 0;
     for (const item of value.vibes) {
       const fingerprint = vibePoolFingerprint(item.data);
       const sourceKey = item.sourcePoolId || `legacy:${item.group}:${item.name}:${fingerprint}`;
@@ -193,6 +194,14 @@ async function importBackup() {
             enabled: item.enabled ?? false,
             ...(item.informationExtracted !== undefined ? { informationExtracted: item.informationExtracted } : {}),
           });
+        } else if (
+          existingRef.strength !== item.strength
+          || existingRef.enabled !== (item.enabled ?? false)
+          || existingRef.informationExtracted !== item.informationExtracted
+        ) {
+          // Keep the user's existing group member settings, but make the conflict visible
+          // in the import summary instead of silently dropping the incoming reference data.
+          referenceConflicts++;
         }
       }
     }
