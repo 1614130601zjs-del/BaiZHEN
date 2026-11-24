@@ -681,6 +681,16 @@ describe('buildNaiParameters', () => {
   });
 });
 
+  it('appends a per-request negative prompt without mutating channel settings', () => {
+    const settings = nai({ undesiredContent: 'channel default' });
+    const params = buildNaiParameters(settings, { prompt: '1girl', seed: 1, negative: 'extra hands, blurry' });
+    expect(String(params.negative_prompt)).toContain('channel default');
+    expect(String(params.negative_prompt)).toContain('extra hands, blurry');
+    expect(settings.undesiredContent).toBe('channel default');
+    const v4 = params.v4_negative_prompt as { caption: { base_caption: string } };
+    expect(v4.caption.base_caption).toBe(params.negative_prompt);
+  });
+
 describe('skipCfgAboveSigma', () => {
   it.each(['nai-diffusion-5-full', 'nai-diffusion-5-full-medium', 'nai-diffusion-5-curated'] as const)(
     'has no effective Variety Boost setting for %s', model => {

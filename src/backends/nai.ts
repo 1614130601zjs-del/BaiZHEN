@@ -270,6 +270,8 @@ export interface NaiGenerateValues {
   /** 正向 tag(不含质量词)。 */
   prompt: string;
   nl?: string;
+  /** Optional per-request negative prompt appended to the channel/recipe defaults. */
+  negative?: string;
   characters?: ImageCharacterPrompt[];
   /** 种子;缺省随机。 */
   seed?: number;
@@ -509,7 +511,7 @@ export function buildNaiParameters(nai: NaiSettings, values: NaiGenerateValues):
   const seed = values.seed ?? (nai.seed > 0 ? nai.seed : naiRandomSeed());
   const prompt = fullPositivePrompt(nai, values.prompt, values.nl);
   const sections=nai.comicMode&&!nai.comicV2&&isNai5(nai.model)?parseComicSections(values.prompt):null;
-  const negative = [fullNegativePrompt(nai),!isNaiMedium(nai.model)?sections?.negative:''].filter(Boolean).join(', ');
+  const negative = [fullNegativePrompt(nai),!isNaiMedium(nai.model)?sections?.negative:'',!isNaiMedium(nai.model)?values.negative?.trim():''].filter(Boolean).join(', ');
   const skipCfg = skipCfgAboveSigma(width, height, nai.model, nai.varietyBoost);
   const sampler = isNai5(nai.model) && !NAI_V5_SAMPLERS.has(nai.sampler) ? 'k_euler_ancestral' : nai.sampler;
   // Medium Effort:固定 14 步 / Euler Ancestral / CFG Rescale 0,用户设置被忽略。

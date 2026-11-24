@@ -50,7 +50,7 @@ export interface GenerateInput {
   prompt: string;
   /** 自然语言部分(可空)。 */
   nl?: string;
-  /** 本画面动态负面(可空)。ComfyUI 走 %negative_prompt%;NAI 的负面取渠道配置,不吃这个。 */
+  /** 本画面动态负面(可空)。ComfyUI 走 %negative_prompt%;NAI 追加到渠道/配方负面词。 */
   negative?: string;
   /** NAI 4.5/V5 原生多角色提示;ComfyUI 不支持(见 charactersApplied)。 */
   characters?: ImageCharacterPrompt[];
@@ -235,7 +235,7 @@ export async function generateImage(
         profiledNai,
         // characters 原样透传:不支持的模型由 buildNaiParameters 自己滤掉(同一口径
         // naiSupportsCharacterPrompts),在这儿再滤一遍只会多一处会漂的判据
-        { prompt: input.prompt, nl: input.nl ?? '', characters, seed: input.seed, size, ...(artistProfile.size ? { sizeOverride: artistProfile.size } : {}), ...(input.imageEdit ? { imageEdit: input.imageEdit } : {}) },
+        { prompt: input.prompt, nl: input.nl ?? '', negative: input.negative ?? '', characters, seed: input.seed, ...(artistProfile.size ? { sizeOverride: artistProfile.size } : {}), ...(input.imageEdit ? { imageEdit: input.imageEdit } : {}) },
         signal,
         { onRetry: info => progress.onRetry?.({ attempt: info.attempt, max: info.max }) },
       );

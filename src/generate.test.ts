@@ -202,6 +202,14 @@ describe('generateImage', () => {
     expect(vi.mocked(generateNaiImage).mock.calls[0][1]).toMatchObject({ imageEdit });
   });
 
+  it('passes a per-request negative prompt to NAI without changing channel settings', async () => {
+    naiReady();
+    settings.nai.undesiredContent = 'channel negative';
+    await generateImage({ prompt: 'repair', negative: 'extra fingers', seed: 9 });
+    expect(vi.mocked(generateNaiImage).mock.calls[0][1]).toMatchObject({ negative: 'extra fingers' });
+    expect(settings.nai.undesiredContent).toBe('channel negative');
+  });
+
   it('rejects image editing on ComfyUI instead of silently ignoring the source image', async () => {
     comfyReady();
     await expect(generateImage({ prompt: 'repair', seed: 3, imageEdit: { mode: 'img2img', image: 'SOURCE', strength: 0.5, noise: 0.2 } })).rejects.toThrow('仅支持 NAI 后端');
