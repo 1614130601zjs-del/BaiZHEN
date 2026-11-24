@@ -2221,14 +2221,25 @@ function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
     ? o.vibes.map((v, i) => normalizeVibe(v, i)).filter((v): v is NaiVibe => v !== null)
     : def.vibes;
   const legacyPool = migrateLegacyVibeLibrary(vibes);
-  const vibePool = Array.isArray(o.vibePool)
+  const explicitPool = Array.isArray(o.vibePool)
     ? o.vibePool.map((v, i) => normalizeVibePoolItem(v, i)).filter((v): v is NaiVibePoolItem => v !== null)
-    : legacyPool.pool;
+    : [];
+  const poolById = new Map(explicitPool.map(item => [item.id, item]));
+  for (const resource of legacyPool.pool) if (!poolById.has(resource.id)) poolById.set(resource.id, resource);
+  const vibePool = [...poolById.values()];
   const poolIds = new Set(vibePool.map(item => item.id));
-  const vibeGroups = Array.isArray(o.vibeGroups)
+  const explicitGroups = Array.isArray(o.vibeGroups)
     ? o.vibeGroups.map((group, i) => normalizeVibeGroup(group, i, poolIds))
       .filter((group): group is NaiVibeGroup => group !== null)
-    : legacyPool.groups;
+    : [];
+  const vibeGroups = [...explicitGroups];
+  for (const legacyGroup of legacyPool.groups) {
+    const target = vibeGroups.find(group => group.name === legacyGroup.name);
+    if (!target) { vibeGroups.push(legacyGroup); continue; }
+    for (const ref of legacyGroup.refs) {
+      if (!target.refs.some(existing => existing.poolId === ref.poolId)) target.refs.push(ref);
+    }
+  }
   const activeVibeGroupId =
     typeof o.activeVibeGroupId === 'string' && vibeGroups.some(group => group.id === o.activeVibeGroupId)
       ? o.activeVibeGroupId

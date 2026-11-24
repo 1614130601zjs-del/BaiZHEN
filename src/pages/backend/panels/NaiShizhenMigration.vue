@@ -9,7 +9,7 @@ import {
   vibeMetaFromData,
 } from '@/backends/vibeStore';
 import { vibeModelKey, BUILTIN_NAI_ARTISTS } from '@/backends/nai';
-import { newNaiArtist, settings, type NaiArtistPreset, type NaiVibe } from '@/state/settings';
+import { newNaiArtist, settings, type NaiArtistPreset, type NaiVibe, type NaiVibePoolItem } from '@/state/settings';
 import { getContext } from '@/st/context';
 import { makeCharacterBindingKey } from '@/backends/shizhenArtistProfiles';
 import Icon from '@/components/Icon.vue';
@@ -91,9 +91,12 @@ async function importBackup() {
   busy.value = true;
   error.value = '';
   const saved: NaiVibe[] = [];
+  const savedPool: NaiVibePoolItem[] = [];
   const createdFiles: Array<{ dataPath: string; thumbnailPath: string }> = [];
   const originalArtists = settings.nai.artistPresets;
   const originalVibes = settings.nai.vibes;
+  const originalPool = settings.nai.vibePool;
+  const originalGroups = settings.nai.vibeGroups;
   const originalProfiles = settings.nai.shizhenArtistProfiles;
   try {
     const artistBySourceIndex: string[] = [];
@@ -114,29 +117,63 @@ async function importBackup() {
       artistBySourceIndex.push(id);
     }
 
-    const separator = String.fromCharCode(0);
-    const knownVibes = new Set<string>();
-    for (const existing of settings.nai.vibes) {
-      let fingerprint = existing.fingerprint;
-      try {
-        // Recompute from stored payloads so legacy truncated fingerprints remain compatible.
-        fingerprint = vibeFingerprint((await loadVibeData(existing)).encodings);
-      } catch {
-        // Keep the stored fingerprint as a conservative fallback for unreadable legacy files.
+    const pool = [...originalPool];
+    const groups = originalGroups.map(group => ({ ...group, refs: [...group.refs] }));
+    const sourceToPoolId = new Map<string, string>();
+    const fingerprintToPoolId = new Map<string, string>();
+    for (const resource of pool) {
+      try { fingerprintToPoolId.set(vibeFingerprint((await loadVibeData(resource)).encodings), resource.id); }
+      catch { if (resource.fingerprint) fingerprintToPoolId.set(resource.fingerprint, resource.id); }
+    }
+    for (const existing of originalVibes) {
+      if (!pool.some(resource => resource.id === existing.id)) {
+        const { strength: _strength, enabled: _enabled, group: _group, ...resource } = existing;
+        pool.push(resource);
       }
-      knownVibes.add([fingerprint, existing.group, String(existing.strength)].join(separator));
     }
     let duplicateVibes = 0;
     for (const item of value.vibes) {
       const fingerprint = vibeFingerprint(item.data.encodings);
-      const key = [fingerprint, item.group, String(item.strength)].join(separator);
-      if (knownVibes.has(key)) { duplicateVibes++; continue; }
-      const id = `vibe_shizhen_${Date.now()}_${saved.length}`;
-      const paths = await saveVibeFiles(item.data, null, id);
-      createdFiles.push(paths);
-      const meta = vibeMetaFromData(id, item.name, paths.dataPath, paths.thumbnailPath, item.data, item.strength, false, item.group);
-      saved.push(meta);
-      knownVibes.add(key);
+      const sourceKey = item.sourcePoolId || `legacy:${item.group}:${item.name}:${fingerprint}`;
+      let poolId = sourceToPoolId.get(sourceKey) || fingerprintToPoolId.get(fingerprint);
+      let resource = pool.find(candidate => candidate.id === poolId);
+      if (!resource) {
+        poolId = `vibe_shizhen_${Date.now()}_${savedPool.length}`;
+        const paths = await saveVibeFiles(item.data, null, poolId);
+        createdFiles.push(paths);
+        const meta = vibeMetaFromData(poolId, item.name, paths.dataPath, paths.thumbnailPath, item.data, item.strength, false, '');
+        const { strength: _strength, enabled: _enabled, group: _group, ...poolMeta } = meta;
+        resource = poolMeta;
+        pool.push(resource);
+        savedPool.push(resource);
+        saved.push({ ...meta, group: '' });
+        fingerprintToPoolId.set(fingerprint, poolId);
+      } else {
+        duplicateVibes++;
+        if (!saved.some(vibe => vibe.id === poolId) && !originalVibes.some(vibe => vibe.id === poolId)) {
+          saved.push({ ...resource, strength: item.strength, enabled: false, group: '' });
+        }
+      }
+      sourceToPoolId.set(sourceKey, poolId);
+      if (!saved.some(vibe => vibe.id === poolId) && !originalVibes.some(vibe => vibe.id === poolId)) {
+        saved.push({ ...resource, strength: item.strength, enabled: false, group: '' });
+      }
+      if (item.group.trim()) {
+        let group = groups.find(candidate => candidate.name === item.group.trim());
+        if (!group) {
+          group = { id: `vibe_group_shizhen_${Date.now()}_${groups.length}`, name: item.group.trim(), refs: [] };
+          groups.push(group);
+        }
+        const existingRef = group.refs.find(ref => ref.poolId === poolId);
+        if (!existingRef) {
+          group.refs.push({
+            poolId,
+            strength: item.strength,
+            enabled: false,
+            ...(item.informationExtracted !== undefined ? { informationExtracted: item.informationExtracted } : {}),
+          });
+        }
+      }
     }
 
     const currentProfiles = settings.nai.shizhenArtistProfiles;
@@ -216,14 +253,18 @@ async function importBackup() {
     // Replace arrays atomically: the original references are rollback snapshots.
     settings.nai.artistPresets = [...originalArtists, ...pendingArtists];
     settings.nai.vibes = [...originalVibes, ...saved];
+    settings.nai.vibePool = pool;
+    settings.nai.vibeGroups = groups;
     settings.nai.shizhenArtistProfiles = profiles;
-    summary.value = `导入完成：画师串映射 ${artistBySourceIndex.length} 条，Vibe 新增 ${saved.length} 条（重复跳过 ${duplicateVibes}），组合 ${comboBySourceIndex.length} 条，角色绑定新增 ${bindingAdded} 条（冲突跳过 ${bindingSkipped}）。新导入 Vibe 默认关闭。`;
+    summary.value = `导入完成：画师串映射 ${artistBySourceIndex.length} 条，Vibe 池新增 ${savedPool.length} 条（复用/重复 ${duplicateVibes} 条），组合 ${comboBySourceIndex.length} 条，角色绑定新增 ${bindingAdded} 条（冲突跳过 ${bindingSkipped}）。新导入 Vibe 默认关闭。`;
     if (value.unsupportedVibes) summary.value += ` 未识别 Vibe：${value.unsupportedVibes} 条。`;
     plan.value = null;
     toastr.success('拾帧配置已合并；原有配置未被覆盖。', '拾帧迁移');
   } catch (cause) {
     settings.nai.artistPresets = originalArtists;
     settings.nai.vibes = originalVibes;
+    settings.nai.vibePool = originalPool;
+    settings.nai.vibeGroups = originalGroups;
     settings.nai.shizhenArtistProfiles = originalProfiles;
     const cleanupResults = await Promise.allSettled(createdFiles.map(paths => deleteVibeData(paths)));
     const failedCleanup = cleanupResults
