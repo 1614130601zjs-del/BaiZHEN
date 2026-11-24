@@ -160,6 +160,7 @@ async function generateTheater(): Promise<void> {
     const characterAtStart = contextAtStart?.characters?.[Number(contextAtStart.characterId)];
     const sourceSnapshot = {
       chatSnapshot: historyMessages(contextAtStart?.chat ?? []),
+      chatId: contextAtStart?.getCurrentChatId() || '',
       sourceChatId: contextAtStart?.getCurrentChatId() || '',
       characterName: characterAtStart?.name || contextAtStart?.name2 || '',
       characterKey: makeCharacterBindingKey(characterAtStart?.avatar, characterAtStart?.name, contextAtStart?.characterId),
