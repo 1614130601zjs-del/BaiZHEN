@@ -134,6 +134,23 @@ describe('vibeStore', () => {
     expect(warn).toHaveBeenCalled();
   });
 
+  it('已有缩略图刷新失败时不继续引用可能过期的旧预览', async () => {
+    fileStore.upload
+      .mockResolvedValueOnce('/user/files/bbi-vibe-v1.json')
+      .mockRejectedValueOnce(new Error('thumbnail refresh failed'));
+    fileStore.remove.mockResolvedValue(true);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await expect(saveVibeFiles(data, {
+      dataPath: '/user/files/bbi-vibe-v1.json',
+      thumbnailPath: '/user/files/bbi-vibe-thumb-v1.jpg',
+    }, 'v1')).resolves.toEqual({
+      dataPath: '/user/files/bbi-vibe-v1.json',
+      thumbnailPath: '',
+    });
+    expect(fileStore.remove).toHaveBeenCalledWith('/user/files/bbi-vibe-thumb-v1.jpg');
+    expect(warn).toHaveBeenCalled();
+  });
+
   it('新 Vibe 的缩略图上传失败时会尝试清理已上传的数据文件', async () => {
     fileStore.upload
       .mockResolvedValueOnce('/user/files/bbi-vibe-new.json')
