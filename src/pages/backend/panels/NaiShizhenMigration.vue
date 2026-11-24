@@ -288,17 +288,47 @@ async function exportBackup() {
   try {
     const artists = [...BUILTIN_NAI_ARTISTS, ...settings.nai.artistPresets];
     const artistIndex = new Map(artists.map((item, index) => [item.id, index]));
-    const groups = [...new Set([
-      ...settings.nai.vibes.map(item => item.group.trim()).filter(Boolean),
+    const legacyVibes = settings.nai.vibes;
+    const poolItems = [...settings.nai.vibePool];
+    for (const legacy of legacyVibes) {
+      if (!poolItems.some(item => item.id === legacy.id)) {
+        const { strength: _strength, enabled: _enabled, group: _group, ...resource } = legacy;
+        poolItems.push(resource);
+      }
+    }
+    const groups = settings.nai.vibeGroups;
+    const groupNames = [...new Set([
+      ...groups.map(group => group.name.trim()).filter(Boolean),
+      ...legacyVibes.map(item => item.group.trim()).filter(Boolean),
       ...settings.nai.shizhenArtistProfiles.combos.map(item => item.vibeGroup?.trim()).filter((name): name is string => !!name),
     ])];
     const pool: Array<Record<string, unknown>> = [];
     const refsByGroup = new Map<string, Array<{ poolId: string; strength: number; informationExtracted?: number }>>();
     const refsUngrouped: Array<{ poolId: string; strength: number; informationExtracted?: number }> = [];
     const refByVibeId = new Map<string, { poolId: string; strength: number; informationExtracted?: number }>();
-    for (const vibe of settings.nai.vibes) {
+    const refsByPoolId = new Map<string, Array<{ group: string; strength: number; informationExtracted?: number }>>();
+    for (const group of groups) {
+      const refs = refsByGroup.get(group.name) || [];
+      for (const ref of group.refs) {
+        refs.push({ poolId: ref.poolId, strength: ref.strength, ...(ref.informationExtracted !== undefined ? { informationExtracted: ref.informationExtracted } : {}) });
+        const existing = refsByPoolId.get(ref.poolId) || [];
+        existing.push({ group: group.name, strength: ref.strength, ...(ref.informationExtracted !== undefined ? { informationExtracted: ref.informationExtracted } : {}) });
+        refsByPoolId.set(ref.poolId, existing);
+      }
+      refsByGroup.set(group.name, refs);
+    }
+    for (const legacy of legacyVibes) {
+      const existingRefs = refsByPoolId.get(legacy.id) || [];
+      if (legacy.group.trim() && !existingRefs.some(ref => ref.group === legacy.group.trim())) {
+        const ref = { poolId: legacy.id, strength: legacy.strength };
+        const refs = refsByGroup.get(legacy.group.trim()) || [];
+        refs.push(ref); refsByGroup.set(legacy.group.trim(), refs);
+        existingRefs.push({ group: legacy.group.trim(), strength: legacy.strength });
+        refsByPoolId.set(legacy.id, existingRefs);
+      }
+    }
+    for (const vibe of poolItems) {
       const data = await loadVibeData(vibe);
-      const poolId = vibe.id;
       const modelKeys = Object.keys(data.encodings);
       if (!modelKeys.length || !Object.values(data.encodings).some(item =>
         typeof item.encoding === 'string' && item.encoding.trim().length > 0,
@@ -309,46 +339,47 @@ async function exportBackup() {
       const sharedInfo = infoValues.length > 0 && infoValues.every(value => value === infoValues[0])
         ? infoValues[0]
         : undefined;
-      // Emit the canonical NovelAI Vibe Transfer envelope used by Shizhen's pool.
-      // Keep each model's Information Extracted inside its own encoding; the pool-level
-      // value is only a compatibility fallback when all model values are identical.
+      const references = refsByPoolId.get(vibe.id) || [];
+      const legacy = legacyVibes.find(item => item.id === vibe.id);
+      const defaultStrength = references[0]?.strength ?? legacy?.strength ?? 0.6;
       pool.push({
-        id: poolId, name: vibe.name, image: data.image, thumbnail: data.thumbnail,
+        id: vibe.id, name: vibe.name, image: data.image, thumbnail: data.thumbnail,
         thumb: data.thumbnail,
         raw: {
           identifier: 'novelai-vibe-transfer', version: 1, type: 'encoding',
           name: vibe.name,
           importInfo: {
             model: modelKeys[0] || '',
-            strength: vibe.strength,
+            strength: defaultStrength,
             ...(sharedInfo !== undefined ? { information_extracted: sharedInfo } : {}),
           },
           encodings: data.encodings,
           image: data.image,
         },
-        strength: vibe.strength, ...(sharedInfo !== undefined ? { informationExtracted: sharedInfo } : {}),
+        strength: defaultStrength, ...(sharedInfo !== undefined ? { informationExtracted: sharedInfo } : {}),
       });
-      const ref = { poolId, strength: vibe.strength, ...(sharedInfo !== undefined ? { informationExtracted: sharedInfo } : {}) };
-      refByVibeId.set(vibe.id, ref);
-      if (vibe.group.trim()) {
-        const list = refsByGroup.get(vibe.group.trim()) || [];
-        list.push(ref); refsByGroup.set(vibe.group.trim(), list);
-      } else refsUngrouped.push(ref);
+      const firstRef = references[0] || { strength: defaultStrength };
+      refByVibeId.set(vibe.id, {
+        poolId: vibe.id,
+        strength: firstRef.strength,
+        ...(firstRef.informationExtracted !== undefined ? { informationExtracted: firstRef.informationExtracted } : {}),
+      });
+      if (!references.length) refsUngrouped.push({ poolId: vibe.id, strength: defaultStrength });
     }
-    const groupNames = [...groups];
+    const groupNamesWithUngrouped = [...groupNames];
     let ungroupedName = '';
     if (refsUngrouped.length) {
       ungroupedName = '未分组';
-      while (groupNames.includes(ungroupedName)) ungroupedName = `${ungroupedName}（导出）`;
-      groupNames.push(ungroupedName);
+      while (groupNamesWithUngrouped.includes(ungroupedName)) ungroupedName = `${ungroupedName}（导出）`;
+      groupNamesWithUngrouped.push(ungroupedName);
     }
-    const sourceGroups = groupNames.map(name => ({
+    const sourceGroups = groupNamesWithUngrouped.map(name => ({
       id: `group_${name}`, name,
       refs: name === ungroupedName ? refsUngrouped : refsByGroup.get(name) || [],
     }));
     const comboToIndex = new Map(settings.nai.shizhenArtistProfiles.combos.map((item, index) => [item.id, index]));
     const exportCombos = settings.nai.shizhenArtistProfiles.combos.map(item => {
-      let vibeIndex = item.vibeGroup ? groupNames.indexOf(item.vibeGroup) : -1;
+      let vibeIndex = item.vibeGroup ? groupNamesWithUngrouped.indexOf(item.vibeGroup) : -1;
       if (vibeIndex < 0 && item.vibeId) {
         const selected = settings.nai.vibes.find(vibe => vibe.id === item.vibeId);
         if (selected) {
@@ -356,8 +387,8 @@ async function exportBackup() {
           let syntheticName = baseName;
           let suffix = 2;
           while (groupNames.includes(syntheticName)) syntheticName = `${baseName}（${suffix++}）`;
-          const syntheticIndex = groupNames.length;
-          groupNames.push(syntheticName);
+          const syntheticIndex = groupNamesWithUngrouped.length;
+          groupNamesWithUngrouped.push(syntheticName);
           sourceGroups.push({
             id: `group_${syntheticIndex}`,
             name: syntheticName,
