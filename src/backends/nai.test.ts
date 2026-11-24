@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyVibes,
   buildNaiParameters,
+  buildNaiImageEditRequest,
   BUILTIN_NAI_ARTISTS,
   fullNegativePrompt,
   fullPositivePrompt,
@@ -910,5 +911,39 @@ describe('V5 Full Medium Effort(蒸馏版固定参数)', () => {
     const s = nai({ model: 'nai-diffusion-5-full-medium' });
     // 质量词沿用 V5 全系官方默认
     expect(naiDefaultQualityTags(s.model)).toBe('very aesthetic, masterpiece, no text');
+  });
+});
+
+
+describe('NAI image editing request', () => {
+  it('builds img2img action with request-local source and strengths', () => {
+    const base = { width: 832, height: 1216, seed: 7 };
+    const result = buildNaiImageEditRequest('nai-diffusion-4-5-full', base, {
+      mode: 'img2img', image: 'SOURCE', strength: 0.55, noise: 0.2,
+    });
+    expect(result).toEqual({
+      model: 'nai-diffusion-4-5-full', action: 'img2img',
+      parameters: { ...base, image: 'SOURCE', strength: 0.55, noise: 0.2 },
+    });
+    expect(base).toEqual({ width: 832, height: 1216, seed: 7 });
+  });
+
+  it('builds infill action with a mask and the inpainting model suffix exactly once', () => {
+    const result = buildNaiImageEditRequest('nai-diffusion-4-5-full-inpainting', {}, {
+      mode: 'inpaint', image: 'SOURCE', mask: 'MASK', strength: 0.7, noise: 0.15,
+    });
+    expect(result.model).toBe('nai-diffusion-4-5-full-inpainting');
+    expect(result.action).toBe('infill');
+    expect(result.parameters).toMatchObject({
+      image: 'SOURCE', mask: 'MASK', strength: 0.7, noise: 0.15,
+      add_original_image: true, inpaintImg2ImgStrength: 1,
+    });
+  });
+
+  it('rejects missing image/mask and out-of-range strengths', () => {
+    expect(() => buildNaiImageEditRequest('nai-diffusion-4-5-full', {}, { mode: 'img2img', image: '', strength: 0.5, noise: 0.2 })).toThrow('来源图片');
+    expect(() => buildNaiImageEditRequest('nai-diffusion-4-5-full', {}, { mode: 'inpaint', image: 'x', strength: 0.5, noise: 0.2 })).toThrow('蒙版');
+    expect(() => buildNaiImageEditRequest('nai-diffusion-4-5-full', {}, { mode: 'img2img', image: 'x', strength: 1.1, noise: 0.2 })).toThrow('重绘强度');
+    expect(() => buildNaiImageEditRequest('nai-diffusion-4-5-full', {}, { mode: 'img2img', image: 'x', strength: 0.5, noise: -0.1 })).toThrow('噪声强度');
   });
 });

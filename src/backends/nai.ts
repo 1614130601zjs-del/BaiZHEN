@@ -277,6 +277,39 @@ export interface NaiGenerateValues {
   size?: Orientation;
   /** Exact per-request dimensions; overrides the orientation's configured size. */
   sizeOverride?: string;
+  /** Optional NovelAI image-to-image / inpaint input, base64 without a data URL prefix. */
+  imageEdit?: NaiImageEdit;
+}
+
+export interface NaiImageEdit {
+  mode: 'img2img' | 'inpaint';
+  image: string;
+  mask?: string;
+  strength: number;
+  noise: number;
+}
+
+/** Validate and build the request-specific NAI edit action without mutating saved settings. */
+export function buildNaiImageEditRequest(
+  model: string,
+  parameters: Record<string, unknown>,
+  edit: NaiImageEdit,
+): { model: string; action: 'img2img' | 'infill'; parameters: Record<string, unknown> } {
+  if (!edit.image.trim()) throw new NaiError('图生图缺少来源图片');
+  if (!Number.isFinite(edit.strength) || edit.strength < 0 || edit.strength > 1) throw new NaiError('重绘强度必须在 0 到 1 之间');
+  if (!Number.isFinite(edit.noise) || edit.noise < 0 || edit.noise > 1) throw new NaiError('噪声强度必须在 0 到 1 之间');
+  if (edit.mode === 'inpaint' && !edit.mask?.trim()) throw new NaiError('局部重绘缺少蒙版');
+  const next = { ...parameters, image: edit.image, strength: edit.strength, noise: edit.noise };
+  if (edit.mode === 'inpaint') {
+    next.mask = edit.mask;
+    next.add_original_image = true;
+    next.inpaintImg2ImgStrength = 1;
+  }
+  return {
+    model: edit.mode === 'inpaint' ? (/-inpainting$/i.test(model) ? model : `${model}-inpainting`) : model,
+    action: edit.mode === 'inpaint' ? 'infill' : 'img2img',
+    parameters: next,
+  };
 }
 
 /**

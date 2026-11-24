@@ -195,6 +195,19 @@ describe('generateImage', () => {
     expect(release).toHaveBeenCalledTimes(2);
   });
 
+  it('passes NAI image-edit inputs through the shared generation path', async () => {
+    naiReady();
+    const imageEdit = { mode: 'inpaint' as const, image: 'SOURCE', mask: 'MASK', strength: 0.6, noise: 0.2 };
+    await generateImage({ prompt: 'repair', seed: 3, imageEdit });
+    expect(vi.mocked(generateNaiImage).mock.calls[0][1]).toMatchObject({ imageEdit });
+  });
+
+  it('rejects image editing on ComfyUI instead of silently ignoring the source image', async () => {
+    comfyReady();
+    await expect(generateImage({ prompt: 'repair', seed: 3, imageEdit: { mode: 'img2img', image: 'SOURCE', strength: 0.5, noise: 0.2 } })).rejects.toThrow('仅支持 NAI 后端');
+    expect(vi.mocked(generateComfyImage)).not.toHaveBeenCalled();
+  });
+
   it('leaves ComfyUI out of the gate (its queue lives on the server)', async () => {
     comfyReady();
     await generateImage({ prompt: '1girl', seed: 1 });

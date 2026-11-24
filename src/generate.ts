@@ -26,7 +26,7 @@ import { applyRenderProfile, type RenderProfile } from '@/autoTag/renderProfile'
 import type { ImageCharacterPrompt } from '@/autoTag/protocol';
 import { comfySimpleParams, composeNegative, composePositive, validateSimpleConfig, type SimpleGenValues } from '@/backends/comfyTemplates';
 import { generateComfyImage, randomSeed, type ComfyImageResult } from '@/backends/comfyui';
-import { generateNaiImage, naiRandomSeed, naiSupportsCharacterPrompts } from '@/backends/nai';
+import { generateNaiImage, naiRandomSeed, naiSupportsCharacterPrompts, type NaiImageEdit } from '@/backends/nai';
 import { effectiveOrientation, parseSize, pickSize, type Orientation } from '@/backends/size';
 import { acquireNaiSlot } from '@/floor/genQueue';
 import { applyArtistProfileToNai } from '@/backends/shizhenArtistProfiles';
@@ -40,6 +40,8 @@ export interface GenerateInput {
   artistTarget?: 'body' | 'statusBar' | 'egg';
   /** Optional explicit Shizhen combo override (used by the theater selector). */
   artistComboId?: string;
+  /** NAI-only image editing request; ComfyUI workflows do not accept this payload. */
+  imageEdit?: NaiImageEdit;
   /** 当前角色卡的稳定身份键；空值时只使用通用预设。 */
   characterKey?: string;
   /** Current ST character name, used as a migration fallback for name-only Shizhen bindings. */
@@ -203,6 +205,7 @@ export async function generateImage(
   if (!status.configured) throw new Error(status.reason || '出图后端未配置');
 
   const isNai = status.backend === 'nai';
+  if (input.imageEdit && !isNai) throw new Error('图生图与局部重绘目前仅支持 NAI 后端');
   const characters = input.characters ?? [];
   // 支持与否由后端说了算:ComfyUI 恒不支持;NAI 看模型是否 4.5/V5
   const charactersApplied = characters.length > 0 && status.supportsCharacters;
@@ -232,7 +235,7 @@ export async function generateImage(
         profiledNai,
         // characters 原样透传:不支持的模型由 buildNaiParameters 自己滤掉(同一口径
         // naiSupportsCharacterPrompts),在这儿再滤一遍只会多一处会漂的判据
-        { prompt: input.prompt, nl: input.nl ?? '', characters, seed: input.seed, size, ...(artistProfile.size ? { sizeOverride: artistProfile.size } : {}) },
+        { prompt: input.prompt, nl: input.nl ?? '', characters, seed: input.seed, size, ...(artistProfile.size ? { sizeOverride: artistProfile.size } : {}), ...(input.imageEdit ? { imageEdit: input.imageEdit } : {}) },
         signal,
         { onRetry: info => progress.onRetry?.({ attempt: info.attempt, max: info.max }) },
       );
