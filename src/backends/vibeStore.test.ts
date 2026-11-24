@@ -121,3 +121,13 @@ describe('vibeFingerprint', () => {
     expect(left).not.toBe(right);
   });
 });
+
+  it('把 Information Extracted 作为 Vibe 参数的一部分参与指纹', () => {
+    const encoding = 'A'.repeat(200);
+    expect(vibeFingerprint({ model: { encoding, infoExtracted: 0.2 } })).not.toBe(
+      vibeFingerprint({ model: { encoding, infoExtracted: 0.8 } }),
+    );
+    expect(vibeFingerprint({ model: { encoding, infoExtracted: 0 } })).not.toBe(
+      vibeFingerprint({ model: { encoding } }),
+    );
+  });

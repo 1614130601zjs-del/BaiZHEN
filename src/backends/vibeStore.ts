@@ -110,7 +110,9 @@ export function vibeFingerprint(encodings: NaiVibeEncodings): string {
       hashA = Math.imul(hashA ^ code, 0x01000193);
       hashB = Math.imul(hashB ^ (code + i), 0x85ebca6b);
     }
-    return `${key}:${value.length}:${(hashA >>> 0).toString(16)}${(hashB >>> 0).toString(16)}`;
+    const info = encodings[key].infoExtracted;
+    const infoKey = info == null ? 'null' : String(info);
+    return `${key}:${value.length}:${(hashA >>> 0).toString(16)}${(hashB >>> 0).toString(16)}:${infoKey}`;
   }).join('|');
 }
 

@@ -25,12 +25,12 @@ const preview = computed(() => {
   if (!value) return null;
   const existingArtists = new Set([...BUILTIN_NAI_ARTISTS, ...settings.nai.artistPresets].map(signature));
   const newArtists = value.artists.filter(item => !existingArtists.has(signature(item))).length;
-  const existingVibes = new Set(settings.nai.vibes.map(item => `${item.fingerprint}\\u0000${item.group}`));
+  const existingVibes = new Set(settings.nai.vibes.map(item => `${item.fingerprint}\\u0000${item.group}\\u0000${item.strength}`));
   const seenVibes = new Set<string>();
   let duplicateVibes = 0;
   let newVibes = 0;
   for (const item of value.vibes) {
-    const key = `${vibeFingerprint(item.data.encodings)}\\u0000${item.group}`;
+    const key = `${vibeFingerprint(item.data.encodings)}\\u0000${item.group}\\u0000${item.strength}`;
     if (existingVibes.has(key) || seenVibes.has(key)) duplicateVibes++;
     else newVibes++;
     seenVibes.add(key);
