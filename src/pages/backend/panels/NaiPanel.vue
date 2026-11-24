@@ -610,7 +610,7 @@ function createPoolGroupFromSelection() {
     group.refs.push({
       poolId: id,
       strength: legacy?.strength ?? 0.6,
-      enabled: legacy?.enabled ?? true,
+      enabled: true,
     });
     added++;
   }
@@ -642,7 +642,15 @@ function renamePoolGroup(groupId: string) {
 function removePoolGroup(groupId: string) {
   const index = settings.nai.vibeGroups.findIndex(group => group.id === groupId);
   if (index < 0) return;
+  const removed = settings.nai.vibeGroups[index];
   settings.nai.vibeGroups.splice(index, 1);
+  // Legacy single-group labels must not recreate a deleted pool group during normalization.
+  for (const vibe of settings.nai.vibes) {
+    if (vibe.group.trim() === removed.name) vibe.group = '';
+  }
+  for (const combo of settings.nai.shizhenArtistProfiles.combos) {
+    if (combo.vibeGroup === removed.name) combo.vibeGroup = '';
+  }
   if (settings.nai.activeVibeGroupId === groupId) settings.nai.activeVibeGroupId = '';
 }
 
