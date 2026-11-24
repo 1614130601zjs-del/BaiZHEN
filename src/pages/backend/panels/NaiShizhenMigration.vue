@@ -234,9 +234,16 @@ async function exportBackup() {
     for (const vibe of settings.nai.vibes) {
       const data = await loadVibeData(vibe);
       const poolId = vibe.id;
-      const infoValues = Object.values(data.encodings).map(item => item.infoExtracted);
-      const sharedInfo = infoValues.length && infoValues.every(value => value === infoValues[0]) ? infoValues[0] : undefined;
       const modelKeys = Object.keys(data.encodings);
+      if (!modelKeys.length || !Object.values(data.encodings).some(item =>
+        typeof item.encoding === 'string' && item.encoding.trim().length > 0,
+      )) {
+        throw new Error(`Vibe「${vibe.name}」缺少有效编码，无法导出为拾帧兼容格式。`);
+      }
+      const infoValues = Object.values(data.encodings).map(item => item.infoExtracted);
+      const sharedInfo = infoValues.length > 0 && infoValues.every(value => value === infoValues[0])
+        ? infoValues[0]
+        : undefined;
       // Emit the canonical NovelAI Vibe Transfer envelope used by Shizhen's pool.
       // Keep each model's Information Extracted inside its own encoding; the pool-level
       // value is only a compatibility fallback when all model values are identical.
