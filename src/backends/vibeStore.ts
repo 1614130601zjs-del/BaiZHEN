@@ -150,20 +150,11 @@ export async function saveVibeFiles(
   current: Pick<NaiVibe, 'dataPath' | 'thumbnailPath'> | null = null,
   key = '',
 ): Promise<{ dataPath: string; thumbnailPath: string }> {
-  const localKey = current?.dataPath.startsWith(LOCAL_PATH_PREFIX)
-    ? current.dataPath.slice(LOCAL_PATH_PREFIX.length)
-    : safeFileKey(key) || randomUuid();
+  // Updates are written to fresh paths. The caller swaps metadata first, then removes
+  // the previous files; a failed write therefore never damages the currently referenced data.
+  const localKey = safeFileKey(key) ? `${safeFileKey(key)}-${randomUuid()}` : randomUuid();
   if (current?.dataPath.startsWith(LOCAL_PATH_PREFIX)) {
     const dataPath = await writeLocalData(localKey, data);
-    // Local Vibe data already contains its thumbnail. Do not keep a remote thumbnail
-    // reference that may point to an older image after the IndexedDB update.
-    if (current.thumbnailPath) {
-      try {
-        await deleteUploadedFile(current.thumbnailPath);
-      } catch (cleanupError) {
-        console.warn('[柏宝绘] 本地 Vibe 已更新，但旧缩略图文件清理失败：', current.thumbnailPath, cleanupError);
-      }
-    }
     return { dataPath, thumbnailPath: '' };
   }
   try {
@@ -180,7 +171,8 @@ async function saveServerVibeFiles(
   current: Pick<NaiVibe, 'dataPath' | 'thumbnailPath'> | null,
   key: string,
 ): Promise<{ dataPath: string; thumbnailPath: string }> {
-  const dataPath = await saveVibeData(data, current?.dataPath, key);
+  const versionKey = current ? `${safeFileKey(key) || 'vibe'}-${randomUuid()}` : key;
+  const dataPath = await saveVibeData(data, '', versionKey);
   if (!data.thumbnail) {
     if (current?.thumbnailPath) {
       try {
@@ -196,29 +188,15 @@ async function saveServerVibeFiles(
     // Refresh the thumbnail when the Vibe image changes; keeping an existing path
     // without uploading would leave the preview stale after a successful data update.
     const thumbnailPath = await uploadBase64File(
-      thumbnailFileName(data.thumbnail, current?.thumbnailPath, key),
+      thumbnailFileName(data.thumbnail, undefined, versionKey),
       dataUrlBase64(data.thumbnail),
     );
-    if (current?.thumbnailPath && current.thumbnailPath !== thumbnailPath) {
-      try {
-        await deleteUploadedFile(current.thumbnailPath);
-      } catch (cleanupError) {
-        console.warn('[柏宝绘] 新 Vibe 缩略图已保存，但旧缩略图清理失败：', current.thumbnailPath, cleanupError);
-      }
-    }
     return { dataPath, thumbnailPath };
   } catch (error) {
     if (current?.dataPath) {
       // The data file may already have been updated in place. Treat the thumbnail as
       // optional so callers can still refresh their fingerprint and metadata.
       console.warn('[柏宝绘] Vibe 数据已保存，但缩略图刷新失败；移除可能过期的缩略图引用。', error);
-      if (current.thumbnailPath) {
-        try {
-          await deleteUploadedFile(current.thumbnailPath);
-        } catch (cleanupError) {
-          console.warn('[柏宝绘] 旧 Vibe 缩略图清理失败：', current.thumbnailPath, cleanupError);
-        }
-      }
       return { dataPath, thumbnailPath: '' };
     }
     try {

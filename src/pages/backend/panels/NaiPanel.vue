@@ -516,11 +516,19 @@ async function reencodeVibe(vibe: NaiVibe) {
     if (!data.image) throw new Error('该 Vibe 没有参考原图');
     const encoding = await encodeVibeGated(data.image);
     data.encodings[currentVibeKey.value] = { encoding, infoExtracted: 1 };
+    const previousFiles = { dataPath: vibe.dataPath, thumbnailPath: vibe.thumbnailPath };
     const paths = await saveVibeFiles(data, vibe, vibe.id);
+    // Commit the new metadata before deleting the previous version: the old record
+    // remains fully usable if the upload fails or the page exits mid-update.
     vibe.dataPath = paths.dataPath;
     vibe.thumbnailPath = paths.thumbnailPath;
     vibe.modelKeys = Object.keys(data.encodings);
     vibe.fingerprint = vibeFingerprint(data.encodings);
+    try {
+      await deleteVibeData(previousFiles);
+    } catch (cleanupError) {
+      console.warn('[柏宝绘] Vibe 已更新，但旧版本文件清理失败：', previousFiles, cleanupError);
+    }
     toastr.success(`「${vibe.name}」已补 ${settings.nai.model} 编码`, 'Vibe');
   } catch (error) {
     toastr.error(errorMessage(error), 'Vibe 编码失败');

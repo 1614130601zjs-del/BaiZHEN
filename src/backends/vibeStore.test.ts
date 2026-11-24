@@ -68,23 +68,22 @@ describe('vibeStore', () => {
     expect(fileStore.upload).toHaveBeenNthCalledWith(2, 'bbi-vibe-thumb-v1.jpg', 'dGh1bWI=');
   });
 
-  it('更新已有 Vibe 时同步刷新缩略图并清理旧路径', async () => {
+  it('更新已有 Vibe 时写入新版本文件，不提前删除旧版本', async () => {
     fileStore.upload
-      .mockResolvedValueOnce('/user/files/bbi-vibe-v1.json')
-      .mockResolvedValueOnce('/user/files/bbi-vibe-thumb-v2.jpg');
-    fileStore.remove.mockResolvedValue(true);
+      .mockResolvedValueOnce('/user/files/bbi-vibe-v1-next.json')
+      .mockResolvedValueOnce('/user/files/bbi-vibe-thumb-v1-next.jpg');
 
     await expect(saveVibeFiles(data, {
       dataPath: '/user/files/bbi-vibe-v1.json',
       thumbnailPath: '/user/files/bbi-vibe-thumb-v1.jpg',
     }, 'v1')).resolves.toEqual({
-      dataPath: '/user/files/bbi-vibe-v1.json',
-      thumbnailPath: '/user/files/bbi-vibe-thumb-v2.jpg',
+      dataPath: '/user/files/bbi-vibe-v1-next.json',
+      thumbnailPath: '/user/files/bbi-vibe-thumb-v1-next.jpg',
     });
 
     expect(fileStore.upload).toHaveBeenCalledTimes(2);
-    expect(fileStore.upload).toHaveBeenNthCalledWith(2, 'bbi-vibe-thumb-v1.jpg', 'dGh1bWI=');
-    expect(fileStore.remove).toHaveBeenCalledWith('/user/files/bbi-vibe-thumb-v1.jpg');
+    expect(fileStore.upload).toHaveBeenNthCalledWith(2, expect.stringMatching(/^bbi-vibe-thumb-v1-/), 'dGh1bWI=');
+    expect(fileStore.remove).not.toHaveBeenCalled();
   });
 
   it('更新时移除缩略图会清理旧文件并清空缩略图路径', async () => {
@@ -147,7 +146,7 @@ describe('vibeStore', () => {
       dataPath: '/user/files/bbi-vibe-v1.json',
       thumbnailPath: '',
     });
-    expect(fileStore.remove).toHaveBeenCalledWith('/user/files/bbi-vibe-thumb-v1.jpg');
+    expect(fileStore.remove).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalled();
   });
 
@@ -201,7 +200,7 @@ describe('vibeStore', () => {
       thumbnailPath: '',
     });
     // IndexedDB connection is cached across tests; this case focuses on metadata/file cleanup.
-    expect(fileStore.remove).toHaveBeenCalledWith('/user/files/old-vibe-thumb.jpg');
+    expect(fileStore.remove).not.toHaveBeenCalled();
     expect(fileStore.upload).not.toHaveBeenCalled();
   });
 
