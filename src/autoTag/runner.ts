@@ -304,6 +304,13 @@ async function runForFloor(floor: number, opts: RunOptions = {}): Promise<void> 
       'select-scenes',
       worldbookMode,
     );
+    // Worldbook mode can change while ST scans and renders activated entries.
+    // Do not dispatch a request with a now-stale context, even if the transport
+    // would eventually notice the already-aborted signal.
+    if (controller.signal.aborted) {
+      processed.delete(identity);
+      return;
+    }
     const channel = getTagGenChannel();
     const comicMode = environment.nai.comicAnalysisMode === 'simple' ? 'simple' : 'standard';
     const reasoningMode = renderProfile.mode !== 'illustration'
