@@ -38,6 +38,60 @@ describe('parseShizhenFullBackup', () => {
   it('rejects unrelated settings files', () => {
     expect(() => parseShizhenFullBackup({ extensions: { baibaiToolkit: {} } }, 'v4-5full')).toThrow(/拾帧完整备份/);
   });
+  it('round-trips the canonical Shizhen pool envelope with model metadata and preview image', () => {
+    const sourceImage = 'iVBORw0KGgo' + 'C'.repeat(220);
+    const plan = parseShizhenFullBackup({
+      format: 'shizhen-lite-full-backup',
+      version: 1,
+      data: {
+        presets: [], combinations: [],
+        vibes: [{ name: 'canon', refs: [{ poolId: 'pool-canon', strength: 0.63 }] }],
+        vibePool: [{
+          id: 'pool-canon',
+          name: 'canon',
+          image: sourceImage,
+          thumb: 'data:image/png;base64,thumb',
+          raw: {
+            identifier: 'novelai-vibe-transfer',
+            version: 1,
+            type: 'encoding',
+            name: 'canon',
+            image: sourceImage,
+            encodings: {
+              'v4-5full': { encoding: payload, infoExtracted: 0.73 },
+              v3: { encoding: payload + 'D', infoExtracted: 0.89 },
+            },
+          },
+        }],
+      },
+    }, 'v4-5full');
+    expect(plan.vibes).toHaveLength(1);
+    expect(plan.vibes[0].strength).toBe(0.63);
+    expect(plan.vibes[0].data.image).toBe(sourceImage);
+    expect(plan.vibes[0].data.thumbnail).toBe('data:image/png;base64,thumb');
+    expect(plan.vibes[0].data.encodings['v4-5full']).toEqual({ encoding: payload, infoExtracted: 0.73 });
+    expect(plan.vibes[0].data.encodings.v3).toEqual({ encoding: payload + 'D', infoExtracted: 0.89 });
+  });
+
+  it('imports a V3 pool entry whose encoding is stored in the canonical image field', () => {
+    const v3Payload = 'V'.repeat(240);
+    const plan = parseShizhenFullBackup({
+      format: 'shizhen-lite-full-backup',
+      data: {
+        presets: [], combinations: [],
+        vibes: [{ name: 'V3', refs: [{ poolId: 'pool-v3', strength: 0.5 }] }],
+        vibePool: [{
+          id: 'pool-v3',
+          name: 'V3',
+          raw: { identifier: 'novelai-vibe-transfer', version: 1, type: 'encoding', image: v3Payload },
+        }],
+      },
+    }, 'v4-5full');
+    expect(plan.vibes).toHaveLength(1);
+    expect(plan.vibes[0].data.encodings.v3).toEqual({ encoding: v3Payload, infoExtracted: 1 });
+    expect(plan.vibes[0].data.image).toBe(v3Payload);
+  });
+
 });
 
 
