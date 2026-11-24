@@ -299,7 +299,7 @@ export function buildNaiImageEditRequest(
   if (!Number.isFinite(edit.strength) || edit.strength < 0 || edit.strength > 1) throw new NaiError('重绘强度必须在 0 到 1 之间');
   if (!Number.isFinite(edit.noise) || edit.noise < 0 || edit.noise > 1) throw new NaiError('噪声强度必须在 0 到 1 之间');
   if (edit.mode === 'inpaint' && !edit.mask?.trim()) throw new NaiError('局部重绘缺少蒙版');
-  const next = { ...parameters, image: edit.image, strength: edit.strength, noise: edit.noise };
+  const next: Record<string, unknown> = { ...parameters, image: edit.image, strength: edit.strength, noise: edit.noise };
   if (edit.mode === 'inpaint') {
     next.mask = edit.mask;
     next.add_original_image = true;
