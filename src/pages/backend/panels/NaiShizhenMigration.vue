@@ -351,6 +351,7 @@ async function exportBackup() {
       const sharedInfo = infoValues.length > 0 && infoValues.every(value => value === infoValues[0])
         ? infoValues[0]
         : undefined;
+      const poolInfo = sharedInfo ?? vibe.informationExtracted;
       const references = refsByPoolId.get(vibe.id) || [];
       const legacy = legacyVibes.find(item => item.id === vibe.id);
       const defaultStrength = references[0]?.strength ?? legacy?.strength ?? 0.6;
@@ -363,18 +364,19 @@ async function exportBackup() {
           importInfo: {
             model: modelKeys[0] || '',
             strength: defaultStrength,
-            ...(sharedInfo !== undefined ? { information_extracted: sharedInfo } : {}),
+            ...(poolInfo !== undefined ? { information_extracted: poolInfo } : {}),
           },
           encodings: data.encodings,
           image: data.image,
         },
-        strength: defaultStrength, ...(sharedInfo !== undefined ? { informationExtracted: sharedInfo } : {}),
+        strength: defaultStrength, ...(poolInfo !== undefined ? { informationExtracted: poolInfo } : {}),
       });
       const firstRef = references[0] || { strength: defaultStrength };
+      const refInfo = firstRef.informationExtracted ?? vibe.informationExtracted;
       refByVibeId.set(vibe.id, {
         poolId: vibe.id,
         strength: firstRef.strength,
-        ...(firstRef.informationExtracted !== undefined ? { informationExtracted: firstRef.informationExtracted } : {}),
+        ...(refInfo !== undefined ? { informationExtracted: refInfo } : {}),
       });
       if (!references.length) refsUngrouped.push({ poolId: vibe.id, strength: defaultStrength, ...((legacy?.informationExtracted ?? vibe.informationExtracted) !== undefined ? { informationExtracted: legacy?.informationExtracted ?? vibe.informationExtracted } : {}) });
     }
