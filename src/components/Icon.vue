@@ -58,6 +58,8 @@ const PATHS: Record<string, string> = {
   // 设置:滑块
   settings:
     '<path d="M5 8h9M18 8h1"/><path d="M5 16h1M10 16h9"/><circle cx="16" cy="8" r="2.2"/><circle cx="8" cy="16" r="2.2"/>',
+  // 小剧场:对话气泡
+  theater: '<path d="M4 5.5h16v11H9l-5 3v-14z"/><path d="M8 10h8M8 13.5h5"/>',
   // 生图模式:双向切换箭头
   mode: '<path d="M4 7h13l-3-3"/><path d="m17 7-3 3"/><path d="M20 17H7l3 3"/><path d="m7 17 3-3"/>',
   // 变量:花括号 { } —— 自定义 JSON 变量,区别于设置的滑块

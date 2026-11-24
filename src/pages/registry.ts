@@ -4,6 +4,7 @@ import Characters from './characters/index.vue';
 import Gallery from './gallery/index.vue';
 import History from './history/index.vue';
 import Mode from './mode/index.vue';
+import Theater from './theater/index.vue';
 import Settings from './settings/index.vue';
 
 export interface PageDef {
@@ -24,6 +25,7 @@ export const PAGES: PageDef[] = [
   { id: 'gallery', label: '图库', component: Gallery },
   { id: 'history', label: '请求历史', component: History },
   { id: 'mode', label: '生图模式', component: Mode },
+  { id: 'theater', label: '小剧场', component: Theater },
   { id: 'settings', label: '设置', component: Settings },
 ];
 
