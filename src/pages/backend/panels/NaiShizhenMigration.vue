@@ -264,10 +264,15 @@ async function exportBackup() {
       } else refsUngrouped.push(ref);
     }
     const groupNames = [...groups];
-    if (refsUngrouped.length) groupNames.push('未分组');
+    let ungroupedName = '';
+    if (refsUngrouped.length) {
+      ungroupedName = '未分组';
+      while (groupNames.includes(ungroupedName)) ungroupedName = `${ungroupedName}（导出）`;
+      groupNames.push(ungroupedName);
+    }
     const sourceGroups = groupNames.map(name => ({
       id: `group_${name}`, name,
-      refs: name === '未分组' ? refsUngrouped : refsByGroup.get(name) || [],
+      refs: name === ungroupedName ? refsUngrouped : refsByGroup.get(name) || [],
     }));
     const comboToIndex = new Map(settings.nai.shizhenArtistProfiles.combos.map((item, index) => [item.id, index]));
     const exportCombos = settings.nai.shizhenArtistProfiles.combos.map(item => {
@@ -275,13 +280,17 @@ async function exportBackup() {
       if (vibeIndex < 0 && item.vibeId) {
         const selected = settings.nai.vibes.find(vibe => vibe.id === item.vibeId);
         if (selected) {
-          const syntheticName = `单条 Vibe · ${selected.name}`;
-          let syntheticIndex = groupNames.indexOf(syntheticName);
-          if (syntheticIndex < 0) {
-            syntheticIndex = groupNames.length;
-            groupNames.push(syntheticName);
-            sourceGroups.push({ id: `group_${syntheticIndex}`, name: syntheticName, refs: [refByVibeId.get(selected.id) || { poolId: selected.id, strength: selected.strength }] });
-          }
+          const baseName = `单条 Vibe · ${selected.name}`;
+          let syntheticName = baseName;
+          let suffix = 2;
+          while (groupNames.includes(syntheticName)) syntheticName = `${baseName}（${suffix++}）`;
+          const syntheticIndex = groupNames.length;
+          groupNames.push(syntheticName);
+          sourceGroups.push({
+            id: `group_${syntheticIndex}`,
+            name: syntheticName,
+            refs: [refByVibeId.get(selected.id) || { poolId: selected.id, strength: selected.strength }],
+          });
           vibeIndex = syntheticIndex;
         }
       }
