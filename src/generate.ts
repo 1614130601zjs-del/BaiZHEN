@@ -38,6 +38,8 @@ export interface GenerateInput {
   renderProfile?: RenderProfile;
   /** 拾帧式预设目标；默认正文。 */
   artistTarget?: 'body' | 'statusBar' | 'egg';
+  /** Optional explicit Shizhen combo override (used by the theater selector). */
+  artistComboId?: string;
   /** 当前角色卡的稳定身份键；空值时只使用通用预设。 */
   characterKey?: string;
   /** Current ST character name, used as a migration fallback for name-only Shizhen bindings. */
@@ -223,6 +225,7 @@ export async function generateImage(
         input.characterKey ?? '',
         input.artistTarget ?? 'body',
         input.characterName ?? '',
+        input.artistComboId,
       ).nai;
       const output = await generateNaiImage(
         profiledNai,

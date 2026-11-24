@@ -237,9 +237,32 @@ describe('partial artist and Vibe combos', () => {
   it('applies the exact target size regardless of the generated orientation', () => {
     const portrait = applyArtistProfileToNai(makeNai({ artistId: '', vibeId: '' }, '768x1344'), '', 'body');
     expect(portrait.nai.portraitSize).toBe('768x1344');
-    expect(portrait.nai.landscapeSize).toBe('768x1344');
+    expect(portrait.nai.landscapeSize).toBe('1216x832');
     const landscape = applyArtistProfileToNai(makeNai({ artistId: '', vibeId: '' }, '1344x768'), '', 'body');
-    expect(landscape.nai.portraitSize).toBe('1344x768');
+    expect(landscape.nai.portraitSize).toBe('832x1216');
     expect(landscape.nai.landscapeSize).toBe('1344x768');
+  });
+});
+
+
+describe('explicit combo selection', () => {
+  it('uses a theater-selected combo without changing the saved global profile', () => {
+    const source = {
+      activeArtistId: 'native-artist',
+      vibes: [{ id: 'v1', group: 'one', enabled: true }, { id: 'v2', group: 'two', enabled: false }],
+      portraitSize: '832x1216', landscapeSize: '1216x832',
+      shizhenArtistProfiles: {
+        ...profiles,
+        combos: [
+          { id: 'default', name: 'Default', artistId: 'artist-default', vibeId: '', updatedAt: 1 },
+          { id: 'theater', name: 'Theater', artistId: '', vibeId: 'v2', updatedAt: 2 },
+        ],
+        global: { ...profiles.global, egg: { comboId: 'default', size: '' } },
+      },
+    } as unknown as import('@/state/settings').NaiSettings;
+    const result = applyArtistProfileToNai(source, '', 'egg', '', 'theater');
+    expect(result.nai.activeArtistId).toBe('native-artist');
+    expect(result.nai.vibes.map(v => v.enabled)).toEqual([false, true]);
+    expect(source.shizhenArtistProfiles.global.egg.comboId).toBe('default');
   });
 });

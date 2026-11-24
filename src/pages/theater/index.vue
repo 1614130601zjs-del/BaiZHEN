@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { fetchCharCard, fetchUserPersona, fetchWorldInfo, buildCharCardSystem, buildPersonaSystem, buildWorldInfoSystem } from '@/autoTag/context';
 import { captureGenerationSnapshot, decideSeed, generateImage } from '@/generate';
 import { inferRenderProfile } from '@/autoTag/renderProfile';
@@ -7,6 +7,7 @@ import { resultToBase64ForUpload, generationId } from '@/floor/storage';
 import { deleteUserImage, uploadUserImage } from '@/st/images';
 import { getContext } from '@/st/context';
 import { makeCharacterBindingKey } from '@/backends/shizhenArtistProfiles';
+import { settings } from '@/state/settings';
 import { getWorldbookModeProfile } from '@/modes/worldbookMode';
 import { parseTheaterOutput, type ParsedTheaterOutput } from '@/theater/format';
 
@@ -15,6 +16,7 @@ interface TheaterRecord extends ParsedTheaterOutput {
   input: string;
   mode: 'scene' | 'plot';
   style: 'egg' | 'comic' | 'comic2' | 'comic4';
+  comboId?: string;
   imagePath: string;
   createdAt: number;
   chatId: string;
@@ -25,6 +27,8 @@ const FOLDER = '柏宝绘_小剧场';
 const input = ref('');
 const mode = ref<'scene' | 'plot'>('scene');
 const style = ref<'egg' | 'comic' | 'comic2' | 'comic4'>('egg');
+const comboId = ref('');
+const comboOptions = computed(() => settings.nai.shizhenArtistProfiles.combos.map(item => ({ id: item.id, name: item.name || '未命名组合' })));
 const busy = ref(false);
 const rerolling = ref(false);
 const error = ref('');
@@ -53,7 +57,7 @@ function load(): void {
   current.value = saved[0] ?? null;
 }
 load();
-watch(() => current.value?.id, () => { promptDraft.value = current.value?.prompt ?? ''; style.value = current.value?.style || 'egg'; }, { immediate: true });
+watch(() => current.value?.id, () => { promptDraft.value = current.value?.prompt ?? ''; style.value = current.value?.style || 'egg'; comboId.value = current.value?.comboId ?? ''; }, { immediate: true });
 
 function historyMessages(): Array<{ role: string; content: string }> {
   const context = getContext();
@@ -96,7 +100,7 @@ async function buildGenerationMessages(userInput: string, styleValue: 'egg' | 'c
     { role: 'user', content: (mode.value === 'plot' ? '剧情词：' : '画面词：') + userInput },
   ];
 }
-async function createRecord(userInput: string, parsed: ParsedTheaterOutput, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4'): Promise<TheaterRecord> {
+async function createRecord(userInput: string, parsed: ParsedTheaterOutput, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', comboIdValue = ''): Promise<TheaterRecord> {
   const context = getContext();
   if (!context) throw new Error('酒馆上下文尚未就绪');
   const snapshot = captureGenerationSnapshot();
@@ -107,6 +111,7 @@ async function createRecord(userInput: string, parsed: ParsedTheaterOutput, mode
     prompt,
     seed: decideSeed(snapshot.backend),
     artistTarget: 'egg',
+    ...(comboIdValue ? { artistComboId: comboIdValue } : {}),
     characterKey: makeCharacterBindingKey(character?.avatar, character?.name, context.characterId),
     characterName: character?.name || context.name2 || '',
     renderProfile: inferRenderProfile(prompt),
@@ -121,6 +126,7 @@ async function createRecord(userInput: string, parsed: ParsedTheaterOutput, mode
     input: userInput,
     mode: modeValue,
     style: styleValue,
+    comboId: comboIdValue,
     imagePath,
     createdAt: Date.now(),
     chatId: context.getCurrentChatId() || '',
@@ -143,7 +149,7 @@ async function generateTheater(): Promise<void> {
     if (!parsed.prompt) throw new Error('模型输出中没有找到 image###…### 画面提示词');
     if (!parsed.eggBlocks.length) throw new Error('模型输出中没有找到 eggroom###…eggend### 聊天室内容');
     status.value = '正在通过柏宝绘后端生成图片…';
-    const record = await createRecord(text, parsed, mode.value, styleValue);
+    const record = await createRecord(text, parsed, mode.value, styleValue, comboId.value);
     const nextRecords = [record, ...records.value];
     const removed = nextRecords.splice(200);
     records.value = nextRecords;
@@ -172,7 +178,7 @@ async function reroll(): Promise<void> {
   try {
     const parsed: ParsedTheaterOutput = { ...current.value, prompt: promptDraft.value.trim() };
     if (!parsed.prompt) throw new Error('画面提示词不能为空');
-    const next = await createRecord(current.value.input, parsed, current.value.mode, current.value.style || 'egg');
+    const next = await createRecord(current.value.input, parsed, current.value.mode, current.value.style || 'egg', current.value.comboId ?? comboId.value);
     const nextRecords = [next, ...records.value];
     const removed = nextRecords.splice(200);
     records.value = nextRecords;
@@ -204,6 +210,14 @@ async function removeRecord(record: TheaterRecord): Promise<void> {
       <div class="mode-row">
         <label><input v-model="mode" type="radio" value="scene"> 画面词</label>
         <label><input v-model="mode" type="radio" value="plot"> 剧情词</label>
+      </div>
+      <div class="style-row">
+        <label>画师串组合
+          <select v-model="comboId">
+            <option value="">跟随彩蛋／角色绑定配置</option>
+            <option v-for="item in comboOptions" :key="item.id" :value="item.id">{{ item.name }}</option>
+          </select>
+        </label>
       </div>
       <div class="style-row">
         <label>画面风格

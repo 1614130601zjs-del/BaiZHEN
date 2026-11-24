@@ -119,10 +119,12 @@ export function applyArtistProfileToNai(
   characterKey: string,
   target: 'body' | 'statusBar' | 'egg' = 'body',
   characterName = '',
+  comboIdOverride?: string,
 ): { nai: NaiSettings; applied: boolean; size: string } {
   const selected = resolveArtistTarget(nai.shizhenArtistProfiles, characterKey, target, characterName);
-  const combo = selected.comboId
-    ? nai.shizhenArtistProfiles.combos.find(item => item.id === selected.comboId)
+  const selectedComboId = comboIdOverride ?? selected.comboId;
+  const combo = selectedComboId
+    ? nai.shizhenArtistProfiles.combos.find(item => item.id === selectedComboId)
     : undefined;
   const size = /^\d+\s*[x×]\s*\d+$/i.test(selected.size) ? selected.size : '';
   if (!combo && !size) return { nai, applied: false, size: '' };
@@ -142,10 +144,11 @@ export function applyArtistProfileToNai(
     }
   }
   if (size) {
-    // Shizhen's target size is an exact per-request override, not an orientation preference.
-    // Set both request-local slots so a landscape prompt cannot silently ignore a portrait override.
-    next.portraitSize = size;
-    next.landscapeSize = size;
+    // A fixed target size belongs to its own orientation slot. Never overwrite the other slot:
+    // NAI selects portrait/landscape at request time.
+    const [width, height] = size.toLowerCase().split(/[x×]/).map(Number);
+    if (width > height) next.landscapeSize = size;
+    else next.portraitSize = size;
   }
   return { nai: next, applied: true, size };
 }
