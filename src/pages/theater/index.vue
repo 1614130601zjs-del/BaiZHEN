@@ -53,7 +53,7 @@ function load(): void {
   current.value = saved[0] ?? null;
 }
 load();
-watch(() => current.value?.id, () => { promptDraft.value = current.value?.prompt ?? ''; }, { immediate: true });
+watch(() => current.value?.id, () => { promptDraft.value = current.value?.prompt ?? ''; style.value = current.value?.style || 'egg'; }, { immediate: true });
 
 function historyMessages(): Array<{ role: string; content: string }> {
   const context = getContext();
@@ -85,6 +85,7 @@ async function buildGenerationMessages(userInput: string, styleValue: 'egg' | 'c
       ? '当前风格：彩蛋 Q 版。允许可爱、搞怪、夸张表情与动作；不要写质量词和体型词。'
       : `当前风格：正常比例条漫，${styleValue === 'comic2' ? '2' : styleValue === 'comic4' ? '4' : '1'} 格分镜。不要 Q 版或夸张变形，不要自己写质量词和体型词。${styleValue === 'comic2' || styleValue === 'comic4' ? '画面提示词只输出一条 image###，使用 comic 与 '+(styleValue === 'comic2' ? '2koma' : '4koma')+' 标签；按 Panel 1、Panel 2'+(styleValue === 'comic4' ? '、Panel 3、Panel 4' : '')+' 顺序描述各格。角色外貌只在开头写一次，后续用 character A、character B 等纯英文占位符指代，不要重复角色名或外貌。' : '画面按单幅正常比例插画描述。'}`,
     '只输出一条 image### 画面提示词和一份 eggroom### 聊天室。image 提示词只描述视觉内容，不包含画师串、质量词或负面词。聊天室内容要与剧情及人物关系一致，发言称呼与当前角色/用户称呼一致。不要捏造与世界书冲突的设定。',
+    '输出约束：只生成一张图片标记；不得输出第二条 image###。',
     world ? buildWorldInfoSystem(world) : '',
     card ? buildCharCardSystem(card) : '',
     persona ? buildPersonaSystem(persona) : '',
@@ -93,7 +94,6 @@ async function buildGenerationMessages(userInput: string, styleValue: 'egg' | 'c
     { role: 'system', content: system },
     ...historyMessages(),
     { role: 'user', content: (mode.value === 'plot' ? '剧情词：' : '画面词：') + userInput },
-    { role: 'system', content: '输出约束：只生成一张图片标记；不得输出第二条 image###。' },
   ];
 }
 async function createRecord(userInput: string, parsed: ParsedTheaterOutput, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4'): Promise<TheaterRecord> {
