@@ -527,6 +527,7 @@ async function reencodeVibe(vibe: NaiVibe) {
     vibe.thumbnailPath = paths.thumbnailPath;
     vibe.modelKeys = Object.keys(data.encodings);
     vibe.fingerprint = vibeFingerprint(data.encodings);
+    syncPoolResource(vibe);
     try {
       await deleteVibeData(previousFiles);
     } catch (cleanupError) {
@@ -565,6 +566,22 @@ function registerVibePoolResource(vibe: NaiVibe) {
       group.refs.push({ poolId: vibe.id, strength: vibe.strength, enabled: vibe.enabled });
     }
   }
+}
+
+function syncPoolResource(vibe: NaiVibe) {
+  const existing = settings.nai.vibePool.find(item => item.id === vibe.id);
+  if (!existing) {
+    registerVibePoolResource(vibe);
+    return;
+  }
+  Object.assign(existing, {
+    name: vibe.name,
+    dataPath: vibe.dataPath,
+    thumbnailPath: vibe.thumbnailPath,
+    modelKeys: [...vibe.modelKeys],
+    hasImage: vibe.hasImage,
+    fingerprint: vibe.fingerprint,
+  });
 }
 
 function togglePoolSelection(id: string) {
@@ -1664,7 +1681,7 @@ async function removeVibe(vibe: NaiVibe) {
                       />
                       选择
                     </label>
-                    <input class="bbi-input vibe-name" type="text" v-model="vibe.name" spellcheck="false" />
+                    <input class="bbi-input vibe-name" type="text" v-model="vibe.name" spellcheck="false" @change="syncPoolResource(vibe)" />
                     <label class="vibe-enable" title="生成时叠加此 vibe">
                       <input v-model="vibe.enabled" type="checkbox" class="bbi-checkbox" />
                       启用
