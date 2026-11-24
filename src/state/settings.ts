@@ -199,6 +199,41 @@ export interface NaiVibe {
  * 以后内置默认要换成插件自己的精选词,只改 naiDefaultQualityTags / naiDefaultUndesired,
  * 链结构与存储口径都不变。老数据没有这两个字段,normalize 补空串即零变化。
  */
+/** 拾帧式画师串组合：引用柏宝绘稳定 ID，不使用数组下标。 */
+export interface NaiArtistCombo {
+  id: string;
+  name: string;
+  artistId: string;
+  vibeId: string;
+  updatedAt: number;
+}
+
+/** 正文/状态栏/彩蛋各自可指定组合和尺寸；空值表示按回退规则继承。 */
+export interface NaiArtistTargetConfig {
+  comboId: string;
+  size: string;
+}
+
+/** 角色卡绑定以头像文件名作为首选身份键，角色名只作兼容回退。 */
+export interface NaiArtistCharacterBinding {
+  characterKey: string;
+  characterName: string;
+  body: NaiArtistTargetConfig;
+  statusBar: NaiArtistTargetConfig;
+  egg: NaiArtistTargetConfig;
+}
+
+/** 独立保存拾帧式配置，不改动原生 activeArtistId / Vibe enabled 状态。 */
+export interface NaiArtistProfileSettings {
+  combos: NaiArtistCombo[];
+  global: {
+    body: NaiArtistTargetConfig;
+    statusBar: NaiArtistTargetConfig;
+    egg: NaiArtistTargetConfig;
+  };
+  bindings: NaiArtistCharacterBinding[];
+}
+
 export interface NaiArtistPreset {
   id: string;
   /** 显示名(下拉列表与切换用;允许重名,以 id 为键)。 */
