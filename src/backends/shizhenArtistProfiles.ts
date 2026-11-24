@@ -142,15 +142,10 @@ export function applyArtistProfileToNai(
     }
   }
   if (size) {
-    const [width, height] = size.split(/[x×]/i).map(Number);
-    if (width === height) {
-      next.portraitSize = size;
-      next.landscapeSize = size;
-    } else if (width > height) {
-      next.landscapeSize = size;
-    } else {
-      next.portraitSize = size;
-    }
+    // Shizhen's target size is an exact per-request override, not an orientation preference.
+    // Set both request-local slots so a landscape prompt cannot silently ignore a portrait override.
+    next.portraitSize = size;
+    next.landscapeSize = size;
   }
   return { nai: next, applied: true, size };
 }
