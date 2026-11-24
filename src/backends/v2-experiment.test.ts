@@ -50,6 +50,15 @@ const nai: NaiSettings = {
   vibes: [],
   artistPresets: [],
   activeArtistId: '',
+  shizhenArtistProfiles: {
+    combos: [],
+    global: {
+      body: { comboId: '', size: '' },
+      statusBar: { comboId: '', size: '' },
+      egg: { comboId: '', size: '' },
+    },
+    bindings: [],
+  },
 };
 
 // ── 1.3.1 预设的真实输出(用户提供的生图提示词,逐字) ──

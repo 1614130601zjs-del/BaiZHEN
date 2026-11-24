@@ -57,6 +57,15 @@ function nai(overrides: Partial<NaiSettings> = {}): NaiSettings {
     vibes: [],
     artistPresets: [],
     activeArtistId: '',
+    shizhenArtistProfiles: {
+      combos: [],
+      global: {
+        body: { comboId: '', size: '' },
+        statusBar: { comboId: '', size: '' },
+        egg: { comboId: '', size: '' },
+      },
+      bindings: [],
+    },
     naturalLanguage: true,
     orientationLock: 'auto',
     ...overrides,
