@@ -122,7 +122,13 @@ function extractOne(
   currentModelKey: string,
 ): ShizhenVibeImportItem | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const raw = value as Record<string, unknown>;
+  const wrapper = value as Record<string, unknown>;
+  // Shizhen pool entries keep the original NovelAI object under raw while storing
+  // display name/strength/thumbnail beside it. Read encoding payloads from both.
+  const nestedRaw = wrapper.raw && typeof wrapper.raw === 'object' && !Array.isArray(wrapper.raw)
+    ? wrapper.raw as Record<string, unknown>
+    : null;
+  const raw = nestedRaw ? { ...nestedRaw, ...wrapper, raw: undefined } : wrapper;
   const encodings = collectEncodings(raw, currentModelKey);
   const imageValue = typeof raw.image === 'string' ? raw.image : '';
   const image = imageValue && looksLikeImage(imageValue) ? cleanPayload(imageValue) : '';
