@@ -210,10 +210,17 @@ function savePrompt(): void {
   if (!current.value) return;
   const prompt = promptDraft.value.trim();
   if (!prompt) { error.value = '画面提示词不能为空'; return; }
+  const previous = current.value.prompt;
   current.value.prompt = prompt;
-  persist();
-  status.value = '已保存当前画面提示词';
-  error.value = '';
+  try {
+    persist();
+    status.value = '已保存当前画面提示词';
+    error.value = '';
+  } catch (cause) {
+    current.value.prompt = previous;
+    try { persist(); } catch { /* Keep the in-memory record consistent if storage is unavailable. */ }
+    error.value = cause instanceof Error ? cause.message : String(cause);
+  }
 }
 async function reroll(): Promise<void> {
   if (!current.value || rerolling.value) return;
@@ -232,9 +239,19 @@ async function reroll(): Promise<void> {
 }
 function selectRecord(record: TheaterRecord): void { current.value = record; }
 async function removeRecord(record: TheaterRecord): Promise<void> {
-  records.value = records.value.filter(item => item.id !== record.id);
+  const previousRecords = records.value;
+  const previousCurrent = current.value;
+  records.value = previousRecords.filter(item => item.id !== record.id);
   if (current.value?.id === record.id) current.value = records.value[0] ?? null;
-  persist();
+  try {
+    persist();
+  } catch (cause) {
+    records.value = previousRecords;
+    current.value = previousCurrent;
+    try { persist(); } catch { /* Keep the in-memory record available for a later retry. */ }
+    error.value = cause instanceof Error ? cause.message : String(cause);
+    return;
+  }
   await deleteUserImage(record.imagePath).catch(() => undefined);
 }
 </script>
