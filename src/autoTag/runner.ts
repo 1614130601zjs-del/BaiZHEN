@@ -17,6 +17,7 @@ import {
 import { prepareTargetText } from '@/autoTag/clean';
 import { beginGeneration, clearGeneration, consumeGeneration } from '@/autoTag/generationGate';
 import { autoTagProfile, buildAutoTagMessages, captureAutoTagEnvironment } from '@/autoTag/prompt';
+import { subscribeWorldbookModeChanges } from '@/modes/worldbookMode';
 import { rebaseImagePositions, type RebaseReport } from '@/autoTag/rebase';
 import { buildSlotTaskNote } from '@/autoTag/slotPlan';
 import {
@@ -665,6 +666,14 @@ export function bindAutoTagging(): void {
   let lastChatId = context.getCurrentChatId();
   let input: StreamInput | undefined;
   let inputGeneration = 0;
+  // A task must never finish with a context captured under the previous mode.
+  // Abort both regular and streaming analyses as soon as the worldbook handoff commits.
+  subscribeWorldbookModeChanges(() => {
+    inputGeneration++;
+    input?.stop();
+    cancelAll();
+    cancelStreamSessions();
+  });
   const finalize = (floor: number, type: unknown, source: string) => {
     const chatId = getContext()?.getCurrentChatId?.() ?? '';
     if (!Number.isInteger(floor) || floor < 0 || !consumeGeneration(chatId, type)) return;

@@ -457,6 +457,7 @@ export function applyWorldbookMode(): Promise<void> {
 
       state.snapshot = snapshot;
       persist(state);
+      notifyWorldbookModeChanged();
     } catch (error) {
       // 任一世界书写入失败时，尽力恢复接管前的挂载和条目状态，避免半应用状态残留。
       try {
@@ -500,9 +501,26 @@ export function restoreWorldbookMode(disableProfile = true): Promise<void> {
     if (disableProfile) setPersistedProfileEnabled(state, false);
     state.snapshot = snapshot;
     persist(state);
+    notifyWorldbookModeChanged();
   });
 }
 
+
+const modeChangeListeners = new Set<() => void>();
+
+/** Notify in-flight generation pipelines after the active worldbook context changes. */
+export function subscribeWorldbookModeChanges(listener: () => void): () => void {
+  modeChangeListeners.add(listener);
+  return () => modeChangeListeners.delete(listener);
+}
+
+function notifyWorldbookModeChanged(): void {
+  for (const listener of modeChangeListeners) {
+    try { listener(); } catch (error) {
+      console.warn('[柏宝绘] 世界书模式切换监听器执行失败。', error);
+    }
+  }
+}
 
 let lifecycleBound = false;
 let activeProfileKey = '';
