@@ -235,7 +235,7 @@ export async function generateImage(
         profiledNai,
         // characters 原样透传:不支持的模型由 buildNaiParameters 自己滤掉(同一口径
         // naiSupportsCharacterPrompts),在这儿再滤一遍只会多一处会漂的判据
-        { prompt: input.prompt, nl: input.nl ?? '', negative: input.negative ?? '', characters, seed: input.seed, ...(artistProfile.size ? { sizeOverride: artistProfile.size } : {}), ...(input.imageEdit ? { imageEdit: input.imageEdit } : {}) },
+        { prompt: input.prompt, nl: input.nl ?? '', ...(input.negative?.trim() ? { negative: input.negative.trim() } : {}), characters, seed: input.seed, size, ...(artistProfile.size ? { sizeOverride: artistProfile.size } : {}), ...(input.imageEdit ? { imageEdit: input.imageEdit } : {}) },
         signal,
         { onRetry: info => progress.onRetry?.({ attempt: info.attempt, max: info.max }) },
       );
