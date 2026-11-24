@@ -58,6 +58,10 @@ function fnv(text: string): string {
   for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 16777619); }
   return (hash >>> 0).toString(36);
 }
+export function buildStatusBarTaskKey(chatId: string, messageId: string, swipeId: number, ordinal: number, prompt: string): string {
+  return `statusbar:${fnv(chatId)}:${messageId}:${swipeId}:${ordinal}:${fnv(prompt)}`;
+}
+
 function parseMarker(value: unknown): string {
   const text = String(value ?? '');
   return text.match(/image###([\s\S]*?)###/)?.[1]?.trim() || '';
@@ -113,7 +117,7 @@ function taskIdentity(frame: Element, prompt: string, doc: Document): { taskKey:
   const messageIndex = Number(messageId);
   const swipeId = Number.isInteger(messageIndex) ? Number(context?.chat[messageIndex]?.swipe_id ?? 0) || 0 : 0;
   const chatId = context?.getCurrentChatId() || 'chat';
-  const taskKey = `statusbar:${fnv(chatId)}:${messageId}:${swipeId}:${ordinal}:${fnv(prompt)}`;
+  const taskKey = buildStatusBarTaskKey(chatId, messageId, swipeId, ordinal, prompt);
   return { taskKey, chatId, messageId, ordinal };
 }
 
@@ -265,7 +269,7 @@ async function generateForFrame(frame: HTMLElement, prompt: string, task: Status
     persist();
     renderCard(frame, task);
   } catch (error) {
-    if (frame.dataset.bbiStatusbarTask === task.taskKey && statusBarPromptForTarget(frame) === prompt) {
+    if (frame.isConnected && frame.dataset.bbiStatusbarTask === task.taskKey && statusBarPromptForTarget(frame) === prompt) {
       const message = error instanceof Error ? error.message : String(error);
       showError(frame, message, () => void generateForFrame(frame, prompt, task));
     }
