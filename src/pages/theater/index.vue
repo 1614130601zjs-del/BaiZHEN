@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ref } from 'vue';
 import { fetchCharCard, fetchUserPersona, fetchWorldInfo, buildCharCardSystem, buildPersonaSystem, buildWorldInfoSystem } from '@/autoTag/context';
 import { captureGenerationSnapshot, decideSeed, generateImage } from '@/generate';
 import { inferRenderProfile } from '@/autoTag/renderProfile';
 import { resultToBase64ForUpload, generationId } from '@/floor/storage';
 import { deleteUserImage, uploadUserImage } from '@/st/images';
 import { getContext } from '@/st/context';
+import { makeCharacterBindingKey } from '@/backends/shizhenArtistProfiles';
 import { getWorldbookModeProfile } from '@/modes/worldbookMode';
-import { parseTheaterOutput, type ParsedTheaterOutput, type TheaterEggBlock } from '@/theater/format';
+import { parseTheaterOutput, type ParsedTheaterOutput } from '@/theater/format';
 
 interface TheaterRecord extends ParsedTheaterOutput {
   id: string;
@@ -29,7 +30,6 @@ const status = ref('');
 const rawOutput = ref('');
 const current = ref<TheaterRecord | null>(null);
 const records = ref<TheaterRecord[]>([]);
-const activeRoom = computed(() => current.value?.eggBlocks?.[0] ?? null);
 
 function store(): TheaterStore {
   const extensionSettings = getContext()?.extensionSettings;
@@ -78,9 +78,9 @@ async function buildGenerationMessages(userInput: string): Promise<Array<{ role:
     'eggmsg###left 或 right|说话人|对话内容###（可以多条）',
     'eggend###',
     '只输出一张图片和一份聊天室。image 提示词应描述当前场景的视觉内容，不要包含画师串、质量词或负面词。聊天室内容要与剧情及人物关系一致，发言称呼与当前角色/用户称呼一致。不要捏造与世界书冲突的设定。',
-    buildWorldInfoSystem(world),
-    buildCharCardSystem(card),
-    buildPersonaSystem(persona),
+    world ? buildWorldInfoSystem(world) : '',
+    card ? buildCharCardSystem(card) : '',
+    persona ? buildPersonaSystem(persona) : '',
   ].filter(Boolean).join('\\n\\n');
   return [
     { role: 'system', content: system },
@@ -99,7 +99,7 @@ async function createRecord(userInput: string, parsed: ParsedTheaterOutput, mode
     prompt,
     seed: decideSeed(snapshot.backend),
     artistTarget: 'egg',
-    characterKey: character ? `avatar:${character.avatar}` : '',
+    characterKey: makeCharacterBindingKey(character?.avatar, character?.name, context.characterId),
     characterName: character?.name || context.name2 || '',
     renderProfile: inferRenderProfile(prompt),
   }, undefined, {}, snapshot);
@@ -134,9 +134,12 @@ async function generateTheater(): Promise<void> {
     if (!parsed.eggBlocks.length) throw new Error('模型输出中没有找到 eggroom###…eggend### 聊天室内容');
     status.value = '正在通过柏宝绘后端生成图片…';
     const record = await createRecord(text, parsed, mode.value);
-    records.value = [record, ...records.value].slice(0, 200);
+    const nextRecords = [record, ...records.value];
+    const removed = nextRecords.splice(200);
+    records.value = nextRecords;
     current.value = record;
     persist();
+    await Promise.all(removed.map(item => deleteUserImage(item.imagePath).catch(() => undefined)));
     status.value = parsed.extraImages ? `完成（模型多输出了 ${parsed.extraImages} 张图片标记，本次只生成第一张）` : '小剧场已生成并保存';
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause);
@@ -150,9 +153,12 @@ async function reroll(): Promise<void> {
   try {
     const parsed: ParsedTheaterOutput = current.value;
     const next = await createRecord(current.value.input, parsed, current.value.mode);
-    records.value = [next, ...records.value].slice(0, 200);
+    const nextRecords = [next, ...records.value];
+    const removed = nextRecords.splice(200);
+    records.value = nextRecords;
     current.value = next;
     persist();
+    await Promise.all(removed.map(item => deleteUserImage(item.imagePath).catch(() => undefined)));
     status.value = '已生成新的候选图片，旧图片仍保留在历史中';
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause);
