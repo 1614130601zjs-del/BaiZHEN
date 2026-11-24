@@ -2840,13 +2840,13 @@ export async function hydrateSettings(): Promise<void> {
       if (vibe.thumbnailPath) referencedPaths.add(vibe.thumbnailPath);
     }
     const candidates = getUnreferencedVibeCleanupPaths(item, referencedPaths);
-    let failed = false;
+    const failedPaths: string[] = [];
     for (const path of [candidates.dataPath, candidates.thumbnailPath]) {
       if (!path) continue;
       try {
         await deleteVibeFile(path);
       } catch (error) {
-        failed = true;
+        failedPaths.push(path);
         console.warn('[柏宝绘] Vibe 旧文件延后清理失败，将在下次启动重试：', path, error);
       }
     }
@@ -2854,13 +2854,11 @@ export async function hydrateSettings(): Promise<void> {
     // unreferenced deletions stay queued for a future retry.
     const index = settings.nai.vibeCleanupQueue.indexOf(item);
     if (index >= 0) {
-      if (failed) {
+      if (failedPaths.length) {
         settings.nai.vibeCleanupQueue.splice(index, 1, {
-          dataPath: candidates.dataPath && failed ? candidates.dataPath : '',
-          thumbnailPath: candidates.thumbnailPath && failed ? candidates.thumbnailPath : '',
+          dataPath: failedPaths.find(path => path === candidates.dataPath) || '',
+          thumbnailPath: failedPaths.find(path => path === candidates.thumbnailPath) || '',
         });
-        const replacement = settings.nai.vibeCleanupQueue[index];
-        if (!replacement.dataPath && !replacement.thumbnailPath) settings.nai.vibeCleanupQueue.splice(index, 1);
       } else settings.nai.vibeCleanupQueue.splice(index, 1);
     }
   }
