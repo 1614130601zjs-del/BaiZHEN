@@ -496,8 +496,8 @@ async function exportBackup() {
         <span>画师串：{{ preview.artists }}（预计新增 {{ preview.newArtists }}）</span>
         <span>组合：{{ preview.combos }}</span>
         <span>角色绑定：{{ preview.bindings }}</span>
-        <span>Vibe 池资源：{{ preview.vibes }}（预计新增 {{ preview.newVibes }}，复用/重复 {{ preview.duplicateVibes }}）
-        <span>组引用：{{ preview.references }}</span></span>
+        <span>Vibe 池资源：{{ preview.vibes }}（预计新增 {{ preview.newVibes }}，复用/重复 {{ preview.duplicateVibes }}）</span>
+        <span>组引用：{{ preview.references }}</span>
         <span>Vibe 分组：{{ preview.groups }}</span>
         <span>无法识别：{{ preview.unsupported }}</span>
       </div>
