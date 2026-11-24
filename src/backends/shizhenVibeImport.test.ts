@@ -184,4 +184,13 @@ describe('Vibe ZIP archive safety', () => {
     const json = JSON.stringify({ identifier: 'novelai-vibe-transfer', encodings: { 'v4-5full': { encoding: payload } } });
     await expect(readShizhenVibeFile(makeStoredZip(json, 8), 'v4-5full')).rejects.toThrow(/长度不符/);
   });
+
+  it('rejects a local filename that disagrees with the central directory', async () => {
+    const json = JSON.stringify({ identifier: 'novelai-vibe-transfer', encodings: { 'v4-5full': { encoding: payload } } });
+    const valid = makeStoredZip(json);
+    const bytes = new Uint8Array(await valid.arrayBuffer());
+    bytes[30] = 'x'.charCodeAt(0);
+    const tampered = new File([bytes], 'tampered.zip', { type: 'application/zip' });
+    await expect(readShizhenVibeFile(tampered, 'v4-5full')).rejects.toThrow(/本地文件头与中央目录不一致/);
+  });
 });
