@@ -3,6 +3,7 @@ import Backend from './backend/index.vue';
 import Characters from './characters/index.vue';
 import Gallery from './gallery/index.vue';
 import History from './history/index.vue';
+import Library from './library/index.vue';
 import Mode from './mode/index.vue';
 import Theater from './theater/index.vue';
 import Workshop from './workshop/index.vue';
@@ -24,6 +25,7 @@ export const PAGES: PageDef[] = [
   { id: 'backend', label: '渠道', component: Backend },
   { id: 'characters', label: '角色管理', component: Characters },
   { id: 'gallery', label: '图库', component: Gallery },
+  { id: 'library', label: '素材库', component: Library },
   { id: 'workshop', label: '工坊', component: Workshop },
   { id: 'history', label: '请求历史', component: History },
   { id: 'mode', label: '生图模式', component: Mode },
