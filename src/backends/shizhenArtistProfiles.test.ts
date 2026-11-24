@@ -156,7 +156,6 @@ describe('profile size-only and target fallback', () => {
     } as unknown as import('@/state/settings').NaiSettings;
     const result = applyArtistProfileToNai(native, '', 'body');
     expect(result.applied).toBe(true);
-    expect(result.nai.portraitSize).toBe('1024x1024');
     expect(result.size).toBe('1024x1024');
     expect(result.nai.portraitSize).toBe('832x1216');
     expect(result.nai.landscapeSize).toBe('1216x832');
