@@ -217,9 +217,24 @@ async function exportBackup() {
       const poolId = vibe.id;
       const infoValues = Object.values(data.encodings).map(item => item.infoExtracted);
       const sharedInfo = infoValues.length && infoValues.every(value => value === infoValues[0]) ? infoValues[0] : undefined;
+      const modelKeys = Object.keys(data.encodings);
+      // Emit the canonical NovelAI Vibe Transfer envelope used by Shizhen's pool.
+      // Keep each model's Information Extracted inside its own encoding; the pool-level
+      // value is only a compatibility fallback when all model values are identical.
       pool.push({
         id: poolId, name: vibe.name, image: data.image, thumbnail: data.thumbnail,
-        thumb: data.thumbnail, raw: { encodings: data.encodings, image: data.image },
+        thumb: data.thumbnail,
+        raw: {
+          identifier: 'novelai-vibe-transfer', version: 1, type: 'encoding',
+          name: vibe.name,
+          importInfo: {
+            model: modelKeys[0] || '',
+            strength: vibe.strength,
+            ...(sharedInfo !== undefined ? { information_extracted: sharedInfo } : {}),
+          },
+          encodings: data.encodings,
+          image: data.image,
+        },
         strength: vibe.strength, ...(sharedInfo !== undefined ? { informationExtracted: sharedInfo } : {}),
       });
       const ref = { poolId, strength: vibe.strength, ...(sharedInfo !== undefined ? { informationExtracted: sharedInfo } : {}) };
