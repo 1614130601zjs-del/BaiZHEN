@@ -220,6 +220,7 @@ async function generateForFrame(frame: HTMLElement, prompt: string, task: Status
   let output: Awaited<ReturnType<typeof generateImage>> | undefined;
   activeTasks.add(task.taskKey);
   frame.dataset.bbiStatusbarBusy = '1';
+  frame.dataset.bbiStatusbarBusyTask = task.taskKey;
   frame.querySelector('.bbi-statusbar-trigger,.bbi-statusbar-error')?.remove();
   const loading = frame.ownerDocument.createElement('div');
   loading.className = 'bbi-statusbar-loading';
@@ -269,7 +270,10 @@ async function generateForFrame(frame: HTMLElement, prompt: string, task: Status
   } finally {
     output?.result.revoke();
     loading.remove();
-    frame.dataset.bbiStatusbarBusy = '0';
+    if (frame.dataset.bbiStatusbarBusyTask === task.taskKey) {
+      frame.dataset.bbiStatusbarBusy = '0';
+      frame.dataset.bbiStatusbarBusyTask = '';
+    }
     activeTasks.delete(task.taskKey);
     if (frame.dataset.bbiStatusbarTask === task.taskKey && statusBarPromptForTarget(frame) === prompt
       && !frame.querySelector('.bbi-statusbar-card') && !frame.querySelector('.bbi-statusbar-error')) {
@@ -312,7 +316,8 @@ function processFrames(): void {
         frame.dataset.bbiStatusbarAutoStarted = '';
         frame.querySelectorAll('.bbi-statusbar-card,.bbi-statusbar-trigger,.bbi-statusbar-error,.bbi-statusbar-loading').forEach(node => node.remove());
       }
-      if (frame.dataset.bbiStatusbarBusy === '1' || frame.querySelector('.bbi-statusbar-error')) continue;
+      if ((frame.dataset.bbiStatusbarBusy === '1' && frame.dataset.bbiStatusbarBusyTask === identity.taskKey)
+        || frame.querySelector('.bbi-statusbar-error')) continue;
       const cached = store().tasks[identity.taskKey];
       if (cached?.images?.length) {
         if (!frame.querySelector('.bbi-statusbar-card')) renderCard(frame, cached);
