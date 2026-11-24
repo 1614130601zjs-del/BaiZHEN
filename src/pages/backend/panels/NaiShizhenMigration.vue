@@ -373,7 +373,9 @@ async function exportBackup() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url; anchor.download = `baizhen-shizhen-export-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
-    anchor.click(); URL.revokeObjectURL(url);
+    anchor.click();
+    // Keep the object URL alive long enough for mobile browsers to begin the download.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     summary.value = '已导出画师串、组合、角色绑定与 Vibe 池数据；未导出 API Key、聊天记录或影像缓存。';
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause);
