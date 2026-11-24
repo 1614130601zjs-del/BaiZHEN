@@ -174,7 +174,7 @@ describe('vibeStore', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const result = await saveVibeFiles(data, null, 'new-vibe');
-    expect(result.dataPath).toMatch(/^idb:new-vibe-/);
+    expect(result.dataPath).toBe('idb:new-vibe');
     expect(fileStore.remove).toHaveBeenCalledWith('/user/files/bbi-vibe-new.json');
   });
 
