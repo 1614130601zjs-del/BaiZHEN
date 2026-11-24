@@ -44,7 +44,10 @@ const targetDraft = ref({
 
 const characters = computed(() => {
   const context = getContext() as { characters?: Array<{ name?: string; avatar?: string }> ; characterId?: number; name2?: string } | undefined;
-  const list = Array.isArray(context?.characters) ? context.characters : [];
+  const hostCharacters = (window as Window & { characters?: Array<{ name?: string; avatar?: string }> }).characters;
+  const list = Array.isArray(context?.characters) && context.characters.length
+    ? context.characters
+    : Array.isArray(hostCharacters) ? hostCharacters : [];
   return list.map((item, index) => ({
     key: item.avatar ? `avatar:${item.avatar}` : item.name ? `name:${item.name}` : `legacy-index:${index}`,
     name: item.name || item.avatar || `角色 ${index + 1}`,
