@@ -100,6 +100,7 @@ export function parseShizhenFullBackup(input: unknown, currentModelKey: string):
   const vibes: ShizhenImportVibe[] = [];
   let unsupportedVibes = 0;
   const consumedPoolIds = new Set<string>();
+  const groupRefSignatures = new Map<string, string>();
   const appendVibe = (
     raw: Record<string, unknown>,
     groupName: string,
@@ -107,10 +108,10 @@ export function parseShizhenFullBackup(input: unknown, currentModelKey: string):
     refInfo?: unknown,
     rawRefEnabled?: unknown,
     sourcePoolId = String(raw.id ?? ''),
-  ) => {
+  ): ShizhenImportVibe | undefined => {
     const parsed = parseShizhenVibeJson(raw, currentModelKey, String(raw.name ?? raw.title ?? '导入的 Vibe'));
     const item = parsed.items[0];
-    if (!item) { unsupportedVibes++; return; }
+    if (!item) { unsupportedVibes++; return undefined; }
     const dataCopy: NaiVibeData = {
       image: item.data.image,
       thumbnail: typeof raw.thumb === 'string' && raw.thumb ? raw.thumb
@@ -119,7 +120,7 @@ export function parseShizhenFullBackup(input: unknown, currentModelKey: string):
       // Information Extracted belongs to a group reference, not to the shared pool resource.
       encodings: item.data.encodings,
     };
-    vibes.push({
+    const imported: ShizhenImportVibe = {
       sourcePoolId: sourcePoolId || `legacy:${groupName}:${vibes.length}`,
       name: String(raw.name ?? raw.title ?? item.name ?? '导入的 Vibe').trim() || '导入的 Vibe',
       group: groupName,
@@ -129,7 +130,9 @@ export function parseShizhenFullBackup(input: unknown, currentModelKey: string):
         ? { informationExtracted: Math.max(0, Math.min(1, refInfo)) }
         : {}),
       data: dataCopy,
-    });
+    };
+    vibes.push(imported);
+    return imported;
   };
 
   for (const group of groups) {
@@ -141,7 +144,19 @@ export function parseShizhenFullBackup(input: unknown, currentModelKey: string):
         const entry = poolById.get(poolId);
         if (!entry) { unsupportedVibes++; continue; }
         consumedPoolIds.add(poolId);
-        appendVibe(entry, group.name, ref.strength, ref.informationExtracted, ref.enabled);
+        const imported = appendVibe(entry, group.name, ref.strength, ref.informationExtracted, ref.enabled);
+        if (imported) {
+          const refKey = `${group.name}\\u0000${poolId}`;
+          const signature = JSON.stringify([
+            imported.strength, imported.enabled ?? null, imported.informationExtracted ?? null,
+          ]);
+          const previous = groupRefSignatures.get(refKey);
+          if (previous !== undefined && previous !== signature) {
+            throw new Error(`拾帧备份中「${group.name}」对同一 Vibe 资源存在互相冲突的引用设置，已停止导入以避免丢失强度或启用状态。`);
+          }
+          if (previous === signature) vibes.pop();
+          else groupRefSignatures.set(refKey, signature);
+        }
       }
       continue;
     }

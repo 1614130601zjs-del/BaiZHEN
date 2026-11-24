@@ -74,6 +74,10 @@ describe('active Vibe pool group resolution',()=>{
   nai.activeVibeGroupId='g2';
   expect(getNaiVibesForGeneration(nai)[0]).toMatchObject({id:'shared',strength:.92,informationExtracted:.23});
  });
+ it('does not reactivate legacy Vibes when an explicit group ID is stale',()=>{
+  const legacy=[v('legacy','',.5,true)];
+  expect(getNaiVibesForGeneration({vibes:legacy,vibePool:[],vibeGroups:[],activeVibeGroupId:'deleted-group'} as unknown as import('@/state/settings').NaiSettings)).toEqual([]);
+ });
  it('falls back to the legacy library when no pool group is selected',()=>{
   const legacy=[v('legacy','',.5,true)];
   expect(getNaiVibesForGeneration({vibes:legacy,vibePool:[],vibeGroups:[],activeVibeGroupId:''} as unknown as import('@/state/settings').NaiSettings)).toBe(legacy);

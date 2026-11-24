@@ -28,7 +28,8 @@ export function materializeVibeGroup(group: NaiVibeGroup, pool: readonly NaiVibe
 export function getNaiVibesForGeneration(nai: Pick<NaiSettings, 'vibes' | 'vibePool' | 'vibeGroups' | 'activeVibeGroupId'>): NaiVibe[] {
   if (!nai.activeVibeGroupId) return nai.vibes;
   const group = nai.vibeGroups.find(item => item.id === nai.activeVibeGroupId);
-  return group ? materializeVibeGroup(group, nai.vibePool) : nai.vibes;
+  // A stale explicit group must never silently reactivate the legacy Vibe library.
+  return group ? materializeVibeGroup(group, nai.vibePool) : [];
 }
 
 /** Apply a group-member Information Extracted override to a request-local payload copy. */

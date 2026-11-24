@@ -49,6 +49,35 @@ describe('parseShizhenFullBackup', () => {
     }, 'v4-5full')).toThrow(/重复的 Vibe 池 ID/);
   });
 
+  it('rejects conflicting duplicate refs to one resource in the same group', () => {
+    expect(() => parseShizhenFullBackup({
+      format: 'shizhen-lite-full-backup',
+      data: {
+        presets: [], combinations: [],
+        vibes: [{ name: 'same-group', refs: [
+          { poolId: 'shared', strength: 0.3, enabled: true },
+          { poolId: 'shared', strength: 0.8, enabled: false },
+        ] }],
+        vibePool: [{ id: 'shared', raw: { encodings: { 'v4-5full': { encoding: payload } } } }],
+      },
+    }, 'v4-5full')).toThrow(/互相冲突的引用设置/);
+  });
+
+  it('collapses identical duplicate refs to one logical group reference', () => {
+    const plan = parseShizhenFullBackup({
+      format: 'shizhen-lite-full-backup',
+      data: {
+        presets: [], combinations: [],
+        vibes: [{ name: 'same-group', refs: [
+          { poolId: 'shared', strength: 0.3, enabled: true },
+          { poolId: 'shared', strength: 0.3, enabled: true },
+        ] }],
+        vibePool: [{ id: 'shared', raw: { encodings: { 'v4-5full': { encoding: payload } } } }],
+      },
+    }, 'v4-5full');
+    expect(plan.vibes).toHaveLength(1);
+  });
+
   it('rejects unrelated settings files', () => {
     expect(() => parseShizhenFullBackup({ extensions: { baibaiToolkit: {} } }, 'v4-5full')).toThrow(/拾帧完整备份/);
   });

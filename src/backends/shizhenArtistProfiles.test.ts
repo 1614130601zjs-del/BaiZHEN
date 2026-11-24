@@ -4,6 +4,7 @@ import {
   mapShizhenComboReferences,
   mapShizhenTarget,
   applyArtistProfileToNai,
+  getNaiVibesForGeneration,
   removeArtistCombo,
   resolveArtistTarget,
 } from '@/backends/shizhenArtistProfiles';
@@ -238,6 +239,12 @@ describe('partial artist and Vibe combos', () => {
     expect(result.nai.vibes.map(v => v.enabled)).toEqual([false, true]);
   });
 
+  it('does not reactivate legacy Vibes when a combo references a missing group', () => {
+    const source = makeNai({ artistId: '', vibeId: '', vibeGroup: 'deleted-group' });
+    const result = applyArtistProfileToNai(source, '', 'body');
+    expect(result.nai.activeVibeGroupId).toBe('deleted-group');
+    expect(getNaiVibesForGeneration(result.nai)).toEqual([]);
+  });
   it('applies the exact target size regardless of the generated orientation', () => {
     const portrait = applyArtistProfileToNai(makeNai({ artistId: '', vibeId: '' }, '768x1344'), '', 'body');
     expect(portrait.size).toBe('768x1344');
