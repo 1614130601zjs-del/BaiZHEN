@@ -320,7 +320,6 @@ async function exportBackup() {
     for (const legacy of legacyVibes) {
       const existingRefs = refsByPoolId.get(legacy.id) || [];
       if (legacy.group.trim() && !existingRefs.some(ref => ref.group === legacy.group.trim())) {
-        const ref = { poolId: legacy.id, strength: legacy.strength };
         const refs = refsByGroup.get(legacy.group.trim()) || [];
         const legacyRef = { poolId: legacy.id, strength: legacy.strength, ...(legacy.informationExtracted !== undefined ? { informationExtracted: legacy.informationExtracted } : {}) };
         refs.push(legacyRef); refsByGroup.set(legacy.group.trim(), refs);
@@ -365,7 +364,7 @@ async function exportBackup() {
         strength: firstRef.strength,
         ...(firstRef.informationExtracted !== undefined ? { informationExtracted: firstRef.informationExtracted } : {}),
       });
-      if (!references.length) refsUngrouped.push({ poolId: vibe.id, strength: defaultStrength, ...(legacy?.informationExtracted !== undefined ? { informationExtracted: legacy.informationExtracted } : {}) });
+      if (!references.length) refsUngrouped.push({ poolId: vibe.id, strength: defaultStrength, ...((legacy?.informationExtracted ?? vibe.informationExtracted) !== undefined ? { informationExtracted: legacy?.informationExtracted ?? vibe.informationExtracted } : {}) });
     }
     const groupNamesWithUngrouped = [...groupNames];
     let ungroupedName = '';
