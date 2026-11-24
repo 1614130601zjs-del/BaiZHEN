@@ -8,7 +8,7 @@ import { deleteUserImage, uploadUserImage } from '@/st/images';
 import { getContext, type STMessage } from '@/st/context';
 import { makeCharacterBindingKey } from '@/backends/shizhenArtistProfiles';
 import { settings } from '@/state/settings';
-import { getWorldbookModeProfile } from '@/modes/worldbookMode';
+import { buildGenerationModeSystem, captureGenerationMode, getGenerationModeWorldNames, type GenerationModeSnapshot } from '@/modes/dispatcher';
 import { parseTheaterOutput, resolveTheaterSourceChatId, type ParsedTheaterOutput } from '@/theater/format';
 
 interface TheaterRecord extends ParsedTheaterOutput {
@@ -72,7 +72,7 @@ function historyMessages(chat = getContext()?.chat ?? []): Array<{ role: string;
       content: message.mes.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 3000),
     }));
 }
-async function buildGenerationMessages(userInput: string, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', sourceChat: STMessage[]): Promise<Array<{ role: string; content: string }>> {
+async function buildGenerationMessages(userInput: string, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', sourceChat: STMessage[], generationMode: GenerationModeSnapshot): Promise<Array<{ role: string; content: string }>> {
   const context = getContext();
   if (!context) throw new Error('酒馆上下文尚未就绪');
   const chat = sourceChat;
@@ -81,11 +81,11 @@ async function buildGenerationMessages(userInput: string, modeValue: 'scene' | '
   const name2 = context.name2;
   const card = fetchCharCard(context);
   const persona = fetchUserPersona(context);
-  const profile = getWorldbookModeProfile();
-  const allowedBooks = profile.enabled ? [profile.coreBook, profile.worldviewBook].filter(Boolean) : undefined;
+  const allowedBooks = getGenerationModeWorldNames(generationMode);
   const world = await fetchWorldInfo(chat, floors, name1, name2, undefined, undefined, allowedBooks);
   const system = [
     '你是小剧场编剧。根据用户给出的画面词或剧情词，结合聊天上下文、角色卡和已激活世界书，写出小剧场内容。',
+    buildGenerationModeSystem(generationMode),
     '严格输出纯文本标记，不要 Markdown 代码块。格式：',
     'title###标题###',
     'image###英文 Danbooru 风格正向提示词###',
@@ -160,6 +160,7 @@ async function generateTheater(): Promise<void> {
     const styleValue = style.value;
     const modeValue = mode.value;
     const comboIdValue = comboId.value;
+    const generationMode = captureGenerationMode();
     // 在任何异步文本请求前固定后端、模型、凭据和画幅配置，避免等待期间设置变化导致图片走另一套配置。
     const generationSnapshot = captureGenerationSnapshot();
     if (!generationSnapshot.status.configured) throw new Error(generationSnapshot.status.reason || '生图后端尚未配置');
@@ -173,7 +174,7 @@ async function generateTheater(): Promise<void> {
       characterName: characterAtStart?.name || contextAtStart?.name2 || '',
       characterKey: makeCharacterBindingKey(characterAtStart?.avatar, characterAtStart?.name, contextAtStart?.characterId),
     };
-    const messages = await buildGenerationMessages(text, modeValue, styleValue, contextAtStart.chat.slice());
+    const messages = await buildGenerationMessages(text, modeValue, styleValue, contextAtStart.chat.slice(), generationMode);
     // 保存本次真正提交给文本模型的完整消息（含角色卡/世界书系统上下文），按图片记录独立留档。
     sourceSnapshot.chatSnapshot = messages;
     status.value = '正在生成小剧场文本…';
