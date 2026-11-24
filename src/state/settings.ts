@@ -2166,7 +2166,7 @@ function normalizeArtistTarget(raw: unknown): NaiArtistTargetConfig {
   };
 }
 
-function normalizeShizhenArtistProfiles(raw: unknown, artistIds: ReadonlySet<string>, vibeIds: ReadonlySet<string>, fallback: NaiArtistProfileSettings): NaiArtistProfileSettings {
+function normalizeShizhenArtistProfiles(raw: unknown, artistIds: ReadonlySet<string>, _vibeIds: ReadonlySet<string>, fallback: NaiArtistProfileSettings): NaiArtistProfileSettings {
   const value = (raw ?? {}) as Partial<NaiArtistProfileSettings>;
   const sourceCombos = Array.isArray(value.combos) ? value.combos : fallback.combos;
   const combos = sourceCombos
@@ -2175,7 +2175,9 @@ function normalizeShizhenArtistProfiles(raw: unknown, artistIds: ReadonlySet<str
       id: typeof item.id === 'string' && item.id ? item.id : `nac_${Date.now()}_${index}`,
       name: typeof item.name === 'string' ? item.name : `组合 ${index + 1}`,
       artistId: typeof item.artistId === 'string' && artistIds.has(item.artistId) ? item.artistId : '',
-      vibeId: typeof item.vibeId === 'string' && vibeIds.has(item.vibeId) ? item.vibeId : '',
+      // Preserve stale explicit Vibe IDs: clearing one after resource deletion would make
+      // the combo inherit the global active group and silently change the requested style.
+      vibeId: typeof item.vibeId === 'string' ? item.vibeId : '',
       vibeGroup: typeof item.vibeGroup === 'string' ? item.vibeGroup : '',
       updatedAt: typeof item.updatedAt === 'number' && Number.isFinite(item.updatedAt) ? item.updatedAt : 0,
     }));

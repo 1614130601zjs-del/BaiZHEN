@@ -210,3 +210,42 @@ describe('Vibe pool artist combo normalization', () => {
     expect(settings.nai.shizhenArtistProfiles.global.body.comboId).toBe('pool-combo');
   });
 });
+
+
+describe('deleted Vibe combo reference normalization', () => {
+  it('preserves a stale explicit resource ID so the combo cannot inherit the global Vibe group', async () => {
+    mocks.context = {
+      extensionSettings: {
+        baibai_image: {
+          nai: {
+            vibes: [{
+              id: 'legacy-vibe', name: '旧 Vibe', dataPath: '/user/files/legacy.json',
+              thumbnailPath: '', modelKeys: ['v4-5full'], hasImage: false, fingerprint: 'legacy',
+              strength: 0.6, enabled: true, group: '',
+            }],
+            vibePool: [{
+              id: 'global-resource', name: '全局资源', dataPath: '/user/files/global.json',
+              thumbnailPath: '', modelKeys: ['v4-5full'], hasImage: false, fingerprint: 'global',
+            }],
+            vibeGroups: [{ id: 'global-group', name: '全局组', refs: [{ poolId: 'global-resource', strength: 0.8, enabled: true }] }],
+            activeVibeGroupId: 'global-group',
+            shizhenArtistProfiles: {
+              combos: [{ id: 'deleted-resource-combo', name: '已删除资源组合', artistId: '', vibeId: 'deleted-resource', vibeGroup: '', updatedAt: 1 }],
+              global: {
+                body: { comboId: 'deleted-resource-combo', size: '' },
+                statusBar: { comboId: '', size: '' },
+                egg: { comboId: '', size: '' },
+              },
+              bindings: [],
+            },
+          },
+        },
+      },
+      saveSettingsDebounced: vi.fn(),
+    };
+    const { hydrateSettings, settings } = await import('@/state/settings');
+    await hydrateSettings();
+    expect(settings.nai.shizhenArtistProfiles.combos[0].vibeId).toBe('deleted-resource');
+    expect(settings.nai.activeVibeGroupId).toBe('global-group');
+  });
+});
