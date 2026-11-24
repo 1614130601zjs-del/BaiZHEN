@@ -104,7 +104,7 @@ async function buildGenerationMessages(userInput: string, styleValue: 'egg' | 'c
     { role: 'user', content: (mode.value === 'plot' ? '剧情词：' : '画面词：') + userInput },
   ];
 }
-async function createRecord(userInput: string, parsed: ParsedTheaterOutput, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', comboIdValue = '', sourceSnapshot?: Pick<TheaterRecord, 'chatSnapshot' | 'characterName' | 'characterKey'>): Promise<TheaterRecord> {
+async function createRecord(userInput: string, parsed: ParsedTheaterOutput, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', comboIdValue = '', sourceSnapshot?: Pick<TheaterRecord, 'chatSnapshot' | 'characterName' | 'characterKey' | 'sourceChatId'>): Promise<TheaterRecord> {
   const context = getContext();
   if (!context) throw new Error('酒馆上下文尚未就绪');
   const snapshot = captureGenerationSnapshot();
