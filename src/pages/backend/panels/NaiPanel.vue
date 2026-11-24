@@ -70,8 +70,10 @@ import {
   type NaiArtistPreset,
   type NaiEndpoint,
   type NaiVibe,
+  type NaiVibePoolItem,
 } from '@/state/settings';
 import { computed, nextTick, ref } from 'vue';
+import { materializeVibeGroup } from '@/backends/vibePool';
 
 /** 本渠道是否为当前出图渠道;「使用此渠道」按钮与设置页选择器、页签徽标同属一个开关。 */
 const inUse = computed(() => settings.defaultBackend === 'nai');
@@ -499,6 +501,7 @@ async function onVibeFileChange(event: Event) {
         true,
       ),
     );
+    registerVibePoolResource(settings.nai.vibes[settings.nai.vibes.length - 1]);
     toastr.success(`已按 ${settings.nai.model} 编码并加入 Vibe 库`, 'Vibe');
   } catch (error) {
     toastr.error(errorMessage(error), 'Vibe 编码失败');
@@ -535,6 +538,93 @@ async function reencodeVibe(vibe: NaiVibe) {
   } finally {
     vibeEncoding.value = false;
   }
+}
+
+/* ============ 独立 Vibe 池与多组引用 ============ */
+
+/** 池选择只编辑资源引用，不改变资源本身，也不会移动旧版 Vibe。 */
+const poolSelectionMode = ref(false);
+const selectedPoolIds = ref<Set<string>>(new Set());
+const poolGroupCount = computed(() => settings.nai.vibeGroups.length);
+const poolSelectionCount = computed(() => selectedPoolIds.value.size);
+const poolResourceById = computed(() => new Map(settings.nai.vibePool.map(item => [item.id, item])));
+
+function registerVibePoolResource(vibe: NaiVibe) {
+  if (!settings.nai.vibePool.some(item => item.id === vibe.id)) {
+    const { strength: _strength, enabled: _enabled, group: _group, ...resource } = vibe;
+    settings.nai.vibePool.push(resource as NaiVibePoolItem);
+  }
+  const groupName = vibe.group.trim();
+  if (groupName) {
+    let group = settings.nai.vibeGroups.find(item => item.name === groupName);
+    if (!group) {
+      group = { id: `vibe-group-${Date.now()}-${settings.nai.vibeGroups.length}`, name: groupName, refs: [] };
+      settings.nai.vibeGroups.push(group);
+    }
+    if (!group.refs.some(ref => ref.poolId === vibe.id)) {
+      group.refs.push({ poolId: vibe.id, strength: vibe.strength, enabled: vibe.enabled });
+    }
+  }
+}
+
+function togglePoolSelection(id: string) {
+  const next = new Set(selectedPoolIds.value);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  selectedPoolIds.value = next;
+}
+
+function createPoolGroupFromSelection() {
+  const ids = selectedPoolIds.value;
+  if (!ids.size) return;
+  const name = window.prompt('Vibe 组名称（输入已有组名可追加资源）')?.trim();
+  if (!name) return;
+  let group = settings.nai.vibeGroups.find(item => item.name === name);
+  if (!group) {
+    group = { id: `vibe-group-${Date.now()}-${settings.nai.vibeGroups.length}`, name, refs: [] };
+    settings.nai.vibeGroups.push(group);
+  }
+  let added = 0;
+  for (const id of ids) {
+    if (group.refs.some(ref => ref.poolId === id)) continue;
+    const legacy = settings.nai.vibes.find(item => item.id === id);
+    const resource = poolResourceById.value.get(id);
+    if (!resource) continue;
+    group.refs.push({
+      poolId: id,
+      strength: legacy?.strength ?? 0.6,
+      enabled: legacy?.enabled ?? true,
+    });
+    added++;
+  }
+  settings.nai.activeVibeGroupId = group.id;
+  selectedPoolIds.value = new Set();
+  poolSelectionMode.value = false;
+  toastr.success(`已向「${name}」添加 ${added} 个资源；同一资源可继续加入其他组`, 'Vibe 池');
+}
+
+function removePoolGroup(groupId: string) {
+  const index = settings.nai.vibeGroups.findIndex(group => group.id === groupId);
+  if (index < 0) return;
+  settings.nai.vibeGroups.splice(index, 1);
+  if (settings.nai.activeVibeGroupId === groupId) settings.nai.activeVibeGroupId = '';
+}
+
+function poolGroupVibes(groupId: string): NaiVibe[] {
+  const group = settings.nai.vibeGroups.find(item => item.id === groupId);
+  return group ? materializeVibeGroup(group, settings.nai.vibePool) : [];
+}
+
+function updatePoolRefStrength(groupId: string, poolId: string, raw: string) {
+  const ref = settings.nai.vibeGroups.find(group => group.id === groupId)?.refs.find(item => item.poolId === poolId);
+  if (ref) ref.strength = clampVibeStrength(raw);
+}
+
+function updatePoolRefInfo(groupId: string, poolId: string, raw: string) {
+  const ref = settings.nai.vibeGroups.find(group => group.id === groupId)?.refs.find(item => item.poolId === poolId);
+  if (!ref) return;
+  if (!raw.trim()) delete ref.informationExtracted;
+  else ref.informationExtracted = Math.max(0, Math.min(1, Number.parseFloat(raw) || 0));
 }
 
 /* ============ Vibe 分组 ============ */
@@ -742,6 +832,7 @@ async function onVibeImportChange(event: Event) {
     }
 
     settings.nai.vibes.push(...saved);
+    for (const vibe of saved) registerVibePoolResource(vibe);
     const parts = [`新增 ${saved.length} 个`];
     if (duplicates) parts.push(`重复跳过 ${duplicates} 个`);
     if (parsed.unsupported) parts.push(`无法识别 ${parsed.unsupported} 个`);
@@ -1382,6 +1473,47 @@ async function removeVibe(vibe: NaiVibe) {
 
         <p v-if="!settings.nai.vibes.length" class="bbi-field-hint">还没有 vibe;上传一张参考图开始。</p>
 
+        <div class="vibe-pool-manager">
+          <div class="vibe-toolbar">
+            <strong>独立 Vibe 池</strong>
+            <span class="vibe-count">{{ settings.nai.vibePool.length }} 个资源 · {{ poolGroupCount }} 个组</span>
+            <button v-if="!poolSelectionMode" class="bbi-btn bbi-btn-sm" type="button" @click="poolSelectionMode = true">
+              从资源池选择组建 Vibe 组
+            </button>
+            <template v-else>
+              <span class="vibe-count">已选 {{ poolSelectionCount }} 个</span>
+              <button class="bbi-btn bbi-btn-sm bbi-btn-primary" type="button" :disabled="!poolSelectionCount" @click="createPoolGroupFromSelection">创建/追加到组</button>
+              <button class="bbi-btn bbi-btn-sm" type="button" @click="selectedPoolIds = new Set()">清空</button>
+              <button class="bbi-btn bbi-btn-sm" type="button" @click="poolSelectionMode = false; selectedPoolIds = new Set()">取消</button>
+            </template>
+          </div>
+          <p class="bbi-field-hint">资源池只保存一份 Vibe 编码；一个资源可以同时被多个组引用，各组成员的强度和 Information Extracted 独立保存。</p>
+          <div v-if="poolSelectionMode" class="vibe-pool-grid">
+            <label v-for="resource in settings.nai.vibePool" :key="resource.id" class="vibe-pool-item">
+              <input type="checkbox" class="bbi-checkbox" :checked="selectedPoolIds.has(resource.id)" @change="togglePoolSelection(resource.id)" />
+              <span>{{ resource.name }}</span>
+              <small>{{ resource.modelKeys.join(' / ') || '无模型编码' }}</small>
+            </label>
+            <p v-if="!settings.nai.vibePool.length" class="bbi-field-hint">资源池暂时为空；上传或导入 Vibe 后会自动加入。</p>
+          </div>
+          <div v-if="settings.nai.vibeGroups.length" class="vibe-pool-groups">
+            <div v-for="group in settings.nai.vibeGroups" :key="group.id" class="vibe-pool-group">
+              <div class="vibe-toolbar">
+                <strong>{{ group.name }}</strong>
+                <span class="vibe-count">{{ group.refs.length }} 个引用</span>
+                <button class="bbi-btn bbi-btn-sm" type="button" @click="settings.nai.activeVibeGroupId = group.id">本次生图使用此组</button>
+                <button class="bbi-btn bbi-btn-sm" type="button" @click="removePoolGroup(group.id)">删除组</button>
+              </div>
+              <div v-for="ref in group.refs" :key="ref.poolId" class="vibe-pool-ref">
+                <span>{{ poolResourceById.get(ref.poolId)?.name || '缺失资源' }}</span>
+                <label>强度 <input class="bbi-input" type="number" min="0" max="1" step="0.05" :value="ref.strength" @change="updatePoolRefStrength(group.id, ref.poolId, ($event.target as HTMLInputElement).value)" /></label>
+                <label>Information Extracted <input class="bbi-input" type="number" min="0" max="1" step="0.05" :value="ref.informationExtracted ?? ''" placeholder="沿用编码值" @change="updatePoolRefInfo(group.id, ref.poolId, ($event.target as HTMLInputElement).value)" /></label>
+                <button class="bbi-btn bbi-btn-sm" type="button" @click="group.refs.splice(group.refs.findIndex(item => item.poolId === ref.poolId), 1)">移出组</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <template v-else>
           <div class="vibe-toolbar">
             <input
@@ -1668,6 +1800,16 @@ async function removeVibe(vibe: NaiVibe) {
 </template>
 
 <style scoped>
+.vibe-pool-manager { display: grid; gap: 10px; margin: 10px 0 14px; padding: 12px; border: 1px solid var(--bbi-border); border-radius: 10px; }
+.vibe-pool-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.vibe-pool-item, .vibe-pool-ref { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 7px; border: 1px solid var(--bbi-border); border-radius: 7px; }
+.vibe-pool-item small { margin-left: auto; opacity: .65; }
+.vibe-pool-groups { display: grid; gap: 8px; }
+.vibe-pool-group { display: grid; gap: 7px; padding: 9px; border: 1px solid var(--bbi-border); border-radius: 8px; }
+.vibe-pool-ref { flex-wrap: wrap; }
+.vibe-pool-ref label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; }
+.vibe-pool-ref .bbi-input { width: 74px; }
+
 /* 默认参数的语义配对紧凑行:双字段行两列、数字参数行四列;
    窄屏双字段行落单列、数字行落 2×2。
    垂直节奏由行容器统一管(行内字段的 margin-bottom 归零),
