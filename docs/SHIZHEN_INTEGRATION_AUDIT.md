@@ -125,3 +125,33 @@
 - 目前还没有完成角色卡独立 profile、双人/群像两套核心书、逐条目 UI 绑定、异常关闭后的启动恢复、切换模式时完整事务回滚。
 - 小剧场、剧情图片收藏快照、拾帧工坊、通用词库、作品库、角色词条别名、CSS 影像美化和 Android 素材库均尚未移植。
 - 代码通过 GitHub 源码审阅，但当前执行环境没有该仓库的 Node 依赖和构建环境，尚未运行 `npm run typecheck`、`npm test` 或 `npm run build`。因此本阶段不能标记为构建通过或可发布；需要在 Termux/本地环境安装依赖后验收。
+
+
+## 八、第二阶段代码落地（2026-11-24，持续开发中）
+
+本阶段在上述世界书模式基础上继续补齐拾帧画师串/Vibe 组合、数据迁移和状态栏标记入口：
+
+- `src/backends/shizhenArtistProfiles.ts`：使用柏宝绘稳定 ID 表达拾帧数组下标组合；正文、状态栏、彩蛋分别支持角色绑定与通用回退；请求级副本应用组合，不改动原生全局画师串/Vibe 开关。Vibe 组合支持单条和分组两种选择。
+- `src/pages/backend/panels/NaiArtistProfiles.vue`：新增拾帧式组合与角色卡绑定 UI；三种目标分别配置组合与尺寸。
+- `src/backends/shizhenVibeImport.ts`：扩展拾帧 Vibe JSON/ZIP 包装结构识别，并保留 V3 的编码载荷语义。
+- `src/backends/shizhenBackupImport.ts`：按拾帧真实完整备份字段解析 `presets`、`combinations`、`bindings`、Vibe 分组 `refs` 与 `vibePool`，将组合下标映射为柏宝绘稳定 ID。
+- `src/pages/backend/panels/NaiShizhenMigration.vue`：新增完整备份导入预览、画师串/Vibe 去重、角色绑定冲突跳过、失败时清理新写入的 Vibe 文件，以及只导出兼容数据的备份功能。导出不包含 API Key、聊天记录或影像缓存。
+- `src/floor/statusBar.ts`：新增对拾帧 `.scanning` / `data-qlPrompt` 状态栏标记的扫描入口；复用柏宝绘统一生成接口和 NAI 限流队列，独立应用状态栏组合；保存历史图并支持切换、重 Roll、删除和失败重试。任务缓存按聊天、消息、swipe、序号和提示词区分。
+- `src/floor/storage.ts`：导出已有结果转上传所需的 Base64 转换方法，状态栏入口复用现有酒馆图片存储能力。
+- `src/index.ts`：在设置回灌后启动状态栏观察器，并在总开关变化时刷新。
+
+### 本阶段新增的防护与已知边界
+
+- 角色绑定优先按头像文件名稳定键匹配；只有旧备份留下的 name/index 键才允许名称回退，避免同名角色串绑。
+- 导入时先准备待写入对象，提交设置前保留原数组引用；异常时恢复设置引用并清理本次创建的数据文件。
+- 状态栏 MutationObserver 监听标记属性变化；生成任务返回时再次校验当前 frame 仍对应原任务，避免旧任务覆盖新标记。
+- 状态栏图片缓存加入实际聊天 swipe id，避免相同消息不同 swipe 之间串图。
+- 正文的 `[彩蛋]` / `【彩蛋】` 前缀已在楼层生图入口识别并剥离，自动选择 `egg` 配置；状态栏入口仍优先使用 `statusBar` 配置。
+
+### 本阶段尚未验收
+
+- [ ] 当前执行环境没有该私有仓库的完整工作树和 Node 依赖，尚未运行 `npm run typecheck`、`npm test`、`npm run build`；GitHub 分支目前也没有可引用的 CI 检查结果。
+- [ ] 状态栏触发器、缓存恢复、跨 iframe、auto-arm 和多 swipe 行为仍需真实酒馆验证。
+- [ ] 迁移导入/导出尚未用用户真实拾帧完整备份做端到端往返验证；仅按拾帧源码确认的字段结构编写解析与测试样例。
+- [ ] Vibe 池当前按柏宝绘单条 Vibe + group 字段保存；拾帧池条目被多个分组引用时，导入会为每个分组建立对应的柏宝绘分组记录，后续仍需验证引用共享与重复数据清理策略。
+- [ ] 彩蛋配置目前由正文标记入口自动选择；小剧场彩蛋候选生成/聊天室收藏仍未移植。
