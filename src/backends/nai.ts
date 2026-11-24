@@ -274,6 +274,8 @@ export interface NaiGenerateValues {
   seed?: number;
   /** 画幅方向;缺省竖屏(与改动前的固定默认一致)。 */
   size?: Orientation;
+  /** Exact per-request dimensions; overrides the orientation's configured size. */
+  sizeOverride?: string;
 }
 
 /**
@@ -468,7 +470,7 @@ export function fullNegativePrompt(nai: NaiSettings): string {
 export function buildNaiParameters(nai: NaiSettings, values: NaiGenerateValues): JsonObject {
   // 画幅按方向取用户配的那一格;没填回落竖屏默认
   const orientation = values.size ?? 'portrait';
-  const { width, height } = parseResolution(pickSize(nai, orientation) || '832×1216');
+  const { width, height } = parseResolution(values.sizeOverride || pickSize(nai, orientation) || '832×1216');
   // 显式传入 > 面板固定种子 > 随机
   const seed = values.seed ?? (nai.seed > 0 ? nai.seed : naiRandomSeed());
   const prompt = fullPositivePrompt(nai, values.prompt, values.nl);

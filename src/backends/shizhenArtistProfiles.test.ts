@@ -236,11 +236,13 @@ describe('partial artist and Vibe combos', () => {
 
   it('applies the exact target size regardless of the generated orientation', () => {
     const portrait = applyArtistProfileToNai(makeNai({ artistId: '', vibeId: '' }, '768x1344'), '', 'body');
-    expect(portrait.nai.portraitSize).toBe('768x1344');
+    expect(portrait.size).toBe('768x1344');
+    expect(portrait.nai.portraitSize).toBe('832x1216');
     expect(portrait.nai.landscapeSize).toBe('1216x832');
     const landscape = applyArtistProfileToNai(makeNai({ artistId: '', vibeId: '' }, '1344x768'), '', 'body');
+    expect(landscape.size).toBe('1344x768');
     expect(landscape.nai.portraitSize).toBe('832x1216');
-    expect(landscape.nai.landscapeSize).toBe('1344x768');
+    expect(landscape.nai.landscapeSize).toBe('1216x832');
   });
 });
 

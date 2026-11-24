@@ -220,18 +220,19 @@ export async function generateImage(
     let meta: GenerationMeta;
     if (isNai) {
       const renderedNai = input.renderProfile ? applyRenderProfile(snapshot.nai, input.renderProfile) : snapshot.nai;
-      const profiledNai = applyArtistProfileToNai(
+      const artistProfile = applyArtistProfileToNai(
         renderedNai,
         input.characterKey ?? '',
         input.artistTarget ?? 'body',
         input.characterName ?? '',
         input.artistComboId,
-      ).nai;
+      );
+      const profiledNai = artistProfile.nai;
       const output = await generateNaiImage(
         profiledNai,
         // characters 原样透传:不支持的模型由 buildNaiParameters 自己滤掉(同一口径
         // naiSupportsCharacterPrompts),在这儿再滤一遍只会多一处会漂的判据
-        { prompt: input.prompt, nl: input.nl ?? '', characters, seed: input.seed, size },
+        { prompt: input.prompt, nl: input.nl ?? '', characters, seed: input.seed, size, ...(artistProfile.size ? { sizeOverride: artistProfile.size } : {}) },
         signal,
         { onRetry: info => progress.onRetry?.({ attempt: info.attempt, max: info.max }) },
       );

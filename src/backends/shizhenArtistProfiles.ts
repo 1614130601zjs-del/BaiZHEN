@@ -143,12 +143,5 @@ export function applyArtistProfileToNai(
       }));
     }
   }
-  if (size) {
-    // A fixed target size belongs to its own orientation slot. Never overwrite the other slot:
-    // NAI selects portrait/landscape at request time.
-    const [width, height] = size.toLowerCase().split(/[x×]/).map(Number);
-    if (width > height) next.landscapeSize = size;
-    else next.portraitSize = size;
-  }
   return { nai: next, applied: true, size };
 }
