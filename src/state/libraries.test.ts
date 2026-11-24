@@ -8,7 +8,7 @@ import {
 
 describe('work library compatibility', () => {
   it('parses Shizhen text format and extracts work names', () => {
-    expect(parseWorkLibraryText('角色甲=character a (作品A)\n# 注释\n角色乙=character b')).toEqual([
+    expect(parseWorkLibraryText(['角色甲=character a (作品A)', '# 注释', '角色乙=character b'].join(String.fromCharCode(10)))).toEqual([
       { name: '角色甲', canonical: 'character a (作品A)', work: '作品A' },
       { name: '角色乙', canonical: 'character b', work: '' },
     ]);

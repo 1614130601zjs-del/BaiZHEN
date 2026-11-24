@@ -83,8 +83,8 @@ export function normalizeWorkName(value: string): string {
 }
 export function parseWorkLibraryText(text: string): Array<Omit<WorkLibraryEntry, 'id'>> {
   const out: Array<Omit<WorkLibraryEntry, 'id'>> = [];
-  for (const raw of String(text || '').split(/\r?\n/)) {
-    const line = raw.trim();
+  for (const raw of String(text || '').split(String.fromCharCode(10))) {
+    const line = raw.trim().replace(/\r$/, '');
     if (!line || line.startsWith('#')) continue;
     const eq = line.indexOf('=');
     if (eq < 0) continue;
