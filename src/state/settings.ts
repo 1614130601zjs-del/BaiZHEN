@@ -185,6 +185,10 @@ export interface NaiVibe {
   group: string;
 }
 
+/** 独立 Vibe 池资源：只保存一份编码文件，组通过 poolId 引用。 */
+export type NaiVibePoolItem = Omit<NaiVibe, 'strength' | 'enabled' | 'group'>;
+export interface NaiVibeGroupRef { poolId: string; strength: number; enabled: boolean; informationExtracted?: number; }
+export interface NaiVibeGroup { id: string; name: string; refs: NaiVibeGroupRef[]; }
 /** 拾帧式画师串组合：引用柏宝绘稳定 ID，不使用数组下标。 */
 export interface NaiArtistCombo {
   id: string;
@@ -324,8 +328,14 @@ export interface NaiSettings extends BackendConn {
    * ComfyUI 无此设置:它有服务端队列,一次性全发即可。
    */
   concurrency: number;
-  /** Vibe 库索引；正文存在 ST user/files，设置中不存大 Base64。 */
+  /** 兼容旧版扁平 Vibe 索引。 */
   vibes: NaiVibe[];
+  /** 独立资源池：每份编码文件只保存一次。 */
+  vibePool: NaiVibePoolItem[];
+  /** 分组引用：同一资源可被多个组复用，成员强度独立。 */
+  vibeGroups: NaiVibeGroup[];
+  /** 当前选中的池分组 ID；空串表示沿用旧版扁平 Vibe 选择。 */
+  activeVibeGroupId: string;
   /**
    * NAI V5 漫画页模式。每张图是一页，页面布局与逐格人物走原生的独立提示词。
    */
@@ -1614,6 +1624,9 @@ function naiDefaults(): NaiSettings {
     ...normalizeComicRuleTabs({ comicExtraRules: DEFAULT_COMIC_EXTRA_RULES }),
     concurrency: 1,
     vibes: [],
+    vibePool: [],
+    vibeGroups: [],
+    activeVibeGroupId: '',
     // 用户库为空:库里只有用户自己建的配方,官方推荐的那条是内置只读条目
     // (BUILTIN_NAI_ARTISTS),不进 settings。
     artistPresets: [],
@@ -1969,6 +1982,30 @@ function readLegacyVibeData(raw: unknown): NaiVibeData | null {
   return data.image || data.thumbnail || Object.keys(data.encodings).length ? data : null;
 }
 
+function normalizeVibePoolItem(raw: unknown, seq: number): NaiVibePoolItem | null {
+  const vibe = normalizeVibe(raw, seq);
+  if (!vibe) return null;
+  const { strength: _strength, enabled: _enabled, group: _group, ...resource } = vibe;
+  return resource;
+}
+function normalizeVibeGroup(raw: unknown, seq: number, poolIds: ReadonlySet<string>): NaiVibeGroup | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const value = raw as Partial<NaiVibeGroup>;
+  const id = typeof value.id === 'string' && value.id ? value.id : `vibe_group_${Date.now()}_${seq}`;
+  const refs = (Array.isArray(value.refs) ? value.refs : [])
+    .filter((ref): ref is NaiVibeGroupRef => !!ref && typeof ref === 'object')
+    .filter(ref => typeof ref.poolId === 'string' && poolIds.has(ref.poolId))
+    .map(ref => ({
+      poolId: ref.poolId,
+      strength: clampVibeStrength(ref.strength),
+      enabled: typeof ref.enabled === 'boolean' ? ref.enabled : true,
+      ...(typeof ref.informationExtracted === 'number' && Number.isFinite(ref.informationExtracted)
+        ? { informationExtracted: Math.min(1, Math.max(0, ref.informationExtracted)) }
+        : {}),
+    }));
+  return { id, name: typeof value.name === 'string' ? value.name.trim() : `Vibe 组 ${seq + 1}`, refs };
+}
+
 function normalizeVibe(raw: unknown, seq: number): NaiVibe | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Partial<NaiVibe & NaiVibeData>;
@@ -2180,6 +2217,18 @@ function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
   const vibes = Array.isArray(o.vibes)
     ? o.vibes.map((v, i) => normalizeVibe(v, i)).filter((v): v is NaiVibe => v !== null)
     : def.vibes;
+  const vibePool = Array.isArray(o.vibePool)
+    ? o.vibePool.map((v, i) => normalizeVibePoolItem(v, i)).filter((v): v is NaiVibePoolItem => v !== null)
+    : [];
+  const poolIds = new Set(vibePool.map(item => item.id));
+  const vibeGroups = Array.isArray(o.vibeGroups)
+    ? o.vibeGroups.map((group, i) => normalizeVibeGroup(group, i, poolIds))
+      .filter((group): group is NaiVibeGroup => group !== null)
+    : [];
+  const activeVibeGroupId =
+    typeof o.activeVibeGroupId === 'string' && vibeGroups.some(group => group.id === o.activeVibeGroupId)
+      ? o.activeVibeGroupId
+      : '';
   // 悬空 id 一律清成空串(= 不使用)。**不**照抄 normalizeComfyUI 的「回落第一条」:
   // 用户删掉当前画师串后本该「什么都不加」,回落会给他静默换一套画风,而下拉显示的
   // 也正是那一条(看起来就是自己设的),几乎无法排查。
@@ -2230,6 +2279,9 @@ function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
     ...normalizeComicRuleTabs(o, def.comicExtraRules),
     concurrency: Math.round(clampNumber(o.concurrency, def.concurrency, 1, 4)),
     vibes,
+    vibePool,
+    vibeGroups,
+    activeVibeGroupId,
     artistPresets,
     activeArtistId,
     shizhenArtistProfiles: normalizeShizhenArtistProfiles(
