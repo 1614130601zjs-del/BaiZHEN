@@ -119,7 +119,7 @@ export function applyArtistProfileToNai(
   const combo = selected.comboId
     ? nai.shizhenArtistProfiles.combos.find(item => item.id === selected.comboId)
     : undefined;
-  const size = /^\\d+\\s*[x×]\\s*\\d+$/i.test(selected.size) ? selected.size : '';
+  const size = /^\d+\s*[x×]\s*\d+$/i.test(selected.size) ? selected.size : '';
   if (!combo && !size) return { nai, applied: false, size: '' };
 
   const next: NaiSettings = { ...nai };

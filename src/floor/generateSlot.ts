@@ -29,7 +29,7 @@ export async function generateSlot(job: SlotJob): Promise<void> {
   // Clone at dispatch: a later UI edit must not mutate a queued request.
   const host = ctx as unknown as { characters?: Array<{ name?: string; avatar?: string }>; characterId?: number };
   const currentCharacter = host.characters?.[Number(host.characterId)];
-  const eggPrefix = /^\\s*[\\[【]\\s*彩蛋\\s*[\\]】]\\s*[,，、:：]?\\s*/;
+  const eggPrefix = /^\s*[\[【]\s*彩蛋\s*[\]】]\s*[,，、:：]?\s*/;
   const isEggPrompt = eggPrefix.test(job.prompt);
   const input={...job,
     prompt: isEggPrompt ? job.prompt.replace(eggPrefix, '') : job.prompt,
