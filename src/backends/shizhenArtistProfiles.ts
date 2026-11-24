@@ -62,9 +62,17 @@ export function resolveArtistTarget(
   const binding = profiles.bindings.find(item => item.characterKey === characterKey);
   const local = binding?.[target];
   const global = profiles.global[target];
-  return {
+  const selected = {
     comboId: local?.comboId || global.comboId,
     size: local?.size || global.size,
+  };
+  if (target === 'body') return selected;
+  // Shizhen semantics: status-bar and egg inherit body independently when their own field is empty.
+  const bodyLocal = binding?.body;
+  const bodyGlobal = profiles.global.body;
+  return {
+    comboId: selected.comboId || bodyLocal?.comboId || bodyGlobal.comboId,
+    size: selected.size || bodyLocal?.size || bodyGlobal.size,
   };
 }
 
@@ -108,17 +116,18 @@ export function applyArtistProfileToNai(
   target: 'body' | 'statusBar' | 'egg' = 'body',
 ): { nai: NaiSettings; applied: boolean; size: string } {
   const selected = resolveArtistTarget(nai.shizhenArtistProfiles, characterKey, target);
-  if (!selected.comboId) return { nai, applied: false, size: '' };
-  const combo = nai.shizhenArtistProfiles.combos.find(item => item.id === selected.comboId);
-  if (!combo) return { nai, applied: false, size: '' };
+  const combo = selected.comboId
+    ? nai.shizhenArtistProfiles.combos.find(item => item.id === selected.comboId)
+    : undefined;
+  const size = /^\\d+\\s*[x×]\\s*\\d+$/i.test(selected.size) ? selected.size : '';
+  if (!combo && !size) return { nai, applied: false, size: '' };
 
-  const next: NaiSettings = {
-    ...nai,
-    activeArtistId: combo.artistId,
+  const next: NaiSettings = { ...nai };
+  if (combo) {
+    next.activeArtistId = combo.artistId;
     // A selected combo owns the Vibe choice for this request, including an explicit "none".
-    vibes: nai.vibes.map(vibe => ({ ...vibe, enabled: !!combo.vibeId && vibe.id === combo.vibeId })),
-  };
-  const size = /^\d+\s*[x×]\s*\d+$/i.test(selected.size) ? selected.size : '';
+    next.vibes = nai.vibes.map(vibe => ({ ...vibe, enabled: !!combo.vibeId && vibe.id === combo.vibeId }));
+  }
   if (size) {
     next.portraitSize = size;
     next.landscapeSize = size;

@@ -29,9 +29,14 @@ export async function generateSlot(job: SlotJob): Promise<void> {
   // Clone at dispatch: a later UI edit must not mutate a queued request.
   const host = ctx as unknown as { characters?: Array<{ name?: string; avatar?: string }>; characterId?: number };
   const currentCharacter = host.characters?.[Number(host.characterId)];
-  const input={...job,characters:job.characters?.map(character=>({...character})),seed:decideSeed(snapshot.backend),
+  const eggPrefix = /^\\s*[\\[【]\\s*彩蛋\\s*[\\]】]\\s*[,，、:：]?\\s*/;
+  const isEggPrompt = eggPrefix.test(job.prompt);
+  const input={...job,
+    prompt: isEggPrompt ? job.prompt.replace(eggPrefix, '') : job.prompt,
+    characters:job.characters?.map(character=>({...character})),
+    seed:decideSeed(snapshot.backend),
     characterKey: job.characterKey || makeCharacterBindingKey(currentCharacter?.avatar, currentCharacter?.name, host.characterId),
-    artistTarget: job.artistTarget ?? 'body',
+    artistTarget: job.artistTarget ?? (isEggPrompt ? 'egg' : 'body'),
     renderProfile:job.renderProfile??inferRenderProfile(job.prompt)};
   const {signal,token}=beginGen(key,hash,snapshot.backend==='nai'?'queued':'generating');
   const owns=()=>{const current=getContext(),live=current?.chat[job.messageId];return !signal.aborted&&isCurrentGen(key,token)&&current?.getCurrentChatId()===job.chatId&&!!live&&isSameMessage(live,message)&&(live.swipe_id??0)===job.swipeId&&parseImageTags(live.mes)[job.seq]===job.tag;};

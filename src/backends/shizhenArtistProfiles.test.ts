@@ -66,8 +66,8 @@ describe('Shizhen artist profile mapping', () => {
       size: '',
     });
     expect(resolveArtistTarget(profiles, 'unknown', 'egg')).toEqual({
-      comboId: '',
-      size: '',
+      comboId: 'combo-a',
+      size: '832x1216',
     });
   });
 
@@ -113,5 +113,39 @@ describe('request-local artist profile application', () => {
     const result = applyArtistProfileToNai(native, 'unknown', 'body');
     expect(result.applied).toBe(false);
     expect(result.nai).toBe(native);
+  });
+});
+
+
+describe('profile size-only and target fallback', () => {
+  it('状态栏和彩蛋没有单独设置时继承正文', () => {
+    const result = resolveArtistTarget({
+      ...profiles,
+      global: {
+        body: { comboId: 'combo-a', size: '1024x1024' },
+        statusBar: { comboId: '', size: '' },
+        egg: { comboId: '', size: '' },
+      },
+      bindings: [],
+    }, '', 'egg');
+    expect(result).toEqual({ comboId: 'combo-a', size: '1024x1024' });
+  });
+
+  it('允许只配置尺寸而不选择组合', () => {
+    const native = {
+      activeArtistId: 'native',
+      vibes: [],
+      portraitSize: '832x1216',
+      landscapeSize: '1216x832',
+      shizhenArtistProfiles: {
+        ...profiles,
+        global: { ...profiles.global, body: { comboId: '', size: '1024x1024' } },
+        combos: [],
+      },
+    } as unknown as import('@/state/settings').NaiSettings;
+    const result = applyArtistProfileToNai(native, '', 'body');
+    expect(result.applied).toBe(true);
+    expect(result.nai.portraitSize).toBe('1024x1024');
+    expect(result.nai.activeArtistId).toBe('native');
   });
 });
