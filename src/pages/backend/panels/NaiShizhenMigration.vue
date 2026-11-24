@@ -159,9 +159,17 @@ async function importBackup() {
       const sourceCharacter = indexedCharacter && (!item.characterName.trim()
         || indexedCharacter.name?.trim() === item.characterName.trim()) ? indexedCharacter : undefined;
       const characterName = item.characterName.trim() || sourceCharacter?.name || '';
-      const key = sourceCharacter
-        ? makeCharacterBindingKey(sourceCharacter.avatar, sourceCharacter.name || characterName, sourceIndex)
-        : characterName ? `name:${characterName}` : item.characterIndex ? `legacy-index:${item.characterIndex}` : '';
+      const hostCharacters = getContext()?.characters ?? [];
+      const sameNameCount = characterName
+        ? hostCharacters.filter(character => character.name?.trim() === characterName).length
+        : 0;
+      // A name-only key is ambiguous when multiple current characters share that name.
+      // Never silently attach a legacy binding to whichever duplicate happens to come first.
+      const ambiguousName = !sourceCharacter && sameNameCount > 1;
+      const key = ambiguousName ? ''
+        : sourceCharacter
+          ? makeCharacterBindingKey(sourceCharacter.avatar, sourceCharacter.name || characterName, sourceIndex)
+          : characterName ? `name:${characterName}` : item.characterIndex ? `legacy-index:${item.characterIndex}` : '';
       if (!key) { bindingSkipped++; continue; }
       const exactExists = profiles.bindings.some(binding => binding.characterKey === key);
       const legacyNameExists = key.startsWith('avatar:') && profiles.bindings.some(binding =>

@@ -128,6 +128,6 @@ describe('vibeFingerprint', () => {
       vibeFingerprint({ model: { encoding, infoExtracted: 0.8 } }),
     );
     expect(vibeFingerprint({ model: { encoding, infoExtracted: 0 } })).not.toBe(
-      vibeFingerprint({ model: { encoding } }),
+      vibeFingerprint({ model: { encoding, infoExtracted: 0.01 } }),
     );
   });
