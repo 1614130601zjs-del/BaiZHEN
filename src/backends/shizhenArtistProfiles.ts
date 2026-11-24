@@ -152,13 +152,17 @@ export function applyArtistProfileToNai(
           name: combo.name,
           refs: [{ poolId: resource.id, strength: legacyVibes.find(vibe => vibe.id === resource.id)?.strength ?? 0.6, enabled: true, informationExtracted: legacyVibes.find(vibe => vibe.id === resource.id)?.informationExtracted }],
         }, poolItems);
-      } else if (combo.vibeGroup) {
-        // Keep an unresolved explicit group selection non-empty: the backend then
-        // resolves it to an empty list instead of falling back to unrelated legacy Vibes.
+      } else if (combo.vibeGroup && (Array.isArray(nai.vibeGroups) || Array.isArray(nai.vibePool))) {
+        // In pool-aware settings, preserve a stale explicit ID so generation resolves
+        // it to an empty list rather than silently activating unrelated legacy Vibes.
         next.activeVibeGroupId = combo.vibeGroup;
       } else {
+        // Older installations store groups directly on each Vibe and have no pool.
         next.activeVibeGroupId = '';
-        next.vibes = legacyVibes.map(vibe => ({ ...vibe, enabled: vibe.id === combo.vibeId }));
+        next.vibes = legacyVibes.map(vibe => ({
+          ...vibe,
+          enabled: combo.vibeGroup ? vibe.group === combo.vibeGroup : vibe.id === combo.vibeId,
+        }));
       }
     }
   }

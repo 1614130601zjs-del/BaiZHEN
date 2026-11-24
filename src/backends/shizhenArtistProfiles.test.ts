@@ -4,11 +4,11 @@ import {
   mapShizhenComboReferences,
   mapShizhenTarget,
   applyArtistProfileToNai,
-  getNaiVibesForGeneration,
   removeArtistCombo,
   resolveArtistTarget,
 } from '@/backends/shizhenArtistProfiles';
 import type { NaiArtistProfileSettings } from '@/state/settings';
+import { getNaiVibesForGeneration } from '@/backends/vibePool';
 
 const profiles: NaiArtistProfileSettings = {
   combos: [
