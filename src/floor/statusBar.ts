@@ -259,18 +259,22 @@ async function generateForFrame(frame: HTMLElement, prompt: string, task: Status
     persist();
     renderCard(frame, task);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    showError(frame, message, () => void generateForFrame(frame, prompt, task));
+    if (frame.dataset.bbiStatusbarTask === task.taskKey && statusBarPromptForTarget(frame) === prompt) {
+      const message = error instanceof Error ? error.message : String(error);
+      showError(frame, message, () => void generateForFrame(frame, prompt, task));
+    }
   } finally {
     output?.result.revoke();
     loading.remove();
     frame.dataset.bbiStatusbarBusy = '0';
     activeTasks.delete(task.taskKey);
-    if (!frame.querySelector('.bbi-statusbar-card') && !frame.querySelector('.bbi-statusbar-error')) {
+    if (frame.dataset.bbiStatusbarTask === task.taskKey && statusBarPromptForTarget(frame) === prompt
+      && !frame.querySelector('.bbi-statusbar-card') && !frame.querySelector('.bbi-statusbar-error')) {
       showTrigger(frame, prompt, {
         taskKey: task.taskKey, chatId: task.chatId, messageId: task.messageId, ordinal: task.ordinal,
       });
     }
+    processFrames();
   }
 }
 
