@@ -5,7 +5,7 @@ import { captureGenerationSnapshot, decideSeed, generateImage } from '@/generate
 import { inferRenderProfile } from '@/autoTag/renderProfile';
 import { resultToBase64ForUpload, generationId } from '@/floor/storage';
 import { deleteUserImage, uploadUserImage } from '@/st/images';
-import { getContext } from '@/st/context';
+import { getContext, type STMessage } from '@/st/context';
 import { makeCharacterBindingKey } from '@/backends/shizhenArtistProfiles';
 import { settings } from '@/state/settings';
 import { getWorldbookModeProfile } from '@/modes/worldbookMode';
@@ -71,7 +71,7 @@ function historyMessages(chat = getContext()?.chat ?? []): Array<{ role: string;
       content: message.mes.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 3000),
     }));
 }
-async function buildGenerationMessages(userInput: string, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', sourceChat: typeof getContext extends () => infer T ? NonNullable<T>['chat'] : never): Promise<Array<{ role: string; content: string }>> {
+async function buildGenerationMessages(userInput: string, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', sourceChat: STMessage[]): Promise<Array<{ role: string; content: string }>> {
   const context = getContext();
   if (!context) throw new Error('酒馆上下文尚未就绪');
   const chat = sourceChat;
