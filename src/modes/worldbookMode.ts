@@ -426,6 +426,13 @@ export function applyWorldbookMode(): Promise<void> {
   return serialize(async () => {
     const state = readPersisted();
     const { profile, snapshot } = state;
+    const requestedProfileKey = state.activeProfileKey;
+    const assertProfileStillCurrent = () => {
+      const currentKey = currentProfileIdentity()?.key ?? '';
+      if (currentKey !== requestedProfileKey) {
+        throw new Error('角色卡已切换，已取消旧角色的世界书模式应用');
+      }
+    };
     if (!profile.enabled) throw new Error('世界书模式尚未启用');
     const core = (profile.coreBooks[profile.mode] || profile.coreBook).trim();
     profile.coreBook = core;
@@ -440,6 +447,9 @@ export function applyWorldbookMode(): Promise<void> {
     if (!worldviews.includes(worldview)) throw new Error(`世界观「${worldview}」不在「${worldviewBook}」中`);
 
     const runtime = await worldInfoRuntime();
+    // Worldbook listing/loading above is asynchronous. A character switch during that
+    // window must not let the stale profile take over the newly selected character.
+    assertProfileStillCurrent();
     ensureSnapshot(snapshot, runtime);
 
     try {
@@ -450,15 +460,20 @@ export function applyWorldbookMode(): Promise<void> {
       const next = current.filter(name => !previousManaged.has(name));
       for (const name of [core, worldviewBook]) if (!next.includes(name)) next.push(name);
 
+      // Re-check after asynchronous restoration/capture: a newer character selection
+      // may have arrived while this serialized operation was waiting on worldbook I/O.
+      assertProfileStillCurrent();
       // 在任何全局挂载或条目写入前持久化完整恢复点，避免中途异常后丢失回滚依据。
       await captureBook(snapshot, core);
       await captureBook(snapshot, worldviewBook);
+      assertProfileStillCurrent();
       snapshot.managedBooks = [...new Set([...snapshot.managedBooks, core, worldviewBook])];
       state.snapshot = snapshot;
       persist(state);
 
       // Stop work using the previous context before changing mounted books or entry states.
       notifyWorldbookModeChanged();
+      assertProfileStillCurrent();
       await writeGlobalSelection(runtime, next);
       await applyEntryOverrides(core, profile.entryOverrides[core] ?? {}, snapshot);
       await applyEntryOverrides(worldviewBook, {
