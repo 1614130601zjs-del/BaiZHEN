@@ -74,7 +74,9 @@ async function applyMode() {
     message.value = '拾帧世界书模式已应用';
     error.value = false;
   } catch (e) {
-    // 失败时不让生图上下文误以为模式已经完整应用；保留恢复快照供切回原生时回滚。
+    // 应用中途失败时立即尝试回滚；若宿主也无法恢复，则保留持久化快照供后续手动恢复。
+    try { await restoreWorldbookMode(); } catch { /* keep the persisted recovery snapshot */ }
+    profile.value = getWorldbookModeProfile();
     profile.value.enabled = false;
     saveWorldbookModeProfile(profile.value);
     message.value = e instanceof Error ? e.message : String(e);
