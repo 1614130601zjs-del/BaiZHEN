@@ -318,8 +318,8 @@ async function exportBackup() {
     const pool: Array<Record<string, unknown>> = [];
     const refsByGroup = new Map<string, Array<{ poolId: string; strength: number; informationExtracted?: number; enabled?: boolean }>>();
     const refsUngrouped: Array<{ poolId: string; strength: number; informationExtracted?: number; enabled?: boolean }> = [];
-    const refByVibeId = new Map<string, { poolId: string; strength: number; informationExtracted?: number }>();
-    const refsByPoolId = new Map<string, Array<{ group: string; strength: number; informationExtracted?: number }>>();
+    const refByVibeId = new Map<string, { poolId: string; strength: number; informationExtracted?: number; enabled?: boolean }>();
+    const refsByPoolId = new Map<string, Array<{ group: string; strength: number; informationExtracted?: number; enabled?: boolean }>>();
     for (const group of groups) {
       const refs = refsByGroup.get(group.name) || [];
       for (const ref of group.refs) {
@@ -372,14 +372,15 @@ async function exportBackup() {
         },
         strength: defaultStrength, ...(poolInfo !== undefined ? { informationExtracted: poolInfo } : {}),
       });
-      const firstRef = references[0] || { strength: defaultStrength };
+      const firstRef = references[0] || { strength: defaultStrength, enabled: legacy?.enabled };
       const refInfo = firstRef.informationExtracted ?? vibe.informationExtracted;
       refByVibeId.set(vibe.id, {
         poolId: vibe.id,
         strength: firstRef.strength,
+        ...(firstRef.enabled !== undefined ? { enabled: firstRef.enabled } : {}),
         ...(refInfo !== undefined ? { informationExtracted: refInfo } : {}),
       });
-      if (!references.length) refsUngrouped.push({ poolId: vibe.id, strength: defaultStrength, ...((legacy?.informationExtracted ?? vibe.informationExtracted) !== undefined ? { informationExtracted: legacy?.informationExtracted ?? vibe.informationExtracted } : {}) });
+      if (!references.length) refsUngrouped.push({ poolId: vibe.id, strength: defaultStrength, enabled: legacy?.enabled, ...((legacy?.informationExtracted ?? vibe.informationExtracted) !== undefined ? { informationExtracted: legacy?.informationExtracted ?? vibe.informationExtracted } : {}) });
     }
     const groupNamesWithUngrouped = [...groupNames];
     let ungroupedName = '';
