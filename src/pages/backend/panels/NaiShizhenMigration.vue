@@ -188,9 +188,10 @@ async function importBackup() {
       const sameNameCount = characterName
         ? hostCharacters.filter(character => character.name?.trim() === characterName).length
         : 0;
-      // A name-only key is ambiguous when multiple current characters share that name.
-      // Never silently attach a legacy binding to whichever duplicate happens to come first.
-      const ambiguousName = !sourceCharacter && sameNameCount > 1;
+      // Shizhen exports positional indexes, not stable avatar IDs. If names are duplicated,
+      // the old index may now point at a different card with the same display name.
+      // Without an exported avatar identity, skip the binding rather than attach it incorrectly.
+      const ambiguousName = sameNameCount > 1;
       const key = ambiguousName ? ''
         : sourceCharacter
           ? makeCharacterBindingKey(sourceCharacter.avatar, sourceCharacter.name || characterName, sourceIndex)
