@@ -307,9 +307,12 @@ export function restoreWorldbookMode(): Promise<void> {
     const current = currentGlobalSelection(runtime);
     const managed = new Set(snapshot.managedBooks);
     if (snapshot.globalSelection) {
-      const keep = current.filter(name => !managed.has(name));
-      const restore = snapshot.globalSelection.filter(name => managed.has(name));
-      await writeGlobalSelection(runtime, [...keep, ...restore]);
+      // 恢复原始列表顺序；保留模式运行期间用户新增的非托管书，尊重用户移除的非托管书。
+      const restored = snapshot.globalSelection.filter(name => managed.has(name) || current.includes(name));
+      for (const name of current) {
+        if (!managed.has(name) && !restored.includes(name)) restored.push(name);
+      }
+      await writeGlobalSelection(runtime, restored);
     }
     for (const name of Object.keys(snapshot.entries)) await restoreBook(name, snapshot);
     snapshot.managedBooks = [];
