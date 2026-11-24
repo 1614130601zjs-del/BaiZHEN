@@ -361,10 +361,18 @@ async function readZipJson(file: File): Promise<unknown[]> {
       const localMethod = read16(localOffset + 8);
       const localNameLength = read16(localOffset + 26);
       const localExtraLength = read16(localOffset + 28);
-      const start = localOffset + 30 + localNameLength + localExtraLength;
-      if ((localFlags & 0x0001) || localMethod !== method || start > bytes.length || compressedSize > bytes.length - start) {
-        throw new Error(`Vibe 压缩包文件数据越界或头信息不一致：${name}`);
+      const localHeaderEnd = localOffset + 30 + localNameLength + localExtraLength;
+      const localNameEnd = localOffset + 30 + localNameLength;
+      const localName = decoder.decode(bytes.slice(localOffset + 30, localNameEnd));
+      // General-purpose bit 3 may differ only when a data descriptor follows the payload.
+      const relevantFlags = ~0x0008;
+      if ((localFlags & 0x0001) || localMethod !== method
+        || (localFlags & relevantFlags) !== (flags & relevantFlags)
+        || localNameEnd > bytes.length || localHeaderEnd > bytes.length
+        || localName !== name || compressedSize > bytes.length - localHeaderEnd) {
+        throw new Error(`Vibe 压缩包本地文件头与中央目录不一致：${name}`);
       }
+      const start = localHeaderEnd;
       const packed = bytes.slice(start, start + compressedSize);
       let raw: Uint8Array;
       if (method === 0) {
