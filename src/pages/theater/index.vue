@@ -57,7 +57,7 @@ function historyMessages(): Array<{ role: string; content: string }> {
   return context.chat.slice(-12).filter(message => message && typeof message.mes === 'string' && message.mes.trim())
     .map(message => ({
       role: message.is_user ? 'user' : 'assistant',
-      content: message.mes.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 3000),
+      content: message.mes.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 3000),
     }));
 }
 async function buildGenerationMessages(userInput: string): Promise<Array<{ role: string; content: string }>> {
@@ -93,7 +93,7 @@ async function createRecord(userInput: string, parsed: ParsedTheaterOutput, mode
   if (!context) throw new Error('酒馆上下文尚未就绪');
   const snapshot = captureGenerationSnapshot();
   if (!snapshot.status.configured) throw new Error(snapshot.status.reason || '生图后端尚未配置');
-  const prompt = parsed.prompt.replace(/^\\s*[\\[【]\\s*彩蛋[】\\]]\\s*/u, '').trim();
+  const prompt = parsed.prompt.replace(/^\s*[\[【]\s*彩蛋[】\]]\s*/u, '').trim();
   const character = context.characters?.[Number(context.characterId)];
   const output = await generateImage({
     prompt,

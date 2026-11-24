@@ -22,18 +22,18 @@ export interface ParsedTheaterOutput {
 }
 
 export function normalizeTheaterPrompt(value: unknown): string {
-  return String(value ?? '').replace(/\\s+/g, ' ').trim();
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
 }
 
 /** Parse Shizhen's plain-text theater protocol; malformed trailing rooms are retained. */
 export function parseTheaterOutput(raw: string): ParsedTheaterOutput {
   const text = String(raw ?? '');
-  const titleMatch = text.match(/title###([\\s\\S]*?)###/);
-  const images = [...text.matchAll(/image###([\\s\\S]*?)###/g)]
+  const titleMatch = text.match(/title###([\s\S]*?)###/);
+  const images = [...text.matchAll(/image###([\s\S]*?)###/g)]
     .map(match => normalizeTheaterPrompt(match[1]))
     .filter(Boolean);
   const eggBlocks: TheaterEggBlock[] = [];
-  const marker = /eggroom###([\\s\\S]*?)###|eggmsg###([\\s\\S]*?)###|eggend###/g;
+  const marker = /eggroom###([\s\S]*?)###|eggmsg###([\s\S]*?)###|eggend###/g;
   let room: TheaterRoom | null = null;
   let messages: TheaterMessage[] = [];
   for (const match of text.matchAll(marker)) {
