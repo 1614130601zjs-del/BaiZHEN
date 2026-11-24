@@ -1,3 +1,4 @@
+import { materializeVibeGroup } from '@/backends/vibePool';
 import type {
   NaiArtistCharacterBinding,
   NaiArtistCombo,
@@ -135,22 +136,25 @@ export function applyArtistProfileToNai(
     // the corresponding native selection for this request.
     if (combo.artistId) next.activeArtistId = combo.artistId;
     if (combo.vibeGroup || combo.vibeId) {
+      const poolGroups = Array.isArray(nai.vibeGroups) ? nai.vibeGroups : [];
+      const poolItems = Array.isArray(nai.vibePool) ? nai.vibePool : [];
+      const legacyVibes = Array.isArray(nai.vibes) ? nai.vibes : [];
       const poolGroup = combo.vibeGroup
-        ? nai.vibeGroups.find(group => group.id === combo.vibeGroup || group.name === combo.vibeGroup)
+        ? poolGroups.find(group => group.id === combo.vibeGroup || group.name === combo.vibeGroup)
         : undefined;
       if (poolGroup) {
         next.activeVibeGroupId = poolGroup.id;
-      } else if (combo.vibeId && nai.vibePool.some(vibe => vibe.id === combo.vibeId)) {
-        const resource = nai.vibePool.find(vibe => vibe.id === combo.vibeId)!;
+      } else if (combo.vibeId && poolItems.some(vibe => vibe.id === combo.vibeId)) {
+        const resource = poolItems.find(vibe => vibe.id === combo.vibeId)!;
         next.activeVibeGroupId = '';
         next.vibes = materializeVibeGroup({
           id: `combo:${combo.id}`,
           name: combo.name,
           refs: [{ poolId: resource.id, strength: 0.6, enabled: true }],
-        }, nai.vibePool);
+        }, poolItems);
       } else {
         next.activeVibeGroupId = '';
-        next.vibes = nai.vibes.map(vibe => ({
+        next.vibes = legacyVibes.map(vibe => ({
           ...vibe,
           enabled: combo.vibeGroup
             ? vibe.group === combo.vibeGroup
