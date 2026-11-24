@@ -300,24 +300,46 @@ async function readZipJson(file: File): Promise<unknown[]> {
   const read16 = (offset: number) => view.getUint16(offset, true);
   const read32 = (offset: number) => view.getUint32(offset, true);
   const output: unknown[] = [];
+  let entryCount = 0;
+  let totalUncompressedBytes = 0;
 
   for (let offset = 0; offset + 46 <= bytes.length;) {
     if (read32(offset) !== 0x02014b50) {
       offset++;
       continue;
     }
+    entryCount++;
+    if (entryCount > MAX_VIBE_ARCHIVE_ENTRIES) {
+      throw new Error('Vibe 压缩包文件数量超过 256 个安全限制。');
+    }
+    const flags = read16(offset + 8);
     const method = read16(offset + 10);
     const compressedSize = read32(offset + 20);
+    const uncompressedSize = read32(offset + 24);
     const nameLength = read16(offset + 28);
     const extraLength = read16(offset + 30);
     const commentLength = read16(offset + 32);
     const localOffset = read32(offset + 42);
     const name = decoder.decode(bytes.slice(offset + 46, offset + 46 + nameLength));
     if (/\.(?:json|naiv4vibe|naiv4vibebundle)$/i.test(name)) {
+      if (flags & 0x0001) throw new Error('Vibe 压缩包包含加密文件，无法安全导入。');
+      if (uncompressedSize > MAX_VIBE_ARCHIVE_ENTRY_BYTES) {
+        throw new Error(`Vibe 压缩包单个文件超过 16 MB 安全限制：${name}`);
+      }
+      totalUncompressedBytes += uncompressedSize;
+      if (totalUncompressedBytes > MAX_VIBE_ARCHIVE_TOTAL_BYTES) {
+        throw new Error('Vibe 压缩包解压总量超过 64 MB 安全限制。');
+      }
+      if (compressedSize > bytes.length || localOffset + 30 > bytes.length) {
+        throw new Error(`Vibe 压缩包文件数据越界：${name}`);
+      }
       if (read32(localOffset) !== 0x04034b50) throw new Error(`Vibe 压缩包文件头无法识别：${name}`);
       const localNameLength = read16(localOffset + 26);
       const localExtraLength = read16(localOffset + 28);
       const start = localOffset + 30 + localNameLength + localExtraLength;
+      if (start + compressedSize > bytes.length) {
+        throw new Error(`Vibe 压缩包文件数据不完整：${name}`);
+      }
       const packed = bytes.slice(start, start + compressedSize);
       let raw: Uint8Array;
       if (method === 0) raw = packed;
