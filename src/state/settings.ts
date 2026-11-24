@@ -375,6 +375,8 @@ export interface NaiSettings extends BackendConn {
    * 他没选过的画风,每张图都变样却查不出原因。
    */
   activeArtistId: string;
+  /** 拾帧式组合与角色卡绑定；与原生画师串选择状态隔离。 */
+  shizhenArtistProfiles: NaiArtistProfileSettings;
   /**
    * 生成自然语言(仅 4.5/V5 有意义,默认开 = 改动前的行为):开 = 自动 tag 为 Base 与每个角色
    * 写英文 nl;关 = 只写 tag。与 ComfyUI 工作流的同名开关同一口径——**只管 AI 写不写,
@@ -1617,6 +1619,15 @@ function naiDefaults(): NaiSettings {
     // hydrate 时旧用户的 stored.nai.activeArtistId 已存在(哪怕空串),会被
     // normalizeNai 原样保留,不受影响。
     activeArtistId: BUILTIN_NAI_ARTISTS[0]?.id ?? '',
+    shizhenArtistProfiles: {
+      combos: [],
+      global: {
+        body: { comboId: '', size: '' },
+        statusBar: { comboId: '', size: '' },
+        egg: { comboId: '', size: '' },
+      },
+      bindings: [],
+    },
     naturalLanguage: true,
     orientationLock: 'auto',
   };
@@ -2094,6 +2105,59 @@ function migrateNaiEndpoints(o: Partial<NaiSettings>): NaiEndpoint[] {
   return list;
 }
 
+function normalizeArtistTarget(raw: unknown): NaiArtistTargetConfig {
+  const value = (raw ?? {}) as Partial<NaiArtistTargetConfig>;
+  return {
+    comboId: typeof value.comboId === 'string' ? value.comboId : '',
+    size: typeof value.size === 'string' ? value.size : '',
+  };
+}
+
+function normalizeShizhenArtistProfiles(raw: unknown, artistIds: ReadonlySet<string>, vibeIds: ReadonlySet<string>, fallback: NaiArtistProfileSettings): NaiArtistProfileSettings {
+  const value = (raw ?? {}) as Partial<NaiArtistProfileSettings>;
+  const sourceCombos = Array.isArray(value.combos) ? value.combos : fallback.combos;
+  const combos = sourceCombos
+    .filter((item): item is NaiArtistCombo => !!item && typeof item === 'object')
+    .map((item, index) => ({
+      id: typeof item.id === 'string' && item.id ? item.id : `nac_${Date.now()}_${index}`,
+      name: typeof item.name === 'string' ? item.name : `组合 ${index + 1}`,
+      artistId: typeof item.artistId === 'string' && artistIds.has(item.artistId) ? item.artistId : '',
+      vibeId: typeof item.vibeId === 'string' && vibeIds.has(item.vibeId) ? item.vibeId : '',
+      updatedAt: typeof item.updatedAt === 'number' && Number.isFinite(item.updatedAt) ? item.updatedAt : 0,
+    }));
+  const comboIds = new Set(combos.map(item => item.id));
+  const target = (item: unknown, def: NaiArtistTargetConfig): NaiArtistTargetConfig => {
+    const normalized = normalizeArtistTarget(item ?? def);
+    return { ...normalized, comboId: comboIds.has(normalized.comboId) ? normalized.comboId : '' };
+  };
+  const global = value.global && typeof value.global === 'object' ? value.global : fallback.global;
+  const bindings = Array.isArray(value.bindings) ? value.bindings : fallback.bindings;
+  const seen = new Set<string>();
+  return {
+    combos,
+    global: {
+      body: target(global.body, fallback.global.body),
+      statusBar: target(global.statusBar, fallback.global.statusBar),
+      egg: target(global.egg, fallback.global.egg),
+    },
+    bindings: bindings
+      .filter((item): item is NaiArtistCharacterBinding => !!item && typeof item === 'object')
+      .map(item => ({
+        characterKey: typeof item.characterKey === 'string' ? item.characterKey : '',
+        characterName: typeof item.characterName === 'string' ? item.characterName : '',
+        body: target(item.body, { comboId: '', size: '' }),
+        statusBar: target(item.statusBar, { comboId: '', size: '' }),
+        egg: target(item.egg, { comboId: '', size: '' }),
+      }))
+      .filter(item => {
+        const key = item.characterKey || `name:${item.characterName.trim()}`;
+        if (!key || key === 'name:' || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }),
+  };
+}
+
 function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
   const conn = normalizeBackend(raw, def);
   const o = (raw ?? {}) as Partial<NaiSettings>;
@@ -2164,6 +2228,12 @@ function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
       : def.vibes,
     artistPresets,
     activeArtistId,
+    shizhenArtistProfiles: normalizeShizhenArtistProfiles(
+      o.shizhenArtistProfiles,
+      new Set([...artistPresets.map(item => item.id), ...BUILTIN_NAI_ARTISTS.map(item => item.id)]),
+      new Set((Array.isArray(o.vibes) ? o.vibes : def.vibes).map(item => item.id)),
+      def.shizhenArtistProfiles,
+    ),
     // 老配置缺这两个字段:回落默认 = 开着自然语言、不锁方向,即改动前的行为
     naturalLanguage: typeof o.naturalLanguage === 'boolean' ? o.naturalLanguage : def.naturalLanguage,
     orientationLock: normalizeOrientationLock(o.orientationLock),
