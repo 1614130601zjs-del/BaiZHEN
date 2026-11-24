@@ -1,4 +1,5 @@
 import { startMarkedFloorGeneration } from '@/floor/generateSlot';
+import { BoundedSet } from '@/autoTag/boundedSet';
 import { archivedOutfits, readVisualArchive, saveVisualArchive, visualArchiveNote, visualPointsForImages, visualStory } from '@/autoTag/visualArchive';
 import { finalizeComicPlan } from '@/comic/plan';
 import { comicReasoningKey, comicReasoningOverride } from '@/api/comicReasoning';
@@ -54,7 +55,7 @@ import {
 } from '@/st/imageTagRegex';
 import { getTagGenChannel, isCurrentChatExcluded, settings } from '@/state/settings';
 
-const processed = new Set<string>();
+const processed = new BoundedSet<string>(2_000);
 const running = new Map<string, AbortController>();
 let bound = false;
 const scheduled = new Set<ReturnType<typeof setTimeout>>();
