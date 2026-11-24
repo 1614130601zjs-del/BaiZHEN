@@ -1,17 +1,7 @@
 <script setup lang="ts">
 import { comicReasoningKey, comicReasoningCapability, type ComicReasoning } from '@/api/comicReasoning';
 import { getTagGenChannel } from '@/state/settings';
-import {
-  CHATU8_SETTINGS_KEY,
-  detectChatu8Artists,
-  detectChatu8Vibes,
-  importArtistsFromChatu8,
-  importVibesFromChatu8,
-  planPrefixGroups,
-  type Chatu8ArtistDetectInfo,
-  type Chatu8ArtistImportResult,
-  type Chatu8DetectInfo,
-} from '@/backends/chatu8Vibe';
+import { planPrefixGroups } from '@/backends/chatu8Vibe';
 import {
   buildNaiv4vibe,
   BUILTIN_NAI_ARTISTS,
@@ -81,7 +71,7 @@ import {
   type NaiEndpoint,
   type NaiVibe,
 } from '@/state/settings';
-import { computed, nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 
 /** 本渠道是否为当前出图渠道;「使用此渠道」按钮与设置页选择器、页签徽标同属一个开关。 */
 const inUse = computed(() => settings.defaultBackend === 'nai');
@@ -283,65 +273,6 @@ async function confirmRemoveArtist() {
   // 接位到原位置那一条(已是最后一条则退一格);删空了就回「不使用」——
   // `?? ''` 正是画师串库与工作流库的分水岭(那边恒非空、回落 [0]),不能省。
   settings.nai.activeArtistId = list[Math.min(index, list.length - 1)]?.id ?? '';
-}
-
-/* ============ 从智绘姬迁移提示词预设 ============ */
-
-/**
- * 智绘姬(st-chatu8)的提示词预设整批搬过来,映射与智绘姬拼装位置一致:
- * 前置固定正向 → 画师串,后置固定正向 → 正面质量词,固定负向 → 负面提示词(前面拼上当前模型官方基线)。
- * 与 vibe 迁移同原则:只建副本、不改源数据;同名条目重新导入会覆盖更新
- * (旧版迁移把正向整体塞进画师串的条目,重导即被修好),内容完全相同的跳过,随时可再来。
- * 纯逻辑在 chatu8Vibe.ts(collect/detect/import 三件套),这里只做检测展示、弹窗预览与落盘。
- *
- * 刻意不做「还剩 N 个可导入」的常驻提示:去重键是名字+内容,用户改过或删过
- * 本地副本后键就对不上,提示会反复复活,很吵。入口收进下方「从智绘姬迁移」
- * 折叠区,手动点开弹窗时才算预览,有没有新预设一看便知。
- */
-const chatu8ArtistDetect = ref<Chatu8ArtistDetectInfo>({ found: false, total: 0 });
-/** 弹窗打开时算一次的预览结果(纯函数,不落盘);plans 逐条带徽标状态。 */
-const artistImportResult = ref<Chatu8ArtistImportResult | null>(null);
-const artistImportOpen = ref(false);
-/** 导入后是否把智绘姬当前使用的预设设为柏宝绘当前画师串。 */
-const switchActiveArtist = ref(true);
-
-const chatu8ActiveRef = computed(() => artistImportResult.value?.plans.find(p => p.active) ?? null);
-
-function openArtistImport() {
-  const chatu8 = getContext()?.extensionSettings?.[CHATU8_SETTINGS_KEY];
-  artistImportResult.value = importArtistsFromChatu8(settings.nai.artistPresets, chatu8, settings.nai.model);
-  switchActiveArtist.value = true;
-  artistImportOpen.value = true;
-}
-
-/** 纯同步:结果在打开弹窗时就算好了,确认只是 push/覆盖 + 可选切换。 */
-function runArtistImport() {
-  const result = artistImportResult.value;
-  artistImportOpen.value = false;
-  if (!result || (result.imported === 0 && result.overwritten === 0)) return;
-  for (const plan of result.plans) {
-    if (plan.state === 'import') {
-      settings.nai.artistPresets.push(plan.preset!);
-    } else if (plan.state === 'overwrite') {
-      const target = settings.nai.artistPresets.find(p => p.id === plan.targetId);
-      if (target && plan.preset) {
-        target.prompt = plan.preset.prompt;
-        target.quality = plan.preset.quality;
-        target.negative = plan.preset.negative;
-      }
-    }
-  }
-  if (switchActiveArtist.value && result.activeArtistId) {
-    settings.nai.activeArtistId = result.activeArtistId;
-  }
-  const parts = [`新增 ${result.imported} 个`];
-  if (result.overwritten) parts.push(`覆盖更新 ${result.overwritten} 个`);
-  if (result.duplicates) parts.push(`相同跳过 ${result.duplicates}`);
-  if (switchActiveArtist.value && result.activeArtistId) {
-    parts.push('已切换为智绘姬当前使用的预设');
-  }
-  toastr.success(parts.join(', '), '从智绘姬导入');
-  artistImportResult.value = null;
 }
 
 /* ============ 提示词:正/负面词分两级——画师串绑定值 → 渠道覆盖值 → 内置默认 ============ */
@@ -719,48 +650,6 @@ function applyPrefixGroups() {
   }
   const groups = new Set(plans.map(p => p.group)).size;
   toastr.success(`已把 ${plans.length} 个 Vibe 整理进 ${groups} 个分组`, 'Vibe');
-}
-
-/* ============ 从智绘姬迁移 ============ */
-
-/**
- * 智绘姬 vibe 检测:面板挂载时做一次(读的是 settings 里的引用列表,同步廉价)。
- * 不做「只问一次」那套:区块常驻,迁移幂等(内容指纹去重),用户随时可以再来。
- */
-const chatu8Detect = ref<Chatu8DetectInfo>({ found: false, total: 0, presets: 0, groups: 0 });
-onMounted(() => {
-  chatu8Detect.value = detectChatu8Vibes(getContext()?.extensionSettings?.[CHATU8_SETTINGS_KEY]);
-  chatu8ArtistDetect.value = detectChatu8Artists(getContext()?.extensionSettings?.[CHATU8_SETTINGS_KEY]);
-});
-
-const migrateConfirmOpen = ref(false);
-const migrating = ref(false);
-const migrateMsg = ref('');
-
-async function runMigrate() {
-  migrateConfirmOpen.value = false;
-  if (migrating.value) return;
-  migrating.value = true;
-  migrateMsg.value = '';
-  try {
-    const result = await importVibesFromChatu8(settings.nai.vibes, {
-      onProgress: (current, total) => {
-        migrateMsg.value = `正在迁移 ${current}/${total}…`;
-      },
-    });
-    settings.nai.vibes.push(...result.vibes);
-    const parts = [`新增 ${result.imported} 个`];
-    if (result.duplicates) parts.push(`重复跳过 ${result.duplicates}`);
-    if (result.failed) parts.push(`失败 ${result.failed}`);
-    migrateMsg.value = `迁移完成：${parts.join(' / ')}。`;
-    if (result.imported) migrateMsg.value += '新迁移的 Vibe 默认未启用，请按需开启。';
-    if (result.failed) migrateMsg.value += '失败项可能不在本机浏览器，或保存文件时出错。';
-    toastr.success(migrateMsg.value, '从智绘姬迁移');
-  } catch (error) {
-    migrateMsg.value = `迁移失败：${errorMessage(error)}`;
-  } finally {
-    migrating.value = false;
-  }
 }
 
 async function onVibeImportChange(event: Event) {
@@ -1627,137 +1516,6 @@ async function removeVibe(vibe: NaiVibe) {
           </div>
         </template>
       </Collapsible>
-
-      <Collapsible title="从智绘姬迁移" :open="false">
-        <p class="bbi-field-hint vibe-hint">
-          复制智绘姬(st-chatu8)的 vibe 到本库:只建副本、不改源数据,重复的自动跳过。
-        </p>
-        <p class="bbi-field-hint">
-          <template v-if="!chatu8Detect.found">未检测到智绘姬（插件未安装或未启用）。</template>
-          <template v-else-if="!chatu8Detect.total">智绘姬里没有找到 vibe。</template>
-          <template v-else>
-            检测到智绘姬有 {{ chatu8Detect.total }} 个 vibe（预设 {{ chatu8Detect.presets }} 个 / 组内
-            {{ chatu8Detect.groups }} 个）。
-          </template>
-        </p>
-        <div class="migrate-actions">
-          <button
-            class="bbi-btn"
-            type="button"
-            :disabled="migrating || !chatu8Detect.total"
-            @click="migrateConfirmOpen = true"
-          >
-            <Icon name="download" />
-            {{ migrating ? '迁移中…' : '迁移智绘姬的 vibe' }}
-          </button>
-        </div>
-        <p v-if="migrateMsg" class="bbi-field-hint">{{ migrateMsg }}</p>
-
-        <hr class="art-divider" />
-
-        <!-- 提示词预设导入:与 vibe 同区同级;有没有新预设不在这里报,点开弹窗看预览 -->
-        <p class="bbi-field-hint vibe-hint">
-          提示词预设同理:前置固定正向 → 画师串，后置固定正向 → 正面质量词，固定负向 → 负面提示词（自动带上当前模型官方基线）。
-        </p>
-        <p class="bbi-field-hint">
-          <template v-if="!chatu8ArtistDetect.found">未检测到智绘姬（插件未安装或未启用）。</template>
-          <template v-else-if="!chatu8ArtistDetect.total">智绘姬里没有找到提示词预设。</template>
-          <template v-else>检测到智绘姬有 {{ chatu8ArtistDetect.total }} 个提示词预设。</template>
-        </p>
-        <div class="migrate-actions">
-          <button
-            class="bbi-btn"
-            type="button"
-            :disabled="!chatu8ArtistDetect.total"
-            @click="openArtistImport"
-          >
-            <Icon name="download" />
-            导入智绘姬的提示词预设
-          </button>
-        </div>
-      </Collapsible>
-    </div>
-
-    <ModalMask :open="migrateConfirmOpen" @close="migrateConfirmOpen = false">
-      <div class="bbi-modal" role="dialog" aria-modal="true" aria-label="从智绘姬迁移">
-        <header class="bbi-modal-head">
-          <span class="bbi-modal-title">从智绘姬迁移 vibe</span>
-          <button class="bbi-icon-mini" type="button" title="关闭" @click="migrateConfirmOpen = false">
-            <Icon name="close" />
-          </button>
-        </header>
-        <p class="bbi-modal-label">
-          将把智绘姬的 {{ chatu8Detect.total }} 个 vibe 复制到柏宝绘 Vibe
-          库，只是创建副本，不会改动智绘姬的数据。内容相同的会自动跳过，重复迁移不会产生重复条目。
-        </p>
-        <p class="bbi-modal-label">
-          注意：智绘姬未开「酒馆储存」时 vibe 存在浏览器本地存储里，只有本设备本浏览器读得到。
-        </p>
-        <footer class="bbi-modal-foot">
-          <span class="bbi-modal-foot-spacer"></span>
-          <button class="bbi-btn" type="button" @click="migrateConfirmOpen = false">取消</button>
-          <button class="bbi-btn bbi-btn-primary" type="button" @click="runMigrate">开始迁移</button>
-        </footer>
-      </div>
-    </ModalMask>
-
-    <!-- ===== 从智绘姬导入提示词预设:预览 + 确认(打开时算一次结果,纯函数不落盘) ===== -->
-    <ModalMask :open="artistImportOpen" @close="artistImportOpen = false">
-      <div class="bbi-modal" role="dialog" aria-modal="true" aria-label="从智绘姬导入提示词预设">
-        <header class="bbi-modal-head">
-          <span class="bbi-modal-title">从智绘姬导入提示词预设</span>
-          <button class="bbi-icon-mini" type="button" title="关闭" @click="artistImportOpen = false">
-            <Icon name="close" />
-          </button>
-        </header>
-        <p class="bbi-modal-label">
-          把智绘姬的全部 {{ artistImportResult?.plans.length ?? 0 }} 个提示词预设复制到柏宝绘，只建副本、不改动智绘姬的数据。
-          映射：前置固定正向 → 画师串，后置固定正向 → 正面质量词，固定负向 → 负面提示词（前面自动拼上当前模型的官方基线）。
-          同名条目会覆盖更新（之前导入过的可直接重新导入修复），内容完全相同的自动跳过。
-        </p>
-        <ul class="art-import-list">
-          <li v-for="(plan, i) in artistImportResult?.plans ?? []" :key="i" class="art-import-item">
-            <div class="art-import-head">
-              <span class="art-import-name" :title="plan.source">{{ plan.source || '(未命名)' }}</span>
-              <span class="art-import-badge" :class="`is-${plan.state}`">
-                {{ plan.state === 'import' ? '将导入' : plan.state === 'overwrite' ? '将覆盖' : '已存在' }}
-              </span>
-              <span v-if="plan.active" class="art-import-badge is-active">当前使用中</span>
-            </div>
-            <div class="art-import-fields">
-              <code class="art-import-line" :title="plan.prompt"
-                ><span class="art-import-key">画师串</span>{{ plan.prompt || '(空)' }}</code
-              >
-              <code class="art-import-line" :title="plan.quality"
-                ><span class="art-import-key">正向</span>{{ plan.quality || '(空)' }}</code
-              >
-              <code class="art-import-line" :title="plan.negative"
-                ><span class="art-import-key">负向</span>{{ plan.negative || '(空)' }}</code
-              >
-            </div>
-          </li>
-        </ul>
-        <label v-if="chatu8ActiveRef" class="art-import-switch">
-          <input type="checkbox" v-model="switchActiveArtist" />
-          <span>
-            导入后切换到智绘姬当前使用的预设
-            <code>{{ chatu8ActiveRef.source }}</code>
-          </span>
-        </label>
-        <footer class="bbi-modal-foot">
-          <span class="bbi-modal-foot-spacer"></span>
-          <button class="bbi-btn" type="button" @click="artistImportOpen = false">取消</button>
-          <button
-            class="bbi-btn bbi-btn-primary"
-            type="button"
-            :disabled="!artistImportResult || artistImportResult.imported + artistImportResult.overwritten === 0"
-            @click="runArtistImport"
-          >
-            {{ artistImportResult && artistImportResult.imported + artistImportResult.overwritten === 0 ? '全部相同' : '开始导入' }}
-          </button>
-        </footer>
-      </div>
-    </ModalMask>
 
     <!-- ===== 画师串库管理器:搜索/预览图/勾选批量删除 ===== -->
     <NaiArtistProfiles />
