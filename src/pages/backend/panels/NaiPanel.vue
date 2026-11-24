@@ -632,7 +632,7 @@ function dissolveGroup(group: VibeGroup) {
 }
 
 /**
- * 旧版从智绘姬迁移时把组名拼进了显示名(「组名 · 原名」),分组结构因此丢失。
+ * 兼容旧版导入时把组名拼进显示名(「组名 · 原名」)的存量数据。
  * 这里按前缀还原:只动未分组的条目,不覆盖用户已手工分好的组。
  * 按钮仅在真有可整理的条目时出现——没得整理时摆一颗点不出反应的按钮不如不摆。
  */
@@ -992,8 +992,6 @@ async function removeVibe(vibe: NaiVibe) {
             </button>
           </span>
         </div>
-
-        <!-- 从智绘姬导入提示词预设的入口在下方「从智绘姬迁移」折叠区,这里不做常驻提示 -->
 
         <!-- 内容内联编辑:画师串通常就几个 tag,让「选中哪条」与「这条写了什么」一眼同框 -->
         <template v-if="artist">
@@ -1725,7 +1723,7 @@ async function removeVibe(vibe: NaiVibe) {
   background: transparent;
 }
 
-/* —— 从智绘姬迁移提示词预设 —— */
+/* —— 画师串导入预览列表 —— */
 .art-import-list {
   list-style: none;
   margin: 10px 0 4px;
