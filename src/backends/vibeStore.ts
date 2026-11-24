@@ -152,7 +152,9 @@ export async function saveVibeFiles(
 ): Promise<{ dataPath: string; thumbnailPath: string }> {
   // Updates are written to fresh paths. The caller swaps metadata first, then removes
   // the previous files; a failed write therefore never damages the currently referenced data.
-  const localKey = safeFileKey(key) ? `${safeFileKey(key)}-${randomUuid()}` : randomUuid();
+  const localKey = current
+    ? `${safeFileKey(key) || 'vibe'}-${randomUuid()}`
+    : safeFileKey(key) || randomUuid();
   if (current?.dataPath.startsWith(LOCAL_PATH_PREFIX)) {
     const dataPath = await writeLocalData(localKey, data);
     return { dataPath, thumbnailPath: '' };
