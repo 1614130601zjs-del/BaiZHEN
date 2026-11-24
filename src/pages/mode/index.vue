@@ -84,7 +84,7 @@ onMounted(() => { void refreshBooks(); });
   <section class="bbi-page">
     <div class="bbi-page-head">
       <h2 class="bbi-title bbi-title-sub">生图模式</h2>
-      <button class="bbi-btn bbi-btn-secondary" type="button" :disabled="loading || busy" @click="refreshBooks">
+      <button class="bbi-btn" type="button" :disabled="loading || busy" @click="refreshBooks">
         {{ loading ? '刷新中…' : '刷新世界书' }}
       </button>
     </div>
@@ -138,10 +138,10 @@ onMounted(() => { void refreshBooks(); });
 </template>
 
 <style scoped>
-.mode-card { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--bbi-line); border-radius: var(--bbi-radius-lg); background: var(--bbi-surface); }
+.mode-card { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--bbi-line); border-radius: var(--bbi-radius); background: var(--bbi-surface); }
 .mode-heading { color: var(--bbi-ink); font-size: 14px; font-weight: 650; }
 .mode-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.mode-option { display: grid; gap: 7px; padding: 13px; border: 1px solid var(--bbi-line); border-radius: var(--bbi-radius-md); background: var(--bbi-surface-2); color: var(--bbi-ink); text-align: left; cursor: pointer; }
+.mode-option { display: grid; gap: 7px; padding: 13px; border: 1px solid var(--bbi-line); border-radius: var(--bbi-radius); background: var(--bbi-surface-2); color: var(--bbi-ink); text-align: left; cursor: pointer; }
 .mode-option.active { border-color: var(--bbi-accent); box-shadow: inset 0 0 0 1px var(--bbi-accent); }
 .mode-option span, .mode-hint { color: var(--bbi-ink-soft); font-size: 12px; line-height: 1.6; }
 .mode-field { display: grid; gap: 6px; color: var(--bbi-ink-soft); font-size: 12px; }
