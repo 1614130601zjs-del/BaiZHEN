@@ -176,3 +176,37 @@ describe('旧版 Vibe 设置迁移', () => {
     expect(saveSettingsDebounced).toHaveBeenCalledOnce();
   });
 });
+
+
+describe('Vibe pool artist combo normalization', () => {
+  it('keeps a combo that references a pool-only resource across settings reload', async () => {
+    mocks.context = {
+      extensionSettings: {
+        baibai_image: {
+          nai: {
+            vibes: [],
+            vibePool: [{
+              id: 'pool-only-vibe', name: '池资源', dataPath: '/user/files/pool.json',
+              thumbnailPath: '', modelKeys: ['v4-5full'], hasImage: false, fingerprint: 'pool-only',
+            }],
+            vibeGroups: [],
+            shizhenArtistProfiles: {
+              combos: [{ id: 'pool-combo', name: '池资源组合', artistId: '', vibeId: 'pool-only-vibe', vibeGroup: '', updatedAt: 1 }],
+              global: {
+                body: { comboId: 'pool-combo', size: '' },
+                statusBar: { comboId: '', size: '' },
+                egg: { comboId: '', size: '' },
+              },
+              bindings: [],
+            },
+          },
+        },
+      },
+      saveSettingsDebounced: vi.fn(),
+    };
+    const { hydrateSettings, settings } = await import('@/state/settings');
+    await hydrateSettings();
+    expect(settings.nai.shizhenArtistProfiles.combos[0].vibeId).toBe('pool-only-vibe');
+    expect(settings.nai.shizhenArtistProfiles.global.body.comboId).toBe('pool-combo');
+  });
+});

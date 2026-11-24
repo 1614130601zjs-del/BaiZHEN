@@ -2321,7 +2321,7 @@ function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
     shizhenArtistProfiles: normalizeShizhenArtistProfiles(
       o.shizhenArtistProfiles,
       new Set([...artistPresets.map(item => item.id), ...BUILTIN_NAI_ARTISTS.map(item => item.id)]),
-      new Set(vibes.map(item => item.id)),
+      new Set([...vibes.map(item => item.id), ...vibePool.map(item => item.id)]),
       def.shizhenArtistProfiles,
     ),
     // 老配置缺这两个字段:回落默认 = 开着自然语言、不锁方向,即改动前的行为
