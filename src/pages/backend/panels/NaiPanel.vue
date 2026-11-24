@@ -38,6 +38,7 @@ import {
 } from '@/backends/vibeStore';
 import { readShizhenVibeFile } from '@/backends/shizhenVibeImport';
 import NaiArtistManager from '@/pages/backend/panels/NaiArtistManager.vue';
+import NaiArtistProfiles from '@/pages/backend/panels/NaiArtistProfiles.vue';
 import NaiAccountBalance from '@/pages/backend/panels/NaiAccountBalance.vue';
 import ComicExtraRules from '@/pages/backend/panels/ComicExtraRules.vue';
 import { acquireNaiSlot } from '@/floor/genQueue';
@@ -1758,6 +1759,7 @@ async function removeVibe(vibe: NaiVibe) {
     </ModalMask>
 
     <!-- ===== 画师串库管理器:搜索/预览图/勾选批量删除 ===== -->
+    <NaiArtistProfiles />
     <NaiArtistManager v-model:open="artistManagerOpen" />
 
     <ConfirmDialog
