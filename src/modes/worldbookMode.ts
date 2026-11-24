@@ -11,12 +11,18 @@ import { getContext } from '@/st/context';
 
 export type WorldbookEntryOverrides = Record<string, Record<string, boolean>>;
 
+export type WorldbookSceneMode = 'pair' | 'group';
+export type WorldbookModeEntryBindings = Record<WorldbookSceneMode, Record<string, Record<string, boolean>>>;
+
 export interface WorldbookModeProfile {
   enabled: boolean;
+  mode: WorldbookSceneMode;
   coreBook: string;
+  coreBooks: Record<WorldbookSceneMode, string>;
   worldviewBook: string;
   worldview: string;
   entryOverrides: WorldbookEntryOverrides;
+  modeEntryBindings: WorldbookModeEntryBindings;
 }
 
 interface EntryState {
@@ -30,7 +36,7 @@ interface Snapshot {
 }
 
 interface PersistedWorldbookMode {
-  schemaVersion: 1;
+  schemaVersion: 2;
   profile: WorldbookModeProfile;
   snapshot: Snapshot;
 }
@@ -57,10 +63,13 @@ const STORAGE_KEY = 'baibai_image_worldbook_mode';
 const WORLDVIEW_PREFIX = '世界观｜';
 const DEFAULT_PROFILE: WorldbookModeProfile = {
   enabled: false,
+  mode: 'pair',
   coreBook: '',
+  coreBooks: { pair: '', group: '' },
   worldviewBook: '',
   worldview: '',
   entryOverrides: {},
+  modeEntryBindings: { pair: {}, group: {} },
 };
 
 let runtimePromise: Promise<WorldInfoRuntime> | undefined;
@@ -76,28 +85,45 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+function normalizeProfile(input: unknown): WorldbookModeProfile {
+  const source = input && typeof input === 'object' ? input as Partial<WorldbookModeProfile> : {};
+  const mode: WorldbookSceneMode = source.mode === 'group' ? 'group' : 'pair';
+  const legacyCore = typeof source.coreBook === 'string' ? source.coreBook : '';
+  const coreBooks = {
+    pair: typeof source.coreBooks?.pair === 'string' ? source.coreBooks.pair : (mode === 'pair' ? legacyCore : ''),
+    group: typeof source.coreBooks?.group === 'string' ? source.coreBooks.group : (mode === 'group' ? legacyCore : ''),
+  };
+  const modeBindings = source.modeEntryBindings && typeof source.modeEntryBindings === 'object'
+    ? source.modeEntryBindings : DEFAULT_PROFILE.modeEntryBindings;
+  return {
+    ...clone(DEFAULT_PROFILE),
+    enabled: source.enabled === true,
+    mode,
+    coreBook: coreBooks[mode] || legacyCore,
+    coreBooks,
+    worldviewBook: typeof source.worldviewBook === 'string' ? source.worldviewBook : '',
+    worldview: typeof source.worldview === 'string' ? source.worldview : '',
+    entryOverrides: source.entryOverrides && typeof source.entryOverrides === 'object' ? clone(source.entryOverrides) : {},
+    modeEntryBindings: {
+      pair: modeBindings.pair && typeof modeBindings.pair === 'object' ? clone(modeBindings.pair) : {},
+      group: modeBindings.group && typeof modeBindings.group === 'object' ? clone(modeBindings.group) : {},
+    },
+  };
+}
+
 function readPersisted(): PersistedWorldbookMode {
   const raw = getContext()?.extensionSettings?.[STORAGE_KEY];
   if (!raw || typeof raw !== 'object') {
-    return { schemaVersion: 1, profile: clone(DEFAULT_PROFILE), snapshot: { entries: {}, managedBooks: [] } };
+    return { schemaVersion: 2, profile: clone(DEFAULT_PROFILE), snapshot: { entries: {}, managedBooks: [] } };
   }
-  const value = raw as Partial<PersistedWorldbookMode>;
-  const profile = value.profile && typeof value.profile === 'object'
-    ? { ...clone(DEFAULT_PROFILE), ...value.profile }
-    : clone(DEFAULT_PROFILE);
+  const value = raw as Partial<PersistedWorldbookMode> & { profile?: unknown };
+  const profile = normalizeProfile(value.profile);
   const snapshot: Snapshot = value.snapshot && typeof value.snapshot === 'object'
     ? value.snapshot
     : { entries: {}, managedBooks: [] };
   return {
-    schemaVersion: 1,
-    profile: {
-      ...profile,
-      enabled: profile.enabled === true,
-      coreBook: typeof profile.coreBook === 'string' ? profile.coreBook : '',
-      worldviewBook: typeof profile.worldviewBook === 'string' ? profile.worldviewBook : '',
-      worldview: typeof profile.worldview === 'string' ? profile.worldview : '',
-      entryOverrides: profile.entryOverrides && typeof profile.entryOverrides === 'object' ? profile.entryOverrides : {},
-    },
+    schemaVersion: 2,
+    profile,
     snapshot: {
       globalSelection: Array.isArray(snapshot.globalSelection) ? snapshot.globalSelection.filter((x): x is string => typeof x === 'string') : undefined,
       entries: snapshot.entries && typeof snapshot.entries === 'object' ? snapshot.entries : {},
@@ -208,13 +234,19 @@ export function getWorldbookModeProfile(): WorldbookModeProfile {
 /** 写入模式配置草稿；保存配置本身不会自动挂载世界书。 */
 export function saveWorldbookModeProfile(profile: WorldbookModeProfile): void {
   const state = readPersisted();
-  state.profile = {
+  const mode: WorldbookSceneMode = profile.mode === 'group' ? 'group' : 'pair';
+  const coreBook = String(profile.coreBook ?? '').trim();
+  state.profile = normalizeProfile({
+    ...profile,
     enabled: profile.enabled === true,
-    coreBook: String(profile.coreBook ?? '').trim(),
+    mode,
+    coreBook,
+    coreBooks: { ...profile.coreBooks, [mode]: coreBook },
     worldviewBook: String(profile.worldviewBook ?? '').trim(),
     worldview: String(profile.worldview ?? '').trim(),
     entryOverrides: clone(profile.entryOverrides ?? {}),
-  };
+    modeEntryBindings: clone(profile.modeEntryBindings ?? DEFAULT_PROFILE.modeEntryBindings),
+  });
   persist(state);
 }
 
@@ -223,6 +255,43 @@ export async function listWorldbooks(): Promise<string[]> {
   const runtime = await worldInfoRuntime();
   const names = runtime.world_names ?? getContext()?.getWorldInfoNames?.();
   return Array.isArray(names) ? [...new Set(names.filter((x): x is string => typeof x === 'string'))].sort((a, b) => a.localeCompare(b, 'zh')) : [];
+}
+
+/** 读取指定世界书的条目列表与当前启用状态，用于模式内逐条绑定。 */
+export async function listWorldbookEntries(bookName: string): Promise<Array<{ uid: string; title: string; enabled: boolean; worldview: boolean }>> {
+  const name = bookName.trim();
+  if (!name) return [];
+  const data = await loadBook(name);
+  return Object.entries(data.entries)
+    .sort((a, b) => Number(a[1].order ?? 100) - Number(b[1].order ?? 100))
+    .map(([uid, entry]) => ({
+      uid,
+      title: String(entry.comment ?? '').trim() || (Array.isArray(entry.key) ? entry.key.join('、') : '') || `UID ${uid}`,
+      enabled: !Boolean(entry.disable),
+      worldview: String(entry.comment ?? '').trim().startsWith(WORLDVIEW_PREFIX),
+    }));
+}
+
+async function applyModeEntryBindings(
+  name: string,
+  mode: WorldbookSceneMode,
+  profile: WorldbookModeProfile,
+  snapshot: Snapshot,
+): Promise<void> {
+  if (!name) return;
+  await captureBook(snapshot, name);
+  const data = await loadBook(name);
+  const bindings = profile.modeEntryBindings[mode][name] ?? (profile.modeEntryBindings[mode][name] = {});
+  let changed = false;
+  for (const [uid, entry] of Object.entries(data.entries)) {
+    if (typeof bindings[uid] !== 'boolean') bindings[uid] = !Boolean(entry.disable);
+    const disable = !bindings[uid];
+    if (Boolean(entry.disable) !== disable) {
+      entry.disable = disable;
+      changed = true;
+    }
+  }
+  if (changed) await saveBook(name, data);
 }
 
 /** 读取世界观特化书中以「世界观｜」开头的条目名称。 */
@@ -246,7 +315,9 @@ export function applyWorldbookMode(): Promise<void> {
     const state = readPersisted();
     const { profile, snapshot } = state;
     if (!profile.enabled) throw new Error('世界书模式尚未启用');
-    const core = profile.coreBook.trim();
+    const core = (profile.coreBooks[profile.mode] || profile.coreBook).trim();
+    profile.coreBook = core;
+    profile.coreBooks[profile.mode] = core;
     const worldviewBook = profile.worldviewBook.trim();
     const worldview = profile.worldview.trim();
     if (!core || !worldviewBook || !worldview) throw new Error('请先选择核心世界书、世界观特化书和世界观');
@@ -276,6 +347,7 @@ export function applyWorldbookMode(): Promise<void> {
     await writeGlobalSelection(runtime, next);
     await applyEntryOverrides(core, profile.entryOverrides[core] ?? {}, snapshot);
     await applyEntryOverrides(worldviewBook, profile.entryOverrides[worldviewBook] ?? {}, snapshot);
+    await applyModeEntryBindings(core, profile.mode, profile, snapshot);
 
     // 自动世界观单选：只有符合命名约定的条目才由此功能管理。
     await captureBook(snapshot, worldviewBook);

@@ -4,6 +4,7 @@ import {
   applyWorldbookMode,
   getWorldbookModeProfile,
   listWorldbooks,
+  listWorldbookEntries,
   listWorldviews,
   restoreWorldbookMode,
   saveWorldbookModeProfile,
@@ -14,6 +15,8 @@ const profile = ref<WorldbookModeProfile>(getWorldbookModeProfile());
 const selectedMode = ref<'native' | 'worldbook'>(profile.value.enabled ? 'worldbook' : 'native');
 const books = ref<string[]>([]);
 const worldviews = ref<string[]>([]);
+const coreEntries = ref<Array<{ uid: string; title: string; enabled: boolean }>>([]);
+const worldviewEntries = ref<Array<{ uid: string; title: string; enabled: boolean; worldview: boolean }>>([]);
 const loading = ref(false);
 const busy = ref(false);
 const message = ref('');
@@ -25,6 +28,7 @@ async function refreshBooks() {
   try {
     books.value = await listWorldbooks();
     await refreshWorldviews();
+    await refreshEntryLists();
     message.value = books.value.length ? `已读取 ${books.value.length} 本世界书` : '当前未发现已加载的世界书';
     error.value = false;
   } catch (e) {
@@ -35,6 +39,51 @@ async function refreshBooks() {
   }
 }
 
+async function refreshEntryLists() {
+  const core = profile.value.coreBook;
+  const world = profile.value.worldviewBook;
+  if (core) {
+    const entries = await listWorldbookEntries(core);
+    const mode = profile.value.mode;
+    const byBook = profile.value.modeEntryBindings[mode][core] ||= {};
+    for (const entry of entries) if (typeof byBook[entry.uid] !== 'boolean') byBook[entry.uid] = entry.enabled;
+    coreEntries.value = entries.map(entry => ({ uid: entry.uid, title: entry.title, enabled: byBook[entry.uid] }));
+  } else coreEntries.value = [];
+  if (world) {
+    const entries = await listWorldbookEntries(world);
+    const overrides = profile.value.entryOverrides[world] ||= {};
+    worldviewEntries.value = entries.map(entry => ({ ...entry, enabled: typeof overrides[entry.uid] === 'boolean' ? overrides[entry.uid] : entry.enabled }));
+  } else worldviewEntries.value = [];
+}
+
+function changeCoreMode(event: Event) {
+  const next = (event.target as HTMLSelectElement).value === 'group' ? 'group' : 'pair';
+  const current = profile.value.mode;
+  profile.value.coreBooks[current] = profile.value.coreBook;
+  profile.value.mode = next;
+  profile.value.coreBook = profile.value.coreBooks[next] || '';
+  void refreshEntryLists();
+}
+
+function setCoreEntry(uid: string, event: Event) {
+  const enabled = (event.target as HTMLInputElement).checked;
+  const mode = profile.value.mode;
+  const book = profile.value.coreBook;
+  if (!book) return;
+  const byBook = profile.value.modeEntryBindings[mode][book] ||= {};
+  byBook[uid] = enabled;
+  const item = coreEntries.value.find(entry => entry.uid === uid);
+  if (item) item.enabled = enabled;
+}
+
+function setWorldviewEntry(book: string, uid: string, event: Event) {
+  const enabled = (event.target as HTMLInputElement).checked;
+  const overrides = profile.value.entryOverrides[book] ||= {};
+  overrides[uid] = enabled;
+  const item = worldviewEntries.value.find(entry => entry.uid === uid);
+  if (item) item.enabled = enabled;
+}
+
 async function refreshWorldviews() {
   worldviews.value = profile.value.worldviewBook
     ? await listWorldviews(profile.value.worldviewBook)
@@ -42,7 +91,8 @@ async function refreshWorldviews() {
   if (!worldviews.value.includes(profile.value.worldview)) profile.value.worldview = '';
 }
 
-watch(() => profile.value.worldviewBook, () => { void refreshWorldviews(); });
+watch(() => profile.value.worldviewBook, () => { void refreshWorldviews(); void refreshEntryLists(); });
+watch(() => profile.value.coreBook, () => { void refreshEntryLists(); });
 
 async function chooseMode(next: 'native' | 'worldbook') {
   if (next === 'native') {
@@ -68,6 +118,7 @@ async function applyMode() {
   busy.value = true;
   try {
     profile.value.enabled = true;
+    profile.value.coreBooks[profile.value.mode] = profile.value.coreBook;
     saveWorldbookModeProfile(profile.value);
     await applyWorldbookMode();
     selectedMode.value = 'worldbook';
@@ -114,7 +165,14 @@ onMounted(() => { void refreshBooks(); });
     <section v-if="mode === 'worldbook'" class="mode-card">
       <div class="mode-heading">世界书配置</div>
       <label class="mode-field">
-        <span>核心世界书</span>
+        <span>场景模式</span>
+        <select :value="profile.mode" @change="changeCoreMode">
+          <option value="pair">双人模式</option>
+          <option value="group">群像模式</option>
+        </select>
+      </label>
+      <label class="mode-field">
+        <span>{{ profile.mode === 'pair' ? '双人' : '群像' }}核心世界书</span>
         <select v-model="profile.coreBook">
           <option value="">请选择核心世界书</option>
           <option v-for="book in books" :key="book" :value="book">{{ book }}</option>
@@ -134,7 +192,21 @@ onMounted(() => { void refreshBooks(); });
           <option v-for="worldview in worldviews" :key="worldview" :value="worldview">{{ worldview }}</option>
         </select>
       </label>
-      <p class="mode-hint">世界观特化书需使用「世界观｜名称」作为条目备注前缀。应用时只切换这两本书，不会卸载其他全局世界书；退出模式时恢复接管前的挂载与条目状态。</p>
+      <div v-if="coreEntries.length" class="mode-entry-group">
+        <strong>{{ profile.mode === 'pair' ? '双人' : '群像' }}核心书条目绑定</strong>
+        <label v-for="entry in coreEntries" :key="entry.uid" class="mode-entry">
+          <input type="checkbox" :checked="entry.enabled" @change="setCoreEntry(entry.uid, $event)" />
+          <span>{{ entry.title }}</span>
+        </label>
+      </div>
+      <div v-if="worldviewEntries.length" class="mode-entry-group">
+        <strong>世界观特化书条目覆盖</strong>
+        <label v-for="entry in worldviewEntries" :key="entry.uid" class="mode-entry">
+          <input type="checkbox" :checked="entry.enabled" @change="setWorldviewEntry(profile.worldviewBook, entry.uid, $event)" />
+          <span>{{ entry.title }}<small v-if="entry.worldview">世界观条目；取消手动覆盖后恢复自动单选</small></span>
+        </label>
+      </div>
+      <p class="mode-hint">双人和群像分别保存核心书及逐条目启用状态。世界观特化书需使用「世界观｜名称」作为条目备注前缀。应用时只接管指定书籍，不卸载其他全局世界书；退出时恢复接管前的挂载与条目状态。</p>
       <button class="bbi-btn bbi-btn-primary" type="button" :disabled="busy || loading" @click="applyMode">
         {{ busy ? '处理中…' : '保存并应用模式' }}
       </button>
@@ -153,6 +225,12 @@ onMounted(() => { void refreshBooks(); });
 .mode-option span, .mode-hint { color: var(--bbi-ink-soft); font-size: 12px; line-height: 1.6; }
 .mode-field { display: grid; gap: 6px; color: var(--bbi-ink-soft); font-size: 12px; }
 .mode-field select { width: 100%; min-height: 38px; padding: 6px 10px; border: 1px solid var(--bbi-line); border-radius: var(--bbi-radius-sm); background: var(--bbi-surface-2); color: var(--bbi-ink); }
+.mode-entry-group { display: grid; gap: 7px; padding: 10px; border: 1px solid var(--bbi-line); border-radius: var(--bbi-radius-sm); }
+.mode-entry-group > strong { color: var(--bbi-ink); font-size: 12px; }
+.mode-entry { display: flex; align-items: flex-start; gap: 8px; color: var(--bbi-ink-soft); font-size: 12px; }
+.mode-entry input { margin-top: 3px; }
+.mode-entry span { display: grid; gap: 2px; }
+.mode-entry small { color: var(--bbi-ink-soft); opacity: .75; }
 .mode-message { color: var(--bbi-ink-soft); font-size: 12px; }
 .mode-message.danger { color: var(--bbi-danger, #c44); }
 @media (max-width: 480px) { .mode-options { grid-template-columns: 1fr; } }
