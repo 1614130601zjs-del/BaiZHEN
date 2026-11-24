@@ -1,4 +1,5 @@
 import { normalizeComicReasoningMap, type ComicReasoning } from '@/api/comicReasoning';
+import { migrateLegacyVibeLibrary } from '@/backends/vibePool';
 import {
   normalizeSimpleConfig,
   simpleDefaults,

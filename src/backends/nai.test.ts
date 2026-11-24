@@ -55,6 +55,9 @@ function nai(overrides: Partial<NaiSettings> = {}): NaiSettings {
     normalizeRefStrength: true,
     concurrency: 1,
     vibes: [],
+    vibePool: [],
+    vibeGroups: [],
+    activeVibeGroupId: '',
     artistPresets: [],
     activeArtistId: '',
     shizhenArtistProfiles: {
