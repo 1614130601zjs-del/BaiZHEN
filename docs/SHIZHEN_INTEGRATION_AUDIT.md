@@ -103,6 +103,22 @@
 - `src/pages/registry.ts`、`src/components/Icon.vue`：注册模式页面和导航图标。
 - `src/autoTag/context.ts`、`src/autoTag/prompt.ts`：世界书模式下，自动 tag 上下文仅允许核心书与世界观特化书进入模型上下文；若宿主缺少能保留来源书名的条目接口，则严格降级为空，不回退拼接所有世界书，避免串入其他书的内容。原生模式保持原有行为。
 
+
+### 世界书模式接口核验与第一轮风险修复
+
+- 已对照 SillyTavern `release` 分支 `public/scripts/world-info.js`：确认 `selected_world_info`、`world_info`、`world_names` 是模块导出；`saveWorldInfo(name, data, immediately)` 与 `checkWorldInfo(chat, maxContext, isDryRun, globalScanData)` 也有导出。当前模式适配器调用的核心名称与该版本源码一致。
+- `checkWorldInfo` 的激活条目包含 `world` 来源书名；柏宝绘 `fetchWorldInfo` 使用该字段限制允许进入上下文的书名。宿主旧接口丢失来源字段时，世界书模式保持严格空结果，不回退混入其他书。
+- `WORLDINFO_SETTINGS_UPDATED` 是酒馆公开事件类型；扩展可通过 `eventSource.emit` 触发设置更新通知。
+- 导航栏 `NavBar.vue` 直接遍历 `PAGES` 注册表，因此“生图模式”入口会正常显示。
+- 修复了“选择模式即提前启用”的问题：现在只有点击应用并成功后，持久化 `profile.enabled` 才保持为 `true`；仅选择模式不会提前改变生图上下文。
+- 修复了应用流程的恢复点时序：在改动全局挂载或条目状态前，先持久化原始全局挂载和两本目标书的 `disable` 快照；切换目标书时保留整个接管期间的 managed book 集合，避免旧目标书残留挂载；应用失败时立即尝试恢复。
+
+接口核验来源：
+- https://github.com/SillyTavern/SillyTavern/blob/release/public/scripts/world-info.js
+- https://docs.sillytavern.app/for-contributors/writing-extensions/
+
+注意：该核验针对当前公开 `release` 源码；用户实际酒馆版本仍需运行时验证。失败回滚、重启恢复、用户手动修改挂载、角色/群聊切换仍须在真实酒馆环境验收。
+
 ### 第一阶段边界与待验收
 
 - 当前已实现的是模式配置 UI、世界书挂载/恢复适配层、世界书上下文按书名隔离。
