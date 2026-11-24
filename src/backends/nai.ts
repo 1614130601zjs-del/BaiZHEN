@@ -305,7 +305,7 @@ export function buildNaiImageEditRequest(
   if (edit.mode === 'inpaint') {
     next.mask = edit.mask;
     next.add_original_image = true;
-    next.inpaintImg2ImgStrength = edit.strength;
+    next.inpaintImg2ImgStrength = 1;
   }
   return {
     model: edit.mode === 'inpaint' ? (/-inpainting$/i.test(model) ? model : `${model}-inpainting`) : model,

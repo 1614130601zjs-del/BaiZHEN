@@ -946,7 +946,7 @@ describe('NAI image editing request', () => {
     expect(result.action).toBe('infill');
     expect(result.parameters).toMatchObject({
       image: 'SOURCE', mask: 'MASK', strength: 0.7, noise: 0.15,
-      add_original_image: true, inpaintImg2ImgStrength: 0.7,
+      add_original_image: true, inpaintImg2ImgStrength: 1,
     });
   });
 
