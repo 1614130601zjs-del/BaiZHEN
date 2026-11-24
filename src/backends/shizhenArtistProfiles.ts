@@ -5,6 +5,7 @@ import type {
   NaiArtistProfileSettings,
   NaiArtistTargetConfig,
   NaiVibe,
+  NaiVibeGroup,
   NaiSettings,
 } from '@/state/settings';
 
@@ -167,4 +168,10 @@ export function applyArtistProfileToNai(
     }
   }
   return { nai: next, applied: true, size };
+}
+
+/** Resolve combo group references stored as either stable IDs or legacy display names. */
+export function resolveVibeGroupName(reference: string | undefined, groups: readonly NaiVibeGroup[]): string {
+  if (!reference) return '';
+  return groups.find(group => group.id === reference || group.name === reference)?.name || reference;
 }

@@ -12,7 +12,7 @@ import {
 import { vibeModelKey, BUILTIN_NAI_ARTISTS } from '@/backends/nai';
 import { newNaiArtist, settings, type NaiArtistPreset, type NaiVibe, type NaiVibePoolItem } from '@/state/settings';
 import { getContext } from '@/st/context';
-import { makeCharacterBindingKey } from '@/backends/shizhenArtistProfiles';
+import { resolveVibeGroupName, makeCharacterBindingKey } from '@/backends/shizhenArtistProfiles';
 import Icon from '@/components/Icon.vue';
 
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -321,7 +321,7 @@ async function exportBackup() {
     const groupNames = [...new Set([
       ...groups.map(group => group.name.trim()).filter(Boolean),
       ...legacyVibes.map(item => item.group.trim()).filter(Boolean),
-      ...settings.nai.shizhenArtistProfiles.combos.map(item => item.vibeGroup?.trim()).filter((name): name is string => !!name),
+      ...settings.nai.shizhenArtistProfiles.combos.map(item => resolveVibeGroupName(item.vibeGroup, groups).trim()).filter(Boolean),
     ])];
     const pool: Array<Record<string, unknown>> = [];
     const refsByGroup = new Map<string, Array<{ poolId: string; strength: number; informationExtracted?: number; enabled?: boolean }>>();
@@ -403,7 +403,8 @@ async function exportBackup() {
     }));
     const comboToIndex = new Map(settings.nai.shizhenArtistProfiles.combos.map((item, index) => [item.id, index]));
     const exportCombos = settings.nai.shizhenArtistProfiles.combos.map(item => {
-      let vibeIndex = item.vibeGroup ? groupNamesWithUngrouped.indexOf(item.vibeGroup) : -1;
+      const resolvedGroupName = resolveVibeGroupName(item.vibeGroup, groups);
+      let vibeIndex = resolvedGroupName ? groupNamesWithUngrouped.indexOf(resolvedGroupName) : -1;
       if (vibeIndex < 0 && item.vibeId) {
         const selected = legacyVibes.find(vibe => vibe.id === item.vibeId);
         const selectedResource = selected || poolItems.find(vibe => vibe.id === item.vibeId);

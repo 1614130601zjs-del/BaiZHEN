@@ -6,6 +6,7 @@ import {
   applyArtistProfileToNai,
   removeArtistCombo,
   resolveArtistTarget,
+  resolveVibeGroupName,
 } from '@/backends/shizhenArtistProfiles';
 import type { NaiArtistProfileSettings } from '@/state/settings';
 import { getNaiVibesForGeneration } from '@/backends/vibePool';
@@ -329,4 +330,17 @@ describe('artist combo references independent Vibe pool groups',()=>{
   expect(result.nai.vibes).toBe(source.vibes);
   expect(source.activeVibeGroupId).toBe('');
  });
+});
+
+
+describe('Vibe group reference export compatibility', () => {
+  const groups = [{ id: 'stable-group-id', name: '雨夜', refs: [] }];
+  it('resolves stable IDs to the display name expected by Shizhen positional exports', () => {
+    expect(resolveVibeGroupName('stable-group-id', groups)).toBe('雨夜');
+  });
+  it('keeps legacy name references and unresolved explicit references intact', () => {
+    expect(resolveVibeGroupName('雨夜', groups)).toBe('雨夜');
+    expect(resolveVibeGroupName('deleted-group', groups)).toBe('deleted-group');
+    expect(resolveVibeGroupName('', groups)).toBe('');
+  });
 });
