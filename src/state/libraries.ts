@@ -142,9 +142,10 @@ export const libraries = store;
 
 export function initLibraries(): void {
   if (initialized) return;
-  initialized = true;
   const ctx = getContext();
-  const raw = ctx?.extensionSettings?.[STORE_KEY] as Partial<LibraryStore> | undefined;
+  if (!ctx?.extensionSettings) return;
+  initialized = true;
+  const raw = ctx.extensionSettings[STORE_KEY] as Partial<LibraryStore> | undefined;
   if (!raw || typeof raw !== 'object') return;
   store.prompts = Array.isArray(raw.prompts) ? raw.prompts.map(normalizePrompt).filter((item): item is PromptLibraryEntry => !!item) : [];
   store.works = normalizeWorkEntries(raw.works);

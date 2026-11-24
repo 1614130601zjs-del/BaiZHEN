@@ -8,11 +8,13 @@ import {
   createCharTagSetOp,
   deriveCharTags,
   emptyCharFields,
+  buildEntryTag,
   mergeCharTagSeed,
   normalizeCharTagStore,
   type CharTagAutoOp,
 } from '@/state/charTags';
 import type { STMessage } from '@/st/context';
+import { libraries } from '@/state/libraries';
 
 function floorMessage(ops: CharTagAutoOp[], swipe = 0, storedSwipe = swipe): STMessage {
   return {
@@ -236,5 +238,21 @@ describe('global library merge & lock', () => {
     const base = [globalEntry('玩家', { sex: '1boy', hair: 'short black hair' })];
     expect(deriveCharTags(base, chat, chat.length, new Set(['玩家']))[0].fields.hair).toBe('short black hair');
     expect(deriveCharTags(base, chat)[0].fields.hair).toBe('long red hair');
+  });
+});
+
+
+describe('Shizhen work library tag fallback', () => {
+  it('adds a matched work identity only when fandom was not manually set', () => {
+    const previous = libraries.works;
+    libraries.works = [{ id: 'work-test', name: '阿黛尔|Adele', canonical: 'adele (series alpha)', work: '作品甲' }];
+    try {
+      const fields = { ...emptyCharFields(), sex: '1girl' };
+      expect(buildEntryTag({ name: 'Adele', fields, raw: '' })).toBe('adele (series alpha), 1girl');
+      expect(buildEntryTag({ name: 'Adele', fields: { ...fields, fandom: 'manual (tag)' }, raw: '' })).toBe('manual (tag), 1girl');
+      expect(buildEntryTag({ name: '陌生角色', fields, raw: '' })).toBe('1girl');
+    } finally {
+      libraries.works = previous;
+    }
   });
 });

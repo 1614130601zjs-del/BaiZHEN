@@ -1,4 +1,5 @@
 import { getContext, type STMessage } from '@/st/context';
+import { findWorkEntry, initLibraries, libraries } from '@/state/libraries';
 import { reactive } from 'vue';
 
 /**
@@ -158,9 +159,16 @@ export function charFieldsEmpty(fields: Record<CharTagField, string>): boolean {
   return CHAR_TAG_FIELDS.every(field => !(fields[field] ?? '').trim());
 }
 
-export function buildEntryTag(entry: Pick<CharTagEntry, 'fields' | 'raw'>): string {
+export function buildEntryTag(entry: Pick<CharTagEntry, 'fields' | 'raw'> & { name?: string }): string {
   if (entry.raw.trim() && charFieldsEmpty(entry.fields)) return entry.raw.trim();
-  return CHAR_TAG_FIELDS.map(field => (entry.fields[field] ?? '').trim())
+  const fields = { ...entry.fields };
+  // 拾帧作品库兼容：仅在用户没有手填 fandom 时，按中文角色名/别名补入作品身份 tag。
+  // 用户手工填写始终优先，词库缺失或尚未加载时不改变旧行为。
+  if (!fields.fandom?.trim() && entry.name) {
+    initLibraries();
+    fields.fandom = findWorkEntry(libraries.works, entry.name)?.canonical ?? '';
+  }
+  return CHAR_TAG_FIELDS.map(field => (fields[field] ?? '').trim())
     .filter(Boolean)
     .join(', ');
 }
