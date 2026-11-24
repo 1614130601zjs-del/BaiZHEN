@@ -34,6 +34,7 @@ const mode = ref<'scene' | 'plot'>('scene');
 const style = ref<'egg' | 'comic' | 'comic2' | 'comic4'>('egg');
 const comboId = ref('');
 const comboOptions = computed(() => settings.nai.shizhenArtistProfiles.combos.map(item => ({ id: item.id, name: item.name || '未命名组合' })));
+const supportsArtistCombos = computed(() => settings.defaultBackend === 'nai');
 const busy = ref(false);
 const rerolling = ref(false);
 const error = ref('');
@@ -268,10 +269,11 @@ async function removeRecord(record: TheaterRecord): Promise<void> {
       </div>
       <div class="style-row">
         <label>画师串组合
-          <select v-model="comboId">
+          <select v-model="comboId" :disabled="!supportsArtistCombos">
             <option value="">跟随彩蛋／角色绑定配置</option>
             <option v-for="item in comboOptions" :key="item.id" :value="item.id">{{ item.name }}</option>
           </select>
+          <small v-if="!supportsArtistCombos">画师串组合仅适用于 NovelAI 后端；切换回 NovelAI 后会保留当前选择。</small>
         </label>
       </div>
       <div class="style-row">

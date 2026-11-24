@@ -218,8 +218,15 @@ async function removeCurrent(frame: HTMLElement, task: StatusBarTask): Promise<v
   }
 }
 
+function isCurrentStatusBarTask(frame: HTMLElement, prompt: string, taskKey: string): boolean {
+  return frame.isConnected
+    && frame.dataset.bbiStatusbarTask === taskKey
+    && statusBarPromptForTarget(frame) === prompt
+    && taskIdentity(frame, prompt, frame.ownerDocument).taskKey === taskKey;
+}
+
 async function generateForFrame(frame: HTMLElement, prompt: string, task: StatusBarTask): Promise<void> {
-  if (activeTasks.has(task.taskKey) || !settings.enabled) return;
+  if (activeTasks.has(task.taskKey) || !settings.enabled || !isCurrentStatusBarTask(frame, prompt, task.taskKey)) return;
   let output: Awaited<ReturnType<typeof generateImage>> | undefined;
   activeTasks.add(task.taskKey);
   frame.dataset.bbiStatusbarBusy = '1';
@@ -246,12 +253,12 @@ async function generateForFrame(frame: HTMLElement, prompt: string, task: Status
       artistTarget: 'statusBar',
       renderProfile: inferRenderProfile(prompt),
     }, undefined, {}, snapshot);
-    if (!settings.enabled || !frame.isConnected || frame.dataset.bbiStatusbarTask !== task.taskKey || statusBarPromptForTarget(frame) !== prompt) return;
+    if (!settings.enabled || !isCurrentStatusBarTask(frame, prompt, task.taskKey)) return;
     const base64 = await resultToBase64ForUpload(output.result);
     const format = /^[a-z0-9]+$/i.test(output.result.format) ? output.result.format.toLowerCase() : 'png';
     const filename = `status_${statusBarHash(task.taskKey)}_${Date.now().toString(36)}.${format}`;
     const path = await uploadUserImage(IMAGE_FOLDER, filename, base64, format);
-    if (!settings.enabled || !frame.isConnected || frame.dataset.bbiStatusbarTask !== task.taskKey || statusBarPromptForTarget(frame) !== prompt) {
+    if (!settings.enabled || !isCurrentStatusBarTask(frame, prompt, task.taskKey)) {
       await deleteUserImage(path).catch(() => undefined);
       return;
     }
@@ -266,7 +273,7 @@ async function generateForFrame(frame: HTMLElement, prompt: string, task: Status
     persist();
     renderCard(frame, task);
   } catch (error) {
-    if (frame.isConnected && frame.dataset.bbiStatusbarTask === task.taskKey && statusBarPromptForTarget(frame) === prompt) {
+    if (isCurrentStatusBarTask(frame, prompt, task.taskKey)) {
       const message = error instanceof Error ? error.message : String(error);
       showError(frame, message, () => void generateForFrame(frame, prompt, task));
     }
@@ -278,7 +285,7 @@ async function generateForFrame(frame: HTMLElement, prompt: string, task: Status
       frame.dataset.bbiStatusbarBusyTask = '';
     }
     activeTasks.delete(task.taskKey);
-    if (settings.enabled && frame.dataset.bbiStatusbarTask === task.taskKey && statusBarPromptForTarget(frame) === prompt
+    if (settings.enabled && isCurrentStatusBarTask(frame, prompt, task.taskKey)
       && !frame.querySelector('.bbi-statusbar-card') && !frame.querySelector('.bbi-statusbar-error')) {
       showTrigger(frame, prompt, {
         taskKey: task.taskKey, chatId: task.chatId, messageId: task.messageId, ordinal: task.ordinal,
