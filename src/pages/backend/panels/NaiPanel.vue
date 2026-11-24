@@ -621,6 +621,31 @@ function createPoolGroupFromSelection() {
   toastr.success(`已向「${name}」添加 ${added} 个资源；同一资源可继续加入其他组`, 'Vibe 池');
 }
 
+async function removePoolResource(poolId: string) {
+  const resource = settings.nai.vibePool.find(item => item.id === poolId);
+  if (!resource) return;
+  const refCount = settings.nai.vibeGroups.reduce(
+    (count, group) => count + group.refs.filter(ref => ref.poolId === poolId).length,
+    0,
+  );
+  const confirmed = window.confirm(
+    `确定从资源池永久删除「${resource.name}」吗？这会同时移除它在 ${refCount} 个分组中的引用，并删除对应编码文件。`,
+  );
+  if (!confirmed) return;
+  settings.nai.vibeGroups = settings.nai.vibeGroups.map(group => ({
+    ...group,
+    refs: group.refs.filter(ref => ref.poolId !== poolId),
+  }));
+  settings.nai.vibes = settings.nai.vibes.filter(vibe => vibe.id !== poolId);
+  settings.nai.vibePool = settings.nai.vibePool.filter(item => item.id !== poolId);
+  selectedPoolIds.value = new Set([...selectedPoolIds.value].filter(id => id !== poolId));
+  try {
+    await deleteVibeData(resource);
+    toastr.success(`已删除「${resource.name}」及其全部分组引用。`, 'Vibe 池');
+  } catch (error) {
+    toastr.warning(`索引已删除，但编码文件清理失败：${errorMessage(error)}`, 'Vibe 池');
+  }
+}
 function renamePoolGroup(groupId: string) {
   const group = settings.nai.vibeGroups.find(item => item.id === groupId);
   if (!group) return;
@@ -1549,6 +1574,7 @@ async function removeVibe(vibe: NaiVibe) {
               <input type="checkbox" class="bbi-checkbox" :checked="selectedPoolIds.has(resource.id)" @change="togglePoolSelection(resource.id)" />
               <span>{{ resource.name }}</span>
               <small>{{ resource.modelKeys.join(' / ') || '无模型编码' }}</small>
+              <button class="bbi-btn bbi-btn-sm" type="button" @click.prevent.stop="removePoolResource(resource.id)">删除资源</button>
             </label>
             <p v-if="!settings.nai.vibePool.length" class="bbi-field-hint">资源池暂时为空；上传或导入 Vibe 后会自动加入。</p>
           </div>
