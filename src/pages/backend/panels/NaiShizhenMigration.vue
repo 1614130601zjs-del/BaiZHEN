@@ -132,6 +132,14 @@ async function importBackup() {
 
     const pool = [...originalPool];
     const groups = originalGroups.map(group => ({ ...group, refs: [...group.refs] }));
+    // Preserve empty source groups too: artist combos may intentionally reference
+    // a group before resources are added, and must not become dangling after import.
+    for (const rawName of value.vibeGroups) {
+      const name = rawName.trim();
+      if (name && !groups.some(group => group.name === name)) {
+        groups.push({ id: `vibe_group_shizhen_${Date.now()}_${groups.length}`, name, refs: [] });
+      }
+    }
     const sourceToPoolId = new Map<string, string>();
     const fingerprintToPoolId = new Map<string, string>();
     for (const resource of pool) {
