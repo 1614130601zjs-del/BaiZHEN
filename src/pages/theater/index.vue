@@ -159,6 +159,8 @@ async function generateTheater(): Promise<void> {
       characterKey: makeCharacterBindingKey(characterAtStart?.avatar, characterAtStart?.name, contextAtStart?.characterId),
     };
     const messages = await buildGenerationMessages(text, styleValue);
+    // 保存本次真正提交给文本模型的完整消息（含角色卡/世界书系统上下文），按图片记录独立留档。
+    sourceSnapshot.chatSnapshot = messages;
     status.value = '正在生成小剧场文本…';
     const raw = await context.generateRaw({ prompt: messages, responseLength: 4096 });
     rawOutput.value = raw;
