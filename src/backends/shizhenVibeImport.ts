@@ -297,6 +297,31 @@ export async function readShizhenVibeFile(file: File, currentModelKey: string): 
   }
 }
 
+async function readBoundedStream(stream: ReadableStream<Uint8Array>, limit: number, expectedSize: number, name: string): Promise<Uint8Array> {
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > limit || total > expectedSize) {
+        await reader.cancel().catch(() => undefined);
+        throw new Error(`Vibe 压缩包解压数据超过声明或安全限制：${name}`);
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (total !== expectedSize) throw new Error(`Vibe 压缩包解压长度与目录声明不符：${name}`);
+  const output = new Uint8Array(total);
+  let cursor = 0;
+  for (const chunk of chunks) { output.set(chunk, cursor); cursor += chunk.byteLength; }
+  return output;
+}
+
 async function readZipJson(file: File): Promise<unknown[]> {
   if (file.size > MAX_VIBE_ARCHIVE_BYTES) throw new Error('Vibe 压缩包超过 64 MB 安全限制。');
   const buffer = await file.arrayBuffer();
@@ -310,14 +335,9 @@ async function readZipJson(file: File): Promise<unknown[]> {
   let totalUncompressedBytes = 0;
 
   for (let offset = 0; offset + 46 <= bytes.length;) {
-    if (read32(offset) !== 0x02014b50) {
-      offset++;
-      continue;
-    }
+    if (read32(offset) !== 0x02014b50) { offset++; continue; }
     entryCount++;
-    if (entryCount > MAX_VIBE_ARCHIVE_ENTRIES) {
-      throw new Error('Vibe 压缩包文件数量超过 256 个安全限制。');
-    }
+    if (entryCount > MAX_VIBE_ARCHIVE_ENTRIES) throw new Error('Vibe 压缩包文件数量超过 256 个安全限制。');
     const flags = read16(offset + 8);
     const method = read16(offset + 10);
     const compressedSize = read32(offset + 20);
@@ -325,43 +345,41 @@ async function readZipJson(file: File): Promise<unknown[]> {
     const nameLength = read16(offset + 28);
     const extraLength = read16(offset + 30);
     const commentLength = read16(offset + 32);
-    const localOffset = read32(offset + 42);
+    const recordEnd = offset + 46 + nameLength + extraLength + commentLength;
+    if (recordEnd > bytes.length) throw new Error('Vibe 压缩包中央目录记录不完整。');
     const name = decoder.decode(bytes.slice(offset + 46, offset + 46 + nameLength));
+    const localOffset = read32(offset + 42);
     if (/\.(?:json|naiv4vibe|naiv4vibebundle)$/i.test(name)) {
       if (flags & 0x0001) throw new Error('Vibe 压缩包包含加密文件，无法安全导入。');
-      if (uncompressedSize > MAX_VIBE_ARCHIVE_ENTRY_BYTES) {
-        throw new Error(`Vibe 压缩包单个文件超过 16 MB 安全限制：${name}`);
-      }
+      if (uncompressedSize > MAX_VIBE_ARCHIVE_ENTRY_BYTES) throw new Error(`Vibe 压缩包单个文件超过 16 MB 安全限制：${name}`);
       totalUncompressedBytes += uncompressedSize;
-      if (totalUncompressedBytes > MAX_VIBE_ARCHIVE_TOTAL_BYTES) {
-        throw new Error('Vibe 压缩包解压总量超过 64 MB 安全限制。');
+      if (totalUncompressedBytes > MAX_VIBE_ARCHIVE_TOTAL_BYTES) throw new Error('Vibe 压缩包解压总量超过 64 MB 安全限制。');
+      if (localOffset + 30 > bytes.length || read32(localOffset) !== 0x04034b50) {
+        throw new Error(`Vibe 压缩包文件头无法识别：${name}`);
       }
-      if (compressedSize > bytes.length || localOffset + 30 > bytes.length) {
-        throw new Error(`Vibe 压缩包文件数据越界：${name}`);
-      }
-      if (read32(localOffset) !== 0x04034b50) throw new Error(`Vibe 压缩包文件头无法识别：${name}`);
+      const localFlags = read16(localOffset + 6);
+      const localMethod = read16(localOffset + 8);
       const localNameLength = read16(localOffset + 26);
       const localExtraLength = read16(localOffset + 28);
       const start = localOffset + 30 + localNameLength + localExtraLength;
-      if (start + compressedSize > bytes.length) {
-        throw new Error(`Vibe 压缩包文件数据不完整：${name}`);
+      if ((localFlags & 0x0001) || localMethod !== method || start > bytes.length || compressedSize > bytes.length - start) {
+        throw new Error(`Vibe 压缩包文件数据越界或头信息不一致：${name}`);
       }
       const packed = bytes.slice(start, start + compressedSize);
       let raw: Uint8Array;
-      if (method === 0) raw = packed;
-      else if (method === 8 && typeof DecompressionStream !== 'undefined') {
+      if (method === 0) {
+        if (packed.byteLength !== uncompressedSize) throw new Error(`Vibe 压缩包存储文件长度不符：${name}`);
+        raw = packed;
+      } else if (method === 8 && typeof DecompressionStream !== 'undefined') {
         const stream = new Blob([packed]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-        raw = new Uint8Array(await new Response(stream).arrayBuffer());
+        raw = await readBoundedStream(stream, MAX_VIBE_ARCHIVE_ENTRY_BYTES, uncompressedSize, name);
       } else {
         throw new Error('当前浏览器不支持该 Vibe 压缩算法。');
       }
-      try {
-        output.push(JSON.parse(decoder.decode(raw)) as unknown);
-      } catch {
-        // Ignore unrelated or malformed JSON entries; other archive members may still be valid.
-      }
+      try { output.push(JSON.parse(decoder.decode(raw)) as unknown); }
+      catch { /* Ignore unrelated or malformed JSON entries; other archive members may still be valid. */ }
     }
-    offset += 46 + nameLength + extraLength + commentLength;
+    offset = recordEnd;
   }
   return output;
 }
