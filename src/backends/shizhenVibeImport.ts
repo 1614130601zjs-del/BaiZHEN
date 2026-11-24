@@ -98,6 +98,12 @@ function collectEncodings(raw: Record<string, unknown>, currentModelKey: string)
     result[currentModelKey] = { encoding: cleanPayload(raw.image as string), infoExtracted: fallbackInfo };
   }
 
+  // Shizhen's Vibe pool entries may store the already-extracted payload in image.
+  // Real image thumbnails are excluded by their file signatures.
+  if (!Object.keys(result).length && isPayload(raw.image) && !looksLikeImage(raw.image)) {
+    result[currentModelKey] = { encoding: cleanPayload(raw.image as string), infoExtracted: fallbackInfo };
+  }
+
   // Some exports place a model-specific payload directly beside the encodings object.
   if (!Object.keys(result).length) {
     const seen = new WeakSet<object>();
