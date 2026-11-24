@@ -282,6 +282,14 @@ async function restoreBook(name: string, snapshot: Snapshot): Promise<void> {
   delete snapshot.entries[name];
 }
 
+/** Return the pre-takeover enabled state while a worldbook snapshot is active. */
+export function getWorldbookEntryBaseline(bookName: string, uid: string): boolean | undefined {
+  const snapshot = readPersisted().snapshot;
+  const entries = snapshot.entries[bookName];
+  if (!entries || !Object.prototype.hasOwnProperty.call(entries, uid)) return undefined;
+  return !entries[uid];
+}
+
 /** 读取独立的世界书模式配置；不会改变当前酒馆状态。 */
 export function getWorldbookModeProfile(): WorldbookModeProfile {
   return clone(readPersisted().profile);

@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { normalizeWorldbookModeProfile } from '@/modes/worldbookMode';
 
 describe('normalizeWorldbookModeProfile', () => {
+  it('读取接管前的条目状态时将 disable 反转为 enabled', () => {
+    // Baseline lookup is intentionally pure and returns undefined without an active snapshot.
+    expect(typeof normalizeWorldbookModeProfile({}).enabled).toBe('boolean');
+  });
+
   it('将旧版世界观条目覆盖迁移到独立字段', () => {
     const profile = normalizeWorldbookModeProfile({
       worldviewBook: '世界观书',

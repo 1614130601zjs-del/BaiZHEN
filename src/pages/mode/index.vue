@@ -4,6 +4,7 @@ import { getContext } from '@/st/context';
 import {
   applyWorldbookMode,
   getWorldbookModeProfile,
+  getWorldbookEntryBaseline,
   getWorldbookProfileInfo,
   setWorldbookProfileIndependent,
   listWorldbooks,
@@ -78,7 +79,7 @@ async function refreshEntryLists(revision = profileRefreshRevision) {
   }));
   worldviewEntries.value = worldData.map(entry => ({
     ...entry,
-    baselineEnabled: entry.enabled,
+    baselineEnabled: getWorldbookEntryBaseline(world, entry.uid) ?? entry.enabled,
     enabled: typeof worldOverrides[entry.uid] === 'boolean' ? worldOverrides[entry.uid] : entry.enabled,
   }));
 }
@@ -130,7 +131,7 @@ function clearWorldviewEntryOverride(book: string, uid: string) {
     const worldviewName = comment.startsWith(prefix) ? comment.slice(prefix.length).trim() : '';
     item.enabled = item.worldview && worldviewName
       ? worldviewName === profile.value.worldview
-      : item.baselineEnabled;
+      : (getWorldbookEntryBaseline(book, uid) ?? item.baselineEnabled);
   }
 }
 
