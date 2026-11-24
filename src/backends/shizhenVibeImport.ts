@@ -56,7 +56,7 @@ function readNumericField(value: unknown, pattern: RegExp, fallback: number): nu
 
 function unwrapEncoding(value: unknown, fallbackInfo = 1): { encoding: string; infoExtracted: number } | null {
   if (typeof value === 'string') {
-    return isPayload(value) ? { encoding: cleanPayload(value), infoExtracted: 1 } : null;
+    return isPayload(value) ? { encoding: cleanPayload(value), infoExtracted: fallbackInfo } : null;
   }
   if (!value || typeof value !== 'object') return null;
   const record = value as Record<string, unknown>;
@@ -82,7 +82,7 @@ function collectEncodings(raw: Record<string, unknown>, currentModelKey: string)
   const result: Record<string, { encoding: string; infoExtracted: number }> = {};
   const fallbackInfo = Math.min(1, Math.max(0, readNumericField(
     raw,
-    /"(?:reference_information_extracted|referenceInformationExtracted|information_extracted|informationExtracted|info_extracted|infoExtracted)"\\s*:\\s*([0-9.]+)/i,
+    /"(?:reference_information_extracted|referenceInformationExtracted|information_extracted|informationExtracted|info_extracted|infoExtracted)"\s*:\s*([0-9.]+)/i,
     1,
   )));
   const encodings = raw.encodings;
@@ -163,7 +163,7 @@ function extractOne(
     : {};
   const importedStrength = importInfo.strength ?? raw.strength;
   const strength = clampVibeStrength(
-    importedStrength ?? readNumericField(raw, /"(?:reference_strength|referenceStrength|strength)"\\s*:\\s*([0-9.]+)/i, 0.6),
+    importedStrength ?? readNumericField(raw, /"(?:reference_strength|referenceStrength|strength)"\s*:\s*([0-9.]+)/i, 0.6),
     0.6,
   );
   const infoValues = Object.values(encodings).map(item => item.infoExtracted);
@@ -178,7 +178,7 @@ function extractOne(
       thumbnail: thumbnailValue,
       encodings: Object.fromEntries(Object.entries(encodings).map(([key, item]) => [key, {
         encoding: item.encoding,
-        infoExtracted: item.infoExtracted || infoExtracted,
+        infoExtracted: item.infoExtracted,
       }])),
     },
   };
