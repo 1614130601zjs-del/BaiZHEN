@@ -102,7 +102,9 @@ describe('request-local artist profile application', () => {
     expect(result.applied).toBe(true);
     expect(result.nai.activeArtistId).toBe('combo-artist');
     expect(result.nai.vibes.map(vibe => vibe.enabled)).toEqual([false, true]);
-    expect(result.nai.portraitSize).toBe('1024x1024');
+    expect(result.size).toBe('1024x1024');
+    expect(result.nai.portraitSize).toBe('832x1216');
+    expect(result.nai.landscapeSize).toBe('1216x832');
     expect(native.activeArtistId).toBe('native-artist');
     expect(native.vibes.map(vibe => vibe.enabled)).toEqual([true, false]);
     expect(native.portraitSize).toBe('832x1216');
@@ -155,6 +157,9 @@ describe('profile size-only and target fallback', () => {
     const result = applyArtistProfileToNai(native, '', 'body');
     expect(result.applied).toBe(true);
     expect(result.nai.portraitSize).toBe('1024x1024');
+    expect(result.size).toBe('1024x1024');
+    expect(result.nai.portraitSize).toBe('832x1216');
+    expect(result.nai.landscapeSize).toBe('1216x832');
     expect(result.nai.activeArtistId).toBe('native');
   });
 });

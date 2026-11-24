@@ -631,6 +631,12 @@ describe('buildNaiParameters', () => {
     expect(p.deliberate_euler_ancestral_bug).toBe(false);
   });
 
+  it('精确尺寸覆盖只影响本次请求，不改写用户横竖版配置', () => {
+    const p = buildNaiParameters(nai(), { prompt: '1girl', seed: 1, size: 'landscape', sizeOverride: '1024x1024' });
+    expect(p.width).toBe(1024);
+    expect(p.height).toBe(1024);
+  });
+
   it('横屏画面取横屏尺寸,skip_cfg_above_sigma 随像素量同步变化', () => {
     const portrait = buildNaiParameters(nai(), { prompt: '1girl', seed: 1 });
     const landscape = buildNaiParameters(nai(), { prompt: '2girls', seed: 1, size: 'landscape' });
