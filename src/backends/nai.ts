@@ -20,7 +20,7 @@ import { parseSize, pickSize, type Orientation } from '@/backends/size';
  */
 const NAI_TIMEOUT_MS = 240_000;
 import { clampVibeStrength, loadVibeData } from '@/backends/vibeStore';
-import { getNaiVibesForGeneration } from '@/backends/vibePool';
+import { applyVibeRefInformationExtracted, getNaiVibesForGeneration } from '@/backends/vibePool';
 import type { GenerationArtist, GenerationMeta, GenerationParams, GenerationVibe } from '@/generationMeta';
 import type {
   NaiArtistPreset,
@@ -754,7 +754,7 @@ export async function generateNaiImage(
           : {
               image: '',
               thumbnail: '',
-              encodings: data.encodings,
+              encodings: applyVibeRefInformationExtracted(data, vibe.informationExtracted).encodings,
             },
       );
     } catch (error) {

@@ -1,4 +1,4 @@
-import type { NaiSettings, NaiVibe, NaiVibeGroup, NaiVibePoolItem } from '@/state/settings';
+import type { NaiSettings, NaiVibe, NaiVibeData, NaiVibeGroup, NaiVibePoolItem } from '@/state/settings';
 export function migrateLegacyVibeLibrary(vibes: readonly NaiVibe[]): { pool: NaiVibePoolItem[]; groups: NaiVibeGroup[] } {
   const pool: NaiVibePoolItem[] = [];
   const groups = new Map<string, NaiVibeGroup>();
@@ -29,4 +29,16 @@ export function getNaiVibesForGeneration(nai: Pick<NaiSettings, 'vibes' | 'vibeP
   if (!nai.activeVibeGroupId) return nai.vibes;
   const group = nai.vibeGroups.find(item => item.id === nai.activeVibeGroupId);
   return group ? materializeVibeGroup(group, nai.vibePool) : nai.vibes;
+}
+
+/** Apply a group-member Information Extracted override to a request-local payload copy. */
+export function applyVibeRefInformationExtracted(data: NaiVibeData, override?: number): NaiVibeData {
+  if (typeof override !== 'number' || !Number.isFinite(override)) return data;
+  const value = Math.max(0, Math.min(1, override));
+  return {
+    ...data,
+    encodings: Object.fromEntries(Object.entries(data.encodings).map(([model, encoding]) => [
+      model, { ...encoding, infoExtracted: value },
+    ])),
+  };
 }
