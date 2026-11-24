@@ -1519,6 +1519,7 @@ async function removeVibe(vibe: NaiVibe) {
     <NaiArtistProfiles />
     <NaiShizhenMigration />
     <NaiArtistManager v-model:open="artistManagerOpen" />
+    </div>
 
     <ConfirmDialog
       v-model:open="endpointDeleteOpen"
