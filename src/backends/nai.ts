@@ -801,11 +801,12 @@ export async function generateNaiImage(
     toastr.warning(`vibe「${skipped.join('、')}」${reason},已跳过`, '柏宝绘');
   }
 
+  const editRequest = values.imageEdit ? buildNaiImageEditRequest(nai.model, params, values.imageEdit) : null;
   const body = {
     input: fullPositivePrompt(nai, values.prompt, values.nl),
-    model: nai.model,
-    action: 'generate',
-    parameters: params,
+    model: editRequest?.model ?? nai.model,
+    action: editRequest?.action ?? 'generate',
+    parameters: editRequest?.parameters ?? params,
     use_new_shared_trial: true,
   };
   // 只把「发请求 + 解包」包进重试:上面拼参数、读 vibe 数据的活是一次性的,
