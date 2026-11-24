@@ -88,7 +88,11 @@ export function parseShizhenFullBackup(input: unknown, currentModelKey: string):
   const poolById = new Map<string, Record<string, unknown>>();
   for (const raw of pool) {
     const item = record(raw);
-    if (typeof item.id === 'string' && item.id) poolById.set(item.id, item);
+    if (typeof item.id !== 'string' || !item.id) continue;
+    if (poolById.has(item.id)) {
+      throw new Error(`拾帧备份包含重复的 Vibe 池 ID「${item.id}」，无法安全判断分组引用对应哪份数据。`);
+    }
+    poolById.set(item.id, item);
   }
 
   const vibes: ShizhenImportVibe[] = [];

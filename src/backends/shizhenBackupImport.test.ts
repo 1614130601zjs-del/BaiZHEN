@@ -35,6 +35,20 @@ describe('parseShizhenFullBackup', () => {
     expect(JSON.stringify(source)).toBe(before);
   });
 
+  it('rejects duplicate Vibe pool IDs instead of silently binding refs to the last entry', () => {
+    expect(() => parseShizhenFullBackup({
+      format: 'shizhen-lite-full-backup',
+      data: {
+        presets: [], combinations: [],
+        vibes: [{ name: 'group', refs: [{ poolId: 'duplicate' }] }],
+        vibePool: [
+          { id: 'duplicate', name: 'first', raw: { encodings: { 'v4-5full': { encoding: payload } } } },
+          { id: 'duplicate', name: 'second', raw: { encodings: { 'v4-5full': { encoding: payload + 'B' } } } },
+        ],
+      },
+    }, 'v4-5full')).toThrow(/重复的 Vibe 池 ID/);
+  });
+
   it('rejects unrelated settings files', () => {
     expect(() => parseShizhenFullBackup({ extensions: { baibaiToolkit: {} } }, 'v4-5full')).toThrow(/拾帧完整备份/);
   });
