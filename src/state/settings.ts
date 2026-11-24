@@ -171,6 +171,8 @@ export interface NaiVibe {
   fingerprint: string;
   /** 参考强度 0–1。 */
   strength: number;
+  /** NAI3 / 拾帧兼容引用的 Information Extracted 覆盖值。 */
+  informationExtracted?: number;
   /** 生成时是否叠加此 vibe。 */
   enabled: boolean;
   /**

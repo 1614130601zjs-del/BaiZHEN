@@ -20,6 +20,7 @@ import { parseSize, pickSize, type Orientation } from '@/backends/size';
  */
 const NAI_TIMEOUT_MS = 240_000;
 import { clampVibeStrength, loadVibeData } from '@/backends/vibeStore';
+import { getNaiVibesForGeneration } from '@/backends/vibePool';
 import type { GenerationArtist, GenerationMeta, GenerationParams, GenerationVibe } from '@/generationMeta';
 import type {
   NaiArtistPreset,
@@ -601,7 +602,7 @@ export function applyVibes(
         continue;
       }
       images.push(data.image);
-      infos.push(1);
+      infos.push(vibe.informationExtracted ?? 1);
       strengths.push(vibe.strength);
       applied.push(vibeUsage(vibe, vibe.strength));
     }
@@ -739,7 +740,9 @@ export async function generateNaiImage(
   // 画师串在发请求时解析一次，快照下来随图落盘：事后配方被删/改名也不丢。
   const artist = naiArtistUsage(nai);
   const params = buildNaiParameters(nai, values);
-  const activeVibes = naiSupportsVibes(nai.model) ? nai.vibes.filter(vibe => vibe.enabled) : [];
+  const requestVibes = getNaiVibesForGeneration(nai);
+  const requestNai = requestVibes === nai.vibes ? nai : { ...nai, vibes: requestVibes };
+  const activeVibes = naiSupportsVibes(requestNai.model) ? requestNai.vibes.filter(vibe => vibe.enabled) : [];
   const loaded = new Map<string, NaiVibeData>();
   for (const vibe of activeVibes) {
     try {
@@ -758,7 +761,7 @@ export async function generateNaiImage(
       console.warn(`[柏宝绘] 读取 vibe「${vibe.name}」失败:`, error);
     }
   }
-  const { applied, skipped } = applyVibes(params, nai, loaded);
+  const { applied, skipped } = applyVibes(params, requestNai, loaded);
   if (skipped.length) {
     const reason = naiSupportsVibes(nai.model) ? '缺当前模型编码' : '当前模型不支持 Vibe Transfer';
     console.warn(`[柏宝绘] 以下 vibe 因${reason}被跳过:`, skipped);

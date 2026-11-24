@@ -1,4 +1,4 @@
-import type { NaiVibe, NaiVibeGroup, NaiVibePoolItem } from '@/state/settings';
+import type { NaiSettings, NaiVibe, NaiVibeGroup, NaiVibePoolItem } from '@/state/settings';
 export function migrateLegacyVibeLibrary(vibes: readonly NaiVibe[]): { pool: NaiVibePoolItem[]; groups: NaiVibeGroup[] } {
   const pool: NaiVibePoolItem[] = [];
   const groups = new Map<string, NaiVibeGroup>();
@@ -20,6 +20,13 @@ export function materializeVibeGroup(group: NaiVibeGroup, pool: readonly NaiVibe
   const byId = new Map(pool.map(item => [item.id, item]));
   return group.refs.flatMap(ref => {
     const resource = byId.get(ref.poolId);
-    return resource ? [{ ...resource, strength: ref.strength, enabled: ref.enabled, group: group.name }] : [];
+    return resource ? [{ ...resource, strength: ref.strength, enabled: ref.enabled, group: group.name, informationExtracted: ref.informationExtracted }] : [];
   });
+}
+
+/** 获取当前请求应使用的 Vibe 列表；选中池分组时不再读取旧扁平列表。 */
+export function getNaiVibesForGeneration(nai: Pick<NaiSettings, 'vibes' | 'vibePool' | 'vibeGroups' | 'activeVibeGroupId'>): NaiVibe[] {
+  if (!nai.activeVibeGroupId) return nai.vibes;
+  const group = nai.vibeGroups.find(item => item.id === nai.activeVibeGroupId);
+  return group ? materializeVibeGroup(group, nai.vibePool) : nai.vibes;
 }
