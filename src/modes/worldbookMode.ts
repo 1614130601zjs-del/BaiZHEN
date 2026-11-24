@@ -495,6 +495,8 @@ export function restoreWorldbookMode(disableProfile = true): Promise<void> {
 
 let lifecycleBound = false;
 let activeProfileKey = '';
+let lifecycleRevision = 0;
+let lifecycleQueue: Promise<void> = Promise.resolve();
 
 /** Bind chat/character changes so card-specific worldbook profiles never leak across chats. */
 export function bindWorldbookModeLifecycle(): boolean {
@@ -503,29 +505,41 @@ export function bindWorldbookModeLifecycle(): boolean {
   if (!ctx?.eventSource || !ctx.eventTypes) return false;
   lifecycleBound = true;
   activeProfileKey = currentProfileIdentity()?.key ?? '';
-  const onProfileChange = async () => {
-    const previousKey = activeProfileKey;
-    let nextKey = currentProfileIdentity()?.key ?? '';
-    for (let attempt = 0; attempt < 20 && nextKey === previousKey; attempt++) {
+
+  const scheduleProfileChange = () => {
+    const revision = ++lifecycleRevision;
+    // CHAT_CHANGED and CHARACTER_SELECTED can fire for one transition; collapse them
+    // into one serialized handoff and ignore stale callbacks.
+    lifecycleQueue = lifecycleQueue.then(async () => {
       await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
-      nextKey = currentProfileIdentity()?.key ?? '';
-    }
-    if (nextKey === previousKey) return;
-    activeProfileKey = nextKey;
-    try {
-      await restoreWorldbookMode(false);
-      if (getWorldbookModeProfile().enabled) await applyWorldbookMode();
-    } catch (error) {
-      console.warn('[柏宝绘] 切换角色卡世界书配置失败；保留恢复快照供下次重试。', error);
-      activeProfileKey = previousKey;
-    }
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      if (revision !== lifecycleRevision) return;
+      const targetKey = currentProfileIdentity()?.key ?? '';
+      if (targetKey === activeProfileKey) return;
+      try {
+        await restoreWorldbookMode(false);
+        // The user may have switched again while worldbook files were being restored.
+        if (revision !== lifecycleRevision || (currentProfileIdentity()?.key ?? '') !== targetKey) return;
+        if (getWorldbookModeProfile().enabled) await applyWorldbookMode();
+        if (revision === lifecycleRevision && (currentProfileIdentity()?.key ?? '') === targetKey) {
+          activeProfileKey = targetKey;
+        }
+      } catch (error) {
+        console.warn('[柏宝绘] 切换角色卡世界书配置失败；保留恢复快照供下次重试。', error);
+      }
+    }).catch(error => {
+      console.warn('[柏宝绘] 世界书配置切换队列异常。', error);
+    });
   };
+
   const chatChanged = ctx.eventTypes.CHAT_CHANGED;
   const characterSelected = ctx.eventTypes.CHARACTER_SELECTED;
-  if (chatChanged) ctx.eventSource.on(chatChanged, onProfileChange);
-  if (characterSelected) ctx.eventSource.on(characterSelected, onProfileChange);
+  if (chatChanged) ctx.eventSource.on(chatChanged, scheduleProfileChange);
+  if (characterSelected) ctx.eventSource.on(characterSelected, scheduleProfileChange);
   if (getWorldbookModeProfile().enabled) {
-    void applyWorldbookMode().catch(error => console.warn('[柏宝绘] 启动时恢复世界书模式失败。', error));
+    lifecycleQueue = lifecycleQueue.then(async () => {
+      if (getWorldbookModeProfile().enabled) await applyWorldbookMode();
+    }).catch(error => console.warn('[柏宝绘] 启动时恢复世界书模式失败。', error));
   }
   return true;
 }
