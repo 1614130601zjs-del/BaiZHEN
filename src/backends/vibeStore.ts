@@ -171,7 +171,17 @@ async function saveServerVibeFiles(
   key: string,
 ): Promise<{ dataPath: string; thumbnailPath: string }> {
   const dataPath = await saveVibeData(data, current?.dataPath, key);
-  if (!data.thumbnail) return { dataPath, thumbnailPath: current?.thumbnailPath ?? '' };
+  if (!data.thumbnail) {
+    if (current?.thumbnailPath) {
+      try {
+        await deleteUploadedFile(current.thumbnailPath);
+      } catch (cleanupError) {
+        // Do not expose a stale preview path after the thumbnail was removed.
+        console.warn('[柏宝绘] Vibe 已移除缩略图，但旧文件清理失败：', current.thumbnailPath, cleanupError);
+      }
+    }
+    return { dataPath, thumbnailPath: '' };
+  }
   try {
     // Refresh the thumbnail when the Vibe image changes; keeping an existing path
     // without uploading would leave the preview stale after a successful data update.

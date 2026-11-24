@@ -87,6 +87,34 @@ describe('vibeStore', () => {
     expect(fileStore.remove).toHaveBeenCalledWith('/user/files/bbi-vibe-thumb-v1.jpg');
   });
 
+  it('更新时移除缩略图会清理旧文件并清空缩略图路径', async () => {
+    fileStore.upload.mockResolvedValueOnce('/user/files/bbi-vibe-v1.json');
+    fileStore.remove.mockResolvedValue(true);
+    await expect(saveVibeFiles({ ...data, thumbnail: '' }, {
+      dataPath: '/user/files/bbi-vibe-v1.json',
+      thumbnailPath: '/user/files/bbi-vibe-thumb-v1.jpg',
+    }, 'v1')).resolves.toEqual({
+      dataPath: '/user/files/bbi-vibe-v1.json',
+      thumbnailPath: '',
+    });
+    expect(fileStore.upload).toHaveBeenCalledTimes(1);
+    expect(fileStore.remove).toHaveBeenCalledWith('/user/files/bbi-vibe-thumb-v1.jpg');
+  });
+
+  it('缩略图移除后的旧文件清理失败也不会继续展示过期缩略图', async () => {
+    fileStore.upload.mockResolvedValueOnce('/user/files/bbi-vibe-v1.json');
+    fileStore.remove.mockRejectedValueOnce(new Error('remove failed'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await expect(saveVibeFiles({ ...data, thumbnail: '' }, {
+      dataPath: '/user/files/bbi-vibe-v1.json',
+      thumbnailPath: '/user/files/bbi-vibe-thumb-v1.jpg',
+    }, 'v1')).resolves.toEqual({
+      dataPath: '/user/files/bbi-vibe-v1.json',
+      thumbnailPath: '',
+    });
+    expect(warn).toHaveBeenCalled();
+  });
+
   it('保留已有 Vibe 的数据更新结果，避免缩略图失败造成指纹与文件内容不一致', async () => {
     fileStore.upload
       .mockResolvedValueOnce('/user/files/bbi-vibe-v1.json')
