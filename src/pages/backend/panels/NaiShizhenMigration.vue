@@ -6,6 +6,7 @@ import {
   loadVibeData,
   saveVibeFiles,
   vibeFingerprint,
+  vibePoolFingerprint,
   vibeMetaFromData,
 } from '@/backends/vibeStore';
 import { vibeModelKey, BUILTIN_NAI_ARTISTS } from '@/backends/nai';
@@ -28,14 +29,14 @@ const preview = computed(() => {
   const newArtists = value.artists.filter(item => !existingArtists.has(signature(item))).length;
   const uniqueResources = new Map<string, (typeof value.vibes)[number]>();
   for (const item of value.vibes) {
-    const key = item.sourcePoolId || vibeFingerprint(item.data.encodings);
+    const key = item.sourcePoolId || vibePoolFingerprint(item.data);
     if (!uniqueResources.has(key)) uniqueResources.set(key, item);
   }
   const seenFingerprints = new Set<string>();
   let duplicateVibes = 0;
   let newVibes = 0;
   for (const item of uniqueResources.values()) {
-    const fingerprint = vibeFingerprint(item.data.encodings);
+    const fingerprint = vibePoolFingerprint(item.data);
     if (existingVibeKeys.value.has(fingerprint) || seenFingerprints.has(fingerprint)) duplicateVibes++;
     else newVibes++;
     seenFingerprints.add(fingerprint);
@@ -80,7 +81,7 @@ async function readFile(event: Event) {
     await Promise.all(resources.map(async existing => {
       let fingerprint = existing.fingerprint;
       try {
-        fingerprint = vibeFingerprint((await loadVibeData(existing)).encodings);
+        fingerprint = vibePoolFingerprint(await loadVibeData(existing));
       } catch {
         // Preserve a fallback for legacy entries whose payload cannot currently be read.
       }
@@ -134,7 +135,7 @@ async function importBackup() {
     const sourceToPoolId = new Map<string, string>();
     const fingerprintToPoolId = new Map<string, string>();
     for (const resource of pool) {
-      try { fingerprintToPoolId.set(vibeFingerprint((await loadVibeData(resource)).encodings), resource.id); }
+      try { fingerprintToPoolId.set(vibePoolFingerprint(await loadVibeData(resource)), resource.id); }
       catch { if (resource.fingerprint) fingerprintToPoolId.set(resource.fingerprint, resource.id); }
     }
     for (const existing of originalVibes) {

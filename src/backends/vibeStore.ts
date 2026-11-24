@@ -99,6 +99,16 @@ export function clampVibeStrength(raw: unknown, def = DEFAULT_VIBE_STRENGTH): nu
   return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : def;
 }
 
+/** Pool identity ignores per-group Information Extracted, but retains image identity for NAI3. */
+export function vibePoolFingerprint(data: NaiVibeData): string {
+  const encodings = Object.fromEntries(Object.entries(data.encodings).map(([model, value]) => [
+    model, { ...value, infoExtracted: 0 },
+  ])) as NaiVibeEncodings;
+  let imageHash = 0x811c9dc5;
+  for (let i = 0; i < data.image.length; i++) imageHash = Math.imul(imageHash ^ data.image.charCodeAt(i), 0x01000193);
+  return `${vibeFingerprint(encodings)}|image:${data.image.length}:${(imageHash >>> 0).toString(16)}`;
+}
+
 export function vibeFingerprint(encodings: NaiVibeEncodings): string {
   return Object.keys(encodings).sort().map(key => {
     const value = encodings[key].encoding;

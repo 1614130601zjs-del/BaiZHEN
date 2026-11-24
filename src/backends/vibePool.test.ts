@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyVibeRefInformationExtracted, materializeVibeGroup, migrateLegacyVibeLibrary } from '@/backends/vibePool';
+import { vibePoolFingerprint } from '@/backends/vibeStore';
 import type { NaiVibe } from '@/state/settings';
 const v=(id:string,group:string,strength:number,enabled:boolean):NaiVibe=>({id,name:id,dataPath:`/files/${id}`,thumbnailPath:'',modelKeys:['v4-5full'],hasImage:true,fingerprint:id,strength,enabled,group});
 describe('Vibe pool migration',()=>{
@@ -39,4 +40,17 @@ describe('Vibe group Information Extracted overrides',()=>{
   expect(migrated.groups.map(group=>group.refs[0].informationExtracted)).toEqual([0.42,0.93]);
  });
 
+});
+
+describe('Vibe pool resource identity',()=>{
+ it('ignores Information Extracted differences between group references',()=>{
+  const a={image:'same-image',thumbnail:'',encodings:{v5:{encoding:'same-encoding',infoExtracted:0.2}}};
+  const b={...a,encodings:{v5:{encoding:'same-encoding',infoExtracted:0.9}}};
+  expect(vibePoolFingerprint(a)).toBe(vibePoolFingerprint(b));
+ });
+ it('keeps different NAI3 source images as separate pool resources',()=>{
+  const a={image:'image-a',thumbnail:'',encodings:{v3:{encoding:'same-encoding',infoExtracted:0.5}}};
+  const b={image:'image-b',thumbnail:'',encodings:{v3:{encoding:'same-encoding',infoExtracted:0.5}}};
+  expect(vibePoolFingerprint(a)).not.toBe(vibePoolFingerprint(b));
+ });
 });
