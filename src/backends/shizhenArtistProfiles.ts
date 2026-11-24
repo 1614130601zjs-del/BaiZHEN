@@ -175,3 +175,9 @@ export function resolveVibeGroupName(reference: string | undefined, groups: read
   if (!reference) return '';
   return groups.find(group => group.id === reference || group.name === reference)?.name || reference;
 }
+
+/** Resolve imported or legacy group references to the canonical stable ID. */
+export function resolveVibeGroupId(reference: string | undefined, groups: readonly NaiVibeGroup[]): string {
+  if (!reference) return '';
+  return groups.find(group => group.id === reference || group.name === reference)?.id || reference;
+}

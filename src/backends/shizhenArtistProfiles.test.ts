@@ -344,3 +344,15 @@ describe('Vibe group reference export compatibility', () => {
     expect(resolveVibeGroupName('', groups)).toBe('');
   });
 });
+
+
+describe('stable Vibe group ID resolution', () => {
+  it('resolves imported group names and legacy references to canonical IDs', async () => {
+    const { resolveVibeGroupId } = await import('@/backends/shizhenArtistProfiles');
+    const groups = [{ id: 'group-stable', name: '雨夜', refs: [] }];
+    expect(resolveVibeGroupId('雨夜', groups)).toBe('group-stable');
+    expect(resolveVibeGroupId('group-stable', groups)).toBe('group-stable');
+    expect(resolveVibeGroupId('deleted-group', groups)).toBe('deleted-group');
+    expect(resolveVibeGroupId('', groups)).toBe('');
+  });
+});

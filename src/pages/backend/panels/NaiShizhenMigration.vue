@@ -12,7 +12,7 @@ import {
 import { vibeModelKey, BUILTIN_NAI_ARTISTS } from '@/backends/nai';
 import { newNaiArtist, settings, type NaiArtistPreset, type NaiVibe, type NaiVibePoolItem } from '@/state/settings';
 import { getContext } from '@/st/context';
-import { resolveVibeGroupName, makeCharacterBindingKey } from '@/backends/shizhenArtistProfiles';
+import { resolveVibeGroupName, resolveVibeGroupId, makeCharacterBindingKey } from '@/backends/shizhenArtistProfiles';
 import Icon from '@/components/Icon.vue';
 
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -220,9 +220,13 @@ async function importBackup() {
     const comboBySourceIndex: string[] = [];
     for (const item of value.combos) {
       const artistId = item.artistIndex >= 0 ? artistBySourceIndex[item.artistIndex] || '' : '';
-      const vibeGroup = item.vibeIndex >= 0 ? value.vibeGroups[item.vibeIndex] || '' : '';
+      const sourceVibeGroupName = item.vibeIndex >= 0 ? value.vibeGroups[item.vibeIndex] || '' : '';
+      const vibeGroup = resolveVibeGroupId(sourceVibeGroupName, groups);
       const existing = profiles.combos.find(combo =>
-        combo.name === item.name && combo.artistId === artistId && (combo.vibeGroup || '') === vibeGroup && !combo.vibeId,
+        combo.name === item.name
+        && combo.artistId === artistId
+        && resolveVibeGroupId(combo.vibeGroup, groups) === vibeGroup
+        && !combo.vibeId,
       );
       if (existing) { comboBySourceIndex.push(existing.id); continue; }
       const id = `nac_shizhen_${Date.now()}_${comboBySourceIndex.length}`;
