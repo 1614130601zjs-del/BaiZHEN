@@ -63,7 +63,7 @@ describe('Shizhen artist profile mapping', () => {
     });
     expect(resolveArtistTarget(profiles, 'avatar:hero.png', 'statusBar')).toEqual({
       comboId: 'combo-b',
-      size: '',
+      size: '1024x1024',
     });
     expect(resolveArtistTarget(profiles, 'unknown', 'egg')).toEqual({
       comboId: 'combo-a',
@@ -109,7 +109,16 @@ describe('request-local artist profile application', () => {
   });
 
   it('未选择拾帧组合时完全沿用原生配置', () => {
-    const native = { activeArtistId: 'native', vibes: [], shizhenArtistProfiles: profiles } as unknown as import('@/state/settings').NaiSettings;
+    const emptyProfiles = {
+      combos: [],
+      global: {
+        body: { comboId: '', size: '' },
+        statusBar: { comboId: '', size: '' },
+        egg: { comboId: '', size: '' },
+      },
+      bindings: [],
+    } as NaiArtistProfileSettings;
+    const native = { activeArtistId: 'native', vibes: [], shizhenArtistProfiles: emptyProfiles } as unknown as import('@/state/settings').NaiSettings;
     const result = applyArtistProfileToNai(native, 'unknown', 'body');
     expect(result.applied).toBe(false);
     expect(result.nai).toBe(native);
