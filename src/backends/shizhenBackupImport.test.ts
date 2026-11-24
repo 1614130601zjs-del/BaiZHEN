@@ -153,17 +153,19 @@ describe('Shizhen Vibe pool reference metadata', () => {
     expect(plan.vibes[0]).toMatchObject({
       group: 'soft',
       strength: 0.31,
+      informationExtracted: 0.42,
       data: { encodings: {
-        'v4-5full': { encoding: payload, infoExtracted: 0.42 },
-        v3: { encoding: payload + 'X', infoExtracted: 0.42 },
+        'v4-5full': { encoding: payload, infoExtracted: 0.72 },
+        v3: { encoding: payload + 'X', infoExtracted: 0.81 },
       } },
     });
     expect(plan.vibes[1]).toMatchObject({
       group: 'strong',
       strength: 0.87,
+      informationExtracted: 0.93,
       data: { encodings: {
-        'v4-5full': { encoding: payload, infoExtracted: 0.93 },
-        v3: { encoding: payload + 'X', infoExtracted: 0.93 },
+        'v4-5full': { encoding: payload, infoExtracted: 0.72 },
+        v3: { encoding: payload + 'X', infoExtracted: 0.81 },
       } },
     });
   });

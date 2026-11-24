@@ -381,18 +381,19 @@ async function exportBackup() {
     const exportCombos = settings.nai.shizhenArtistProfiles.combos.map(item => {
       let vibeIndex = item.vibeGroup ? groupNamesWithUngrouped.indexOf(item.vibeGroup) : -1;
       if (vibeIndex < 0 && item.vibeId) {
-        const selected = settings.nai.vibes.find(vibe => vibe.id === item.vibeId);
-        if (selected) {
-          const baseName = `单条 Vibe · ${selected.name}`;
+        const selected = legacyVibes.find(vibe => vibe.id === item.vibeId);
+        const selectedResource = selected || poolItems.find(vibe => vibe.id === item.vibeId);
+        if (selectedResource) {
+          const baseName = `单条 Vibe · ${selectedResource.name}`;
           let syntheticName = baseName;
           let suffix = 2;
-          while (groupNames.includes(syntheticName)) syntheticName = `${baseName}（${suffix++}）`;
+          while (groupNamesWithUngrouped.includes(syntheticName)) syntheticName = `${baseName}（${suffix++}）`;
           const syntheticIndex = groupNamesWithUngrouped.length;
           groupNamesWithUngrouped.push(syntheticName);
           sourceGroups.push({
             id: `group_${syntheticIndex}`,
             name: syntheticName,
-            refs: [refByVibeId.get(selected.id) || { poolId: selected.id, strength: selected.strength }],
+            refs: [refByVibeId.get(selectedResource.id) || { poolId: selectedResource.id, strength: selected?.strength ?? 0.6 }],
           });
           vibeIndex = syntheticIndex;
         }
