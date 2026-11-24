@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { getContext } from '@/st/context';
 import {
   applyWorldbookMode,
   getWorldbookModeProfile,
@@ -152,7 +153,39 @@ async function applyMode() {
   } finally { busy.value = false; }
 }
 
-onMounted(() => { void refreshBooks(); });
+let profileRefreshRevision = 0;
+const profileChangeHandler = () => {
+  const revision = ++profileRefreshRevision;
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (revision !== profileRefreshRevision) return;
+    // The settings page can remain mounted while ST switches chats or characters.
+    // Reload the active profile instead of accidentally saving the previous card's draft
+    // into the newly selected card.
+    profile.value = getWorldbookModeProfile();
+    profileInfo.value = getWorldbookProfileInfo();
+    selectedMode.value = profile.value.enabled ? 'worldbook' : 'native';
+    void refreshBooks();
+  }));
+};
+const profileEventBindings: Array<[string, () => void]> = [];
+
+onMounted(() => {
+  void refreshBooks();
+  const context = getContext();
+  if (!context?.eventSource || !context.eventTypes) return;
+  for (const event of [context.eventTypes.CHAT_CHANGED, context.eventTypes.CHARACTER_SELECTED]) {
+    if (!event) continue;
+    context.eventSource.on(event, profileChangeHandler);
+    profileEventBindings.push([event, profileChangeHandler]);
+  }
+});
+
+onUnmounted(() => {
+  profileRefreshRevision++;
+  const eventSource = getContext()?.eventSource;
+  for (const [event, handler] of profileEventBindings) eventSource?.off?.(event, handler);
+  profileEventBindings.length = 0;
+});
 </script>
 
 <template>
