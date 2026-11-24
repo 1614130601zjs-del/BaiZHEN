@@ -88,6 +88,7 @@ describe('saved automatic image tasks without mounted cards',()=>{
    h.requests[0].resolve();await first;await flush();expect(h.saved).toHaveLength(1);
    // Shizhen TriggerRegistry.beginCandidate semantics: rerun a succeeded trigger
    // while retaining its prior result rather than replacing the history.
+   await vi.advanceTimersByTimeAsync(1600);
    const second=generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
    await flush();expect(h.requests).toHaveLength(2);
    h.requests[1].resolve();await second;await flush();
@@ -99,6 +100,7 @@ describe('saved automatic image tasks without mounted cards',()=>{
    const failed=generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
    await flush();h.requests[0].reject(new Error('temporary failure'));await failed;await flush();
    expect(getGenRecord(slotKey('A',0,0,0))?.phase).toBe('error');
+   await vi.advanceTimersByTimeAsync(1600);
    const retried=generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
    await flush();expect(h.requests).toHaveLength(2);
    h.requests[1].resolve();await retried;await flush();
