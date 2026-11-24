@@ -20,6 +20,10 @@ interface TheaterRecord extends ParsedTheaterOutput {
   imagePath: string;
   createdAt: number;
   chatId: string;
+  /** 生成该张图片时的聊天上下文快照，切换聊天后仍可回看来源。 */
+  chatSnapshot?: Array<{ role: string; content: string }>;
+  characterName?: string;
+  characterKey?: string;
 }
 interface TheaterStore { records: TheaterRecord[] }
 const STORE_KEY = 'baibai_image_theater';
@@ -100,20 +104,22 @@ async function buildGenerationMessages(userInput: string, styleValue: 'egg' | 'c
     { role: 'user', content: (mode.value === 'plot' ? '剧情词：' : '画面词：') + userInput },
   ];
 }
-async function createRecord(userInput: string, parsed: ParsedTheaterOutput, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', comboIdValue = ''): Promise<TheaterRecord> {
+async function createRecord(userInput: string, parsed: ParsedTheaterOutput, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', comboIdValue = '', sourceSnapshot?: Pick<TheaterRecord, 'chatSnapshot' | 'characterName' | 'characterKey'>): Promise<TheaterRecord> {
   const context = getContext();
   if (!context) throw new Error('酒馆上下文尚未就绪');
   const snapshot = captureGenerationSnapshot();
   if (!snapshot.status.configured) throw new Error(snapshot.status.reason || '生图后端尚未配置');
   const prompt = parsed.prompt.replace(/^\s*[\[【]\s*彩蛋[】\]]\s*/u, '').trim();
   const character = context.characters?.[Number(context.characterId)];
+  const characterName = sourceSnapshot?.characterName || character?.name || context.name2 || '';
+  const characterKey = sourceSnapshot?.characterKey || makeCharacterBindingKey(character?.avatar, character?.name, context.characterId);
   const output = await generateImage({
     prompt,
     seed: decideSeed(snapshot.backend),
     artistTarget: 'egg',
     ...(comboIdValue ? { artistComboId: comboIdValue } : {}),
-    characterKey: makeCharacterBindingKey(character?.avatar, character?.name, context.characterId),
-    characterName: character?.name || context.name2 || '',
+    characterKey,
+    characterName,
     renderProfile: inferRenderProfile(prompt),
   }, undefined, {}, snapshot);
   const base64 = await resultToBase64ForUpload(output.result);
@@ -130,6 +136,9 @@ async function createRecord(userInput: string, parsed: ParsedTheaterOutput, mode
     imagePath,
     createdAt: Date.now(),
     chatId: context.getCurrentChatId() || '',
+    chatSnapshot: sourceSnapshot?.chatSnapshot ?? historyMessages(),
+    characterName,
+    characterKey,
   };
 }
 async function generateTheater(): Promise<void> {
@@ -141,6 +150,14 @@ async function generateTheater(): Promise<void> {
     const context = getContext();
     if (!context?.generateRaw) throw new Error('当前酒馆版本未提供 generateRaw，无法调用主 API 静默生成');
     const styleValue = style.value;
+    // 在发起文本模型请求前固定本次图片的聊天/角色快照，避免生成期间聊天切换造成错配。
+    const contextAtStart = getContext();
+    const characterAtStart = contextAtStart?.characters?.[Number(contextAtStart.characterId)];
+    const sourceSnapshot = {
+      chatSnapshot: historyMessages(),
+      characterName: characterAtStart?.name || contextAtStart?.name2 || '',
+      characterKey: makeCharacterBindingKey(characterAtStart?.avatar, characterAtStart?.name, contextAtStart?.characterId),
+    };
     const messages = await buildGenerationMessages(text, styleValue);
     status.value = '正在生成小剧场文本…';
     const raw = await context.generateRaw({ prompt: messages, responseLength: 4096 });
@@ -149,7 +166,7 @@ async function generateTheater(): Promise<void> {
     if (!parsed.prompt) throw new Error('模型输出中没有找到 image###…### 画面提示词');
     if (!parsed.eggBlocks.length) throw new Error('模型输出中没有找到 eggroom###…eggend### 聊天室内容');
     status.value = '正在通过柏宝绘后端生成图片…';
-    const record = await createRecord(text, parsed, mode.value, styleValue, comboId.value);
+    const record = await createRecord(text, parsed, mode.value, styleValue, comboId.value, sourceSnapshot);
     const nextRecords = [record, ...records.value];
     const removed = nextRecords.splice(200);
     records.value = nextRecords;
@@ -178,7 +195,7 @@ async function reroll(): Promise<void> {
   try {
     const parsed: ParsedTheaterOutput = { ...current.value, prompt: promptDraft.value.trim() };
     if (!parsed.prompt) throw new Error('画面提示词不能为空');
-    const next = await createRecord(current.value.input, parsed, current.value.mode, current.value.style || 'egg', current.value.comboId ?? comboId.value);
+    const next = await createRecord(current.value.input, parsed, current.value.mode, current.value.style || 'egg', current.value.comboId ?? comboId.value, current.value);
     const nextRecords = [next, ...records.value];
     const removed = nextRecords.splice(200);
     records.value = nextRecords;
