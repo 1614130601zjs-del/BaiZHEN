@@ -186,6 +186,26 @@ function collectItems(
     }
     return;
   }
+  // Avoid treating a container as one Vibe merely because a descendant has
+  // an encoding. Descend first unless this record itself declares a Vibe payload.
+  const hasOwnPayload = isCanonical
+    || (record.encodings && typeof record.encodings === 'object')
+    || (record.raw && typeof record.raw === 'object')
+    || Object.entries(record).some(([key, child]) => PAYLOAD_KEYS.test(key) && isPayload(child));
+  if (!hasOwnPayload) {
+    const before = output.length;
+    for (const [key, child] of Object.entries(record)) {
+      if (Array.isArray(child) && GROUP_KEYS.test(key)) {
+        for (const [index, nested] of child.entries()) {
+          collectItems(nested, `${name} ${index + 1}`, currentModelKey, output, unsupported, '', seen);
+        }
+      } else if (child && typeof child === 'object') {
+        collectItems(child, name, currentModelKey, output, unsupported, group, seen);
+      }
+    }
+    if (output.length > before) return;
+  }
+
   const direct = extractOne(record, name, group, currentModelKey);
   if (direct) {
     output.push(direct);
