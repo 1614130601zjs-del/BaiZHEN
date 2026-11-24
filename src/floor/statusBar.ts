@@ -246,12 +246,12 @@ async function generateForFrame(frame: HTMLElement, prompt: string, task: Status
       artistTarget: 'statusBar',
       renderProfile: inferRenderProfile(prompt),
     }, undefined, {}, snapshot);
-    if (!frame.isConnected || frame.dataset.bbiStatusbarTask !== task.taskKey || statusBarPromptForTarget(frame) !== prompt) return;
+    if (!settings.enabled || !frame.isConnected || frame.dataset.bbiStatusbarTask !== task.taskKey || statusBarPromptForTarget(frame) !== prompt) return;
     const base64 = await resultToBase64ForUpload(output.result);
     const format = /^[a-z0-9]+$/i.test(output.result.format) ? output.result.format.toLowerCase() : 'png';
     const filename = `status_${statusBarHash(task.taskKey)}_${Date.now().toString(36)}.${format}`;
     const path = await uploadUserImage(IMAGE_FOLDER, filename, base64, format);
-    if (!frame.isConnected || frame.dataset.bbiStatusbarTask !== task.taskKey || statusBarPromptForTarget(frame) !== prompt) {
+    if (!settings.enabled || !frame.isConnected || frame.dataset.bbiStatusbarTask !== task.taskKey || statusBarPromptForTarget(frame) !== prompt) {
       await deleteUserImage(path).catch(() => undefined);
       return;
     }
@@ -278,7 +278,7 @@ async function generateForFrame(frame: HTMLElement, prompt: string, task: Status
       frame.dataset.bbiStatusbarBusyTask = '';
     }
     activeTasks.delete(task.taskKey);
-    if (frame.dataset.bbiStatusbarTask === task.taskKey && statusBarPromptForTarget(frame) === prompt
+    if (settings.enabled && frame.dataset.bbiStatusbarTask === task.taskKey && statusBarPromptForTarget(frame) === prompt
       && !frame.querySelector('.bbi-statusbar-card') && !frame.querySelector('.bbi-statusbar-error')) {
       showTrigger(frame, prompt, {
         taskKey: task.taskKey, chatId: task.chatId, messageId: task.messageId, ordinal: task.ordinal,
