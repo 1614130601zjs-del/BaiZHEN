@@ -9,7 +9,7 @@ import type { WorldbookModeProfile } from '@/modes/worldbookMode';
 const profile: WorldbookModeProfile = {
   profileType: 'inherit', enabled: true, mode: 'pair', coreBook: '核心书',
   coreBooks: { pair: '核心书', group: '群像书' }, worldviewBook: '世界观书',
-  worldview: '蒸汽都市', entryOverrides: {}, modeEntryBindings: { pair: {}, group: {} },
+  worldview: '蒸汽都市', entryOverrides: {}, worldviewEntryOverrides: {}, modeEntryBindings: { pair: {}, group: {} },
 };
 describe('generation mode dispatcher', () => {
   it('routes a task to exactly one native or worldbook strategy', () => {

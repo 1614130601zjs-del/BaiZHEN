@@ -11,6 +11,7 @@ const profile = (overrides: Partial<WorldbookModeProfile> = {}): WorldbookModePr
   worldviewBook: '世界观书',
   worldview: '蒸汽都市',
   entryOverrides: {},
+  worldviewEntryOverrides: {},
   modeEntryBindings: { pair: {}, group: {} },
   ...overrides,
 });
