@@ -541,6 +541,10 @@ async function reencodeVibe(vibe: NaiVibe) {
 
 /** 归拢/搜索/生效判定的纯逻辑在 backends/vibeGroups.ts,此处只做交互与落盘。 */
 const vibeSearch = ref('');
+/** 从现有 Vibe 库中批量挑选资源组成分组；选择状态仅用于编辑，不参与生图。 */
+const vibeGroupSelectionMode = ref(false);
+const selectedVibeIds = ref<Set<string>>(new Set());
+const selectedVibeCount = computed(() => selectedVibeIds.value.size);
 /** 收起的组 key 集合(默认全展开;只存「收起」的,新建组自然是展开的)。 */
 const collapsedGroups = ref<Set<string>>(new Set());
 
@@ -580,6 +584,46 @@ function onGroupPick(vibe: NaiVibe, value: string) {
   }
   const name = window.prompt('新分组名称')?.trim();
   if (name) vibe.group = name;
+}
+
+function toggleVibeSelection(vibe: NaiVibe) {
+  const next = new Set(selectedVibeIds.value);
+  if (next.has(vibe.id)) next.delete(vibe.id);
+  else next.add(vibe.id);
+  selectedVibeIds.value = next;
+}
+
+function selectVisibleVibes() {
+  const next = new Set(selectedVibeIds.value);
+  for (const group of vibeGroups.value) {
+    for (const vibe of group.items) next.add(vibe.id);
+  }
+  selectedVibeIds.value = next;
+}
+
+function clearVibeSelection() {
+  selectedVibeIds.value = new Set();
+}
+
+function finishVibeGroupSelection() {
+  const ids = selectedVibeIds.value;
+  if (!ids.size) {
+    toastr.info('请先选择要加入分组的 Vibe', 'Vibe');
+    return;
+  }
+  const suggested = '';
+  const name = window.prompt('分组名称（输入已有组名可合并）', suggested)?.trim();
+  if (!name) return;
+  const selected = settings.nai.vibes.filter(vibe => ids.has(vibe.id));
+  for (const vibe of selected) vibe.group = name;
+  selectedVibeIds.value = new Set();
+  vibeGroupSelectionMode.value = false;
+  toastr.success(`已将 ${selected.length} 个 Vibe 加入「${name}」`, 'Vibe 分组');
+}
+
+function cancelVibeGroupSelection() {
+  vibeGroupSelectionMode.value = false;
+  selectedVibeIds.value = new Set();
 }
 
 function isGroupCollapsed(key: string): boolean {
@@ -1352,6 +1396,21 @@ async function removeVibe(vibe: NaiVibe) {
               共 {{ settings.nai.vibes.length }} 个 · 已启用 {{ enabledCount }}
             </span>
             <button
+              v-if="!vibeGroupSelectionMode"
+              class="bbi-btn bbi-btn-sm"
+              type="button"
+              @click="vibeGroupSelectionMode = true"
+            >
+              <Icon name="checklist" :size="12" /> 选择 Vibe 组建分组
+            </button>
+            <template v-else>
+              <span class="vibe-count">已选 {{ selectedVibeCount }} 个</span>
+              <button class="bbi-btn bbi-btn-sm" type="button" @click="selectVisibleVibes">全选当前结果</button>
+              <button class="bbi-btn bbi-btn-sm" type="button" @click="clearVibeSelection">清空</button>
+              <button class="bbi-btn bbi-btn-sm bbi-btn-primary" type="button" :disabled="!selectedVibeCount" @click="finishVibeGroupSelection">组成分组</button>
+              <button class="bbi-btn bbi-btn-sm" type="button" @click="cancelVibeGroupSelection">取消</button>
+            </template>
+            <button
               v-if="prefixGroupPlans.length"
               class="bbi-btn bbi-btn-sm"
               type="button"
@@ -1451,6 +1510,15 @@ async function removeVibe(vibe: NaiVibe) {
                 <div v-else class="vibe-thumb vibe-thumb--empty"><Icon name="generate" /></div>
                 <div class="vibe-main">
                   <div class="vibe-head">
+                    <label v-if="vibeGroupSelectionMode" class="vibe-enable" title="选择此 Vibe 加入新分组">
+                      <input
+                        type="checkbox"
+                        class="bbi-checkbox"
+                        :checked="selectedVibeIds.has(vibe.id)"
+                        @change="toggleVibeSelection(vibe)"
+                      />
+                      选择
+                    </label>
                     <input class="bbi-input vibe-name" type="text" v-model="vibe.name" spellcheck="false" />
                     <label class="vibe-enable" title="生成时叠加此 vibe">
                       <input v-model="vibe.enabled" type="checkbox" class="bbi-checkbox" />
