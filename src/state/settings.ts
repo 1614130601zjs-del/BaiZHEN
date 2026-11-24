@@ -2249,10 +2249,9 @@ function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
       if (!target.refs.some(existing => existing.poolId === ref.poolId)) target.refs.push(ref);
     }
   }
-  const activeVibeGroupId =
-    typeof o.activeVibeGroupId === 'string' && vibeGroups.some(group => group.id === o.activeVibeGroupId)
-      ? o.activeVibeGroupId
-      : '';
+  // Preserve an explicit stale group ID. The resolver maps it to an empty list;
+  // clearing it here would reactivate the legacy Vibe library after a group deletion.
+  const activeVibeGroupId = typeof o.activeVibeGroupId === 'string' ? o.activeVibeGroupId : '';
   // 悬空 id 一律清成空串(= 不使用)。**不**照抄 normalizeComfyUI 的「回落第一条」:
   // 用户删掉当前画师串后本该「什么都不加」,回落会给他静默换一套画风,而下拉显示的
   // 也正是那一条(看起来就是自己设的),几乎无法排查。

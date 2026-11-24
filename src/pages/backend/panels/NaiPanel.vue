@@ -673,9 +673,8 @@ function removePoolGroup(groupId: string) {
   for (const vibe of settings.nai.vibes) {
     if (vibe.group.trim() === removed.name) vibe.group = '';
   }
-  // Keep combo.vibeGroup as a stale explicit ID so it resolves to an empty list,
-  // rather than silently switching that combo to the global active group.
-  if (settings.nai.activeVibeGroupId === groupId) settings.nai.activeVibeGroupId = '';
+  // Keep the active ID stale as an explicit empty selection. Clearing it would
+  // make the backend fall back to the legacy flat library after the next reload.
 }
 
 function poolGroupVibes(groupId: string): NaiVibe[] {
