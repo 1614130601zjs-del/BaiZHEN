@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeWorldbookModeProfile } from '@/modes/worldbookMode';
+import { normalizeWorldbookModeProfile, resolveWorldbookEntryBaseline } from '@/modes/worldbookMode';
 
 describe('normalizeWorldbookModeProfile', () => {
-  it('读取接管前的条目状态时将 disable 反转为 enabled', () => {
-    // Baseline lookup is intentionally pure and returns undefined without an active snapshot.
-    expect(typeof normalizeWorldbookModeProfile({}).enabled).toBe('boolean');
+  it('从接管快照读取条目原始启用状态，而不是当前被覆盖后的状态', () => {
+    const snapshot = { 核心书: { 'entry-enabled': false, 'entry-disabled': true } };
+    expect(resolveWorldbookEntryBaseline(snapshot, '核心书', 'entry-enabled')).toBe(true);
+    expect(resolveWorldbookEntryBaseline(snapshot, '核心书', 'entry-disabled')).toBe(false);
+    expect(resolveWorldbookEntryBaseline(snapshot, '核心书', 'missing')).toBeUndefined();
+    expect(resolveWorldbookEntryBaseline(snapshot, 'missing-book', 'entry-enabled')).toBeUndefined();
   });
 
   it('将旧版世界观条目覆盖迁移到独立字段', () => {
