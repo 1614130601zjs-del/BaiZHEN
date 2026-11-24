@@ -633,7 +633,7 @@ function renamePoolGroup(groupId: string) {
   }
   group.name = name;
   for (const combo of settings.nai.shizhenArtistProfiles.combos) {
-    if (combo.vibeGroup === oldName) combo.vibeGroup = name;
+    if (combo.vibeGroup === oldName || combo.vibeGroup === groupId) combo.vibeGroup = name;
   }
   for (const vibe of settings.nai.vibes) {
     if (vibe.group.trim() === oldName) vibe.group = name;
