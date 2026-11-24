@@ -240,7 +240,12 @@ describe('partial artist and Vibe combos', () => {
   });
 
   it('does not reactivate legacy Vibes when a combo references a missing group', () => {
-    const source = makeNai({ artistId: '', vibeId: '', vibeGroup: 'deleted-group' });
+    const source = {
+      ...makeNai({ artistId: '', vibeId: '', vibeGroup: 'deleted-group' }),
+      vibeGroups: [],
+      vibePool: [],
+      activeVibeGroupId: '',
+    } as unknown as import('@/state/settings').NaiSettings;
     const result = applyArtistProfileToNai(source, '', 'body');
     expect(result.nai.activeVibeGroupId).toBe('deleted-group');
     expect(getNaiVibesForGeneration(result.nai)).toEqual([]);
