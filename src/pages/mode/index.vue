@@ -68,7 +68,9 @@ async function refreshEntryLists(revision = profileRefreshRevision) {
   for (const entry of coreData) {
     if (typeof coreBindings[entry.uid] !== 'boolean') coreBindings[entry.uid] = entry.enabled;
   }
-  const worldOverrides = world ? (profile.value.entryOverrides[world] ||= {}) : {};
+  const worldOverrides = world
+    ? (profile.value.worldviewEntryOverrides[world] ||= profile.value.entryOverrides[world] || {})
+    : {};
   coreEntries.value = coreData.map(entry => ({
     uid: entry.uid,
     title: entry.title,
@@ -102,10 +104,33 @@ function setCoreEntry(uid: string, event: Event) {
 
 function setWorldviewEntry(book: string, uid: string, event: Event) {
   const enabled = (event.target as HTMLInputElement).checked;
-  const overrides = profile.value.entryOverrides[book] ||= {};
+  const overrides = profile.value.worldviewEntryOverrides[book] ||= {};
   overrides[uid] = enabled;
   const item = worldviewEntries.value.find(entry => entry.uid === uid);
   if (item) item.enabled = enabled;
+}
+
+function clearWorldviewEntryOverride(book: string, uid: string) {
+  const overrides = profile.value.worldviewEntryOverrides[book];
+  if (overrides) {
+    delete overrides[uid];
+    if (!Object.keys(overrides).length) delete profile.value.worldviewEntryOverrides[book];
+  }
+  // 旧版把世界观覆盖保存在 entryOverrides；清除时一并移除，避免旧值继续生效。
+  const legacy = profile.value.entryOverrides[book];
+  if (legacy) {
+    delete legacy[uid];
+    if (!Object.keys(legacy).length) delete profile.value.entryOverrides[book];
+  }
+  const item = worldviewEntries.value.find(entry => entry.uid === uid);
+  if (item) {
+    const prefix = '世界观｜';
+    const comment = item.title.trim();
+    const worldviewName = comment.startsWith(prefix) ? comment.slice(prefix.length).trim() : '';
+    item.enabled = item.worldview && worldviewName
+      ? worldviewName === profile.value.worldview
+      : item.enabled;
+  }
 }
 
 async function refreshWorldviews(revision = profileRefreshRevision) {
@@ -286,7 +311,8 @@ onUnmounted(() => {
         <strong>世界观特化书条目覆盖</strong>
         <label v-for="entry in worldviewEntries" :key="entry.uid" class="mode-entry">
           <input type="checkbox" :checked="entry.enabled" @change="setWorldviewEntry(profile.worldviewBook, entry.uid, $event)" />
-          <span>{{ entry.title }}<small v-if="entry.worldview">世界观条目；取消手动覆盖后恢复自动单选</small></span>
+          <span>{{ entry.title }}<small v-if="entry.worldview">世界观条目；清除手动覆盖后恢复自动单选</small></span>
+          <button v-if="Object.prototype.hasOwnProperty.call(profile.worldviewEntryOverrides[profile.worldviewBook] || {}, entry.uid) || Object.prototype.hasOwnProperty.call(profile.entryOverrides[profile.worldviewBook] || {}, entry.uid)" class="bbi-btn" type="button" :disabled="busy" @click="clearWorldviewEntryOverride(profile.worldviewBook, entry.uid)">清除覆盖</button>
         </label>
       </div>
       <p class="mode-hint">双人和群像分别保存核心书及逐条目启用状态。世界观特化书需使用「世界观｜名称」作为条目备注前缀。应用时只接管指定书籍，不卸载其他全局世界书；退出时恢复接管前的挂载与条目状态。</p>

@@ -23,6 +23,7 @@ export interface WorldbookModeProfile {
   worldviewBook: string;
   worldview: string;
   entryOverrides: WorldbookEntryOverrides;
+  worldviewEntryOverrides: WorldbookEntryOverrides;
   modeEntryBindings: WorldbookModeEntryBindings;
 }
 
@@ -74,6 +75,7 @@ const DEFAULT_PROFILE: WorldbookModeProfile = {
   worldviewBook: '',
   worldview: '',
   entryOverrides: {},
+  worldviewEntryOverrides: {},
   modeEntryBindings: { pair: {}, group: {} },
 };
 
@@ -110,6 +112,12 @@ function normalizeProfile(input: unknown): WorldbookModeProfile {
     worldviewBook: typeof source.worldviewBook === 'string' ? source.worldviewBook : '',
     worldview: typeof source.worldview === 'string' ? source.worldview : '',
     entryOverrides: source.entryOverrides && typeof source.entryOverrides === 'object' ? clone(source.entryOverrides) : {},
+    // 拾帧将世界观条目覆盖与普通条目覆盖分开存储；兼容旧柏宝绘版本把它们写在 entryOverrides 的数据。
+    worldviewEntryOverrides: source.worldviewEntryOverrides && typeof source.worldviewEntryOverrides === 'object'
+      ? clone(source.worldviewEntryOverrides)
+      : (source.worldviewBook && source.entryOverrides?.[source.worldviewBook]
+        ? { [source.worldviewBook]: clone(source.entryOverrides[source.worldviewBook]) }
+        : {}),
     modeEntryBindings: {
       pair: modeBindings.pair && typeof modeBindings.pair === 'object' ? clone(modeBindings.pair) : {},
       group: modeBindings.group && typeof modeBindings.group === 'object' ? clone(modeBindings.group) : {},
@@ -294,6 +302,7 @@ export function saveWorldbookModeProfile(profile: WorldbookModeProfile): void {
     worldviewBook: String(profile.worldviewBook ?? '').trim(),
     worldview: String(profile.worldview ?? '').trim(),
     entryOverrides: clone(profile.entryOverrides ?? {}),
+    worldviewEntryOverrides: clone(profile.worldviewEntryOverrides ?? {}),
     modeEntryBindings: clone(profile.modeEntryBindings ?? DEFAULT_PROFILE.modeEntryBindings),
   });
   const identity = currentProfileIdentity();
@@ -436,7 +445,10 @@ export function applyWorldbookMode(): Promise<void> {
       notifyWorldbookModeChanged();
       await writeGlobalSelection(runtime, next);
       await applyEntryOverrides(core, profile.entryOverrides[core] ?? {}, snapshot);
-      await applyEntryOverrides(worldviewBook, profile.entryOverrides[worldviewBook] ?? {}, snapshot);
+      await applyEntryOverrides(worldviewBook, {
+        ...(profile.entryOverrides[worldviewBook] ?? {}),
+        ...(profile.worldviewEntryOverrides[worldviewBook] ?? {}),
+      }, snapshot);
       await applyModeEntryBindings(core, profile.mode, profile, snapshot);
 
       // 自动世界观单选：只有符合命名约定的条目才由此功能管理。
@@ -447,7 +459,8 @@ export function applyWorldbookMode(): Promise<void> {
         const comment = String(entry.comment ?? '').trim();
         if (!comment.startsWith(WORLDVIEW_PREFIX)) continue;
         const entryName = comment.slice(WORLDVIEW_PREFIX.length).trim();
-        const hasOverride = Object.prototype.hasOwnProperty.call(profile.entryOverrides[worldviewBook] ?? {}, uid);
+        const hasOverride = Object.prototype.hasOwnProperty.call(profile.worldviewEntryOverrides[worldviewBook] ?? {}, uid)
+          || Object.prototype.hasOwnProperty.call(profile.entryOverrides[worldviewBook] ?? {}, uid);
         if (hasOverride) continue;
         const disable = entryName !== worldview;
         if (Boolean(entry.disable) !== disable) {
