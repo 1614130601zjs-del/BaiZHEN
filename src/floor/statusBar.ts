@@ -108,8 +108,10 @@ function taskIdentity(frame: Element, prompt: string, doc: Document): { taskKey:
   const same = Array.from(scope.querySelectorAll('.scanning, [data-qlPrompt]'))
     .filter(node => statusBarPromptForTarget(node) === prompt);
   const ordinal = frame.hasAttribute('data-ql-stable') ? 0 : Math.max(0, same.indexOf(frame));
-  const swipeId = Number((message as HTMLElement | null)?.getAttribute('data-swipe-id') ?? (message as HTMLElement | null)?.dataset?.swipeId ?? '0') || 0;
-  const chatId = getContext()?.getCurrentChatId() || 'chat';
+  const context = getContext();
+  const messageIndex = Number(messageId);
+  const swipeId = Number.isInteger(messageIndex) ? Number(context?.chat[messageIndex]?.swipe_id ?? 0) || 0 : 0;
+  const chatId = context?.getCurrentChatId() || 'chat';
   const taskKey = `statusbar:${fnv(chatId)}:${messageId}:${swipeId}:${ordinal}:${fnv(prompt)}`;
   return { taskKey, chatId, messageId, ordinal };
 }
