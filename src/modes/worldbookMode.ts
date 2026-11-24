@@ -169,6 +169,17 @@ function readPersisted(): PersistedWorldbookMode {
   };
 }
 
+function setPersistedProfileEnabled(state: PersistedWorldbookMode, enabled: boolean): void {
+  state.profile.enabled = enabled;
+  const identity = currentProfileIdentity();
+  if (state.profile.profileType === 'independent' && identity) {
+    const stored = state.cardProfiles[identity.key];
+    if (stored) state.cardProfiles[identity.key] = { ...stored, enabled };
+  } else {
+    state.defaultProfile = { ...state.defaultProfile, enabled };
+  }
+}
+
 function persist(value: PersistedWorldbookMode): void {
   const ctx = getContext();
   if (!ctx?.extensionSettings) throw new Error('酒馆设置尚未就绪，无法保存世界书模式配置');
@@ -453,7 +464,7 @@ export function applyWorldbookMode(): Promise<void> {
         for (const name of Object.keys(snapshot.entries)) await restoreBook(name, snapshot);
         snapshot.managedBooks = [];
         snapshot.globalSelection = undefined;
-        profile.enabled = false;
+        setPersistedProfileEnabled(state, false);
         state.snapshot = snapshot;
         persist(state);
       } catch (rollbackError) {
@@ -486,7 +497,7 @@ export function restoreWorldbookMode(disableProfile = true): Promise<void> {
     for (const name of Object.keys(snapshot.entries)) await restoreBook(name, snapshot);
     snapshot.managedBooks = [];
     snapshot.globalSelection = undefined;
-    if (disableProfile) state.profile.enabled = false;
+    if (disableProfile) setPersistedProfileEnabled(state, false);
     state.snapshot = snapshot;
     persist(state);
   });
