@@ -432,6 +432,8 @@ export function applyWorldbookMode(): Promise<void> {
       state.snapshot = snapshot;
       persist(state);
 
+      // Stop work using the previous context before changing mounted books or entry states.
+      notifyWorldbookModeChanged();
       await writeGlobalSelection(runtime, next);
       await applyEntryOverrides(core, profile.entryOverrides[core] ?? {}, snapshot);
       await applyEntryOverrides(worldviewBook, profile.entryOverrides[worldviewBook] ?? {}, snapshot);
@@ -457,7 +459,6 @@ export function applyWorldbookMode(): Promise<void> {
 
       state.snapshot = snapshot;
       persist(state);
-      notifyWorldbookModeChanged();
     } catch (error) {
       // 任一世界书写入失败时，尽力恢复接管前的挂载和条目状态，避免半应用状态残留。
       try {
@@ -485,6 +486,8 @@ export function restoreWorldbookMode(disableProfile = true): Promise<void> {
     const state = readPersisted();
     const runtime = await worldInfoRuntime();
     const { snapshot } = state;
+    // Invalidate in-flight work before restoring the previous global worldbook state.
+    notifyWorldbookModeChanged();
     const current = currentGlobalSelection(runtime);
     const managed = new Set(snapshot.managedBooks);
     if (snapshot.globalSelection) {
@@ -501,7 +504,6 @@ export function restoreWorldbookMode(disableProfile = true): Promise<void> {
     if (disableProfile) setPersistedProfileEnabled(state, false);
     state.snapshot = snapshot;
     persist(state);
-    notifyWorldbookModeChanged();
   });
 }
 
