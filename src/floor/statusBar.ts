@@ -300,7 +300,14 @@ function repairSerializedCards(doc: Document): void {
 }
 
 function processFrames(): void {
-  if (!settings.enabled) return;
+  if (!settings.enabled) {
+    // 功能关闭时移除注入界面，但保留本地历史缓存；重新开启后可继续查看。
+    for (const doc of collectDocs()) {
+      doc.querySelectorAll('.bbi-statusbar-card,.bbi-statusbar-trigger,.bbi-statusbar-error,.bbi-statusbar-loading')
+        .forEach(node => node.remove());
+    }
+    return;
+  }
   for (const doc of collectDocs()) {
     repairSerializedCards(doc);
     const frames = Array.from(doc.querySelectorAll<HTMLElement>('.scanning, [data-qlPrompt]')).filter(frame => {

@@ -406,21 +406,21 @@ export function applyWorldbookMode(): Promise<void> {
     const runtime = await worldInfoRuntime();
     ensureSnapshot(snapshot, runtime);
 
-    // 先恢复上一轮接管的条目，再捕获本轮目标书的原始状态。
-    const previousManaged = new Set(snapshot.managedBooks);
-    for (const name of Object.keys(snapshot.entries)) await restoreBook(name, snapshot);
-    const current = currentGlobalSelection(runtime);
-    const next = current.filter(name => !previousManaged.has(name));
-    for (const name of [core, worldviewBook]) if (!next.includes(name)) next.push(name);
-
-    // 在任何全局挂载或条目写入前持久化完整恢复点，避免中途异常后丢失回滚依据。
-    await captureBook(snapshot, core);
-    await captureBook(snapshot, worldviewBook);
-    snapshot.managedBooks = [...new Set([...snapshot.managedBooks, core, worldviewBook])];
-    state.snapshot = snapshot;
-    persist(state);
-
     try {
+      // 将恢复上一轮接管状态也纳入事务；恢复任一本失败时，统一走下方回滚路径。
+      const previousManaged = new Set(snapshot.managedBooks);
+      for (const name of Object.keys(snapshot.entries)) await restoreBook(name, snapshot);
+      const current = currentGlobalSelection(runtime);
+      const next = current.filter(name => !previousManaged.has(name));
+      for (const name of [core, worldviewBook]) if (!next.includes(name)) next.push(name);
+
+      // 在任何全局挂载或条目写入前持久化完整恢复点，避免中途异常后丢失回滚依据。
+      await captureBook(snapshot, core);
+      await captureBook(snapshot, worldviewBook);
+      snapshot.managedBooks = [...new Set([...snapshot.managedBooks, core, worldviewBook])];
+      state.snapshot = snapshot;
+      persist(state);
+
       await writeGlobalSelection(runtime, next);
       await applyEntryOverrides(core, profile.entryOverrides[core] ?? {}, snapshot);
       await applyEntryOverrides(worldviewBook, profile.entryOverrides[worldviewBook] ?? {}, snapshot);
