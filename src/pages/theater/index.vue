@@ -14,6 +14,7 @@ interface TheaterRecord extends ParsedTheaterOutput {
   id: string;
   input: string;
   mode: 'scene' | 'plot';
+  style: 'egg' | 'comic' | 'comic2' | 'comic4';
   imagePath: string;
   createdAt: number;
   chatId: string;
@@ -23,6 +24,7 @@ const STORE_KEY = 'baibai_image_theater';
 const FOLDER = '柏宝绘_小剧场';
 const input = ref('');
 const mode = ref<'scene' | 'plot'>('scene');
+const style = ref<'egg' | 'comic' | 'comic2' | 'comic4'>('egg');
 const busy = ref(false);
 const rerolling = ref(false);
 const error = ref('');
@@ -62,7 +64,7 @@ function historyMessages(): Array<{ role: string; content: string }> {
       content: message.mes.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 3000),
     }));
 }
-async function buildGenerationMessages(userInput: string): Promise<Array<{ role: string; content: string }>> {
+async function buildGenerationMessages(userInput: string, styleValue: 'egg' | 'comic' | 'comic2' | 'comic4'): Promise<Array<{ role: string; content: string }>> {
   const context = getContext();
   if (!context) throw new Error('酒馆上下文尚未就绪');
   const floors = context.chat.map((_, index) => index).slice(-12);
@@ -72,14 +74,17 @@ async function buildGenerationMessages(userInput: string): Promise<Array<{ role:
   const card = fetchCharCard(context);
   const persona = fetchUserPersona(context);
   const system = [
-    '你是小剧场编剧。根据用户给出的画面词或剧情词，结合聊天上下文、角色卡和已激活世界书，写出一段可用于生成单张插画的小剧场。',
+    '你是小剧场编剧。根据用户给出的画面词或剧情词，结合聊天上下文、角色卡和已激活世界书，写出小剧场内容。',
     '严格输出纯文本标记，不要 Markdown 代码块。格式：',
     'title###标题###',
     'image###英文 Danbooru 风格正向提示词###',
     'eggroom###聊天室名称|人数|群主|解说员|解说员吐槽###',
     'eggmsg###left 或 right|说话人|对话内容###（可以多条）',
     'eggend###',
-    '只输出一张图片和一份聊天室。image 提示词应描述当前场景的视觉内容，不要包含画师串、质量词或负面词。聊天室内容要与剧情及人物关系一致，发言称呼与当前角色/用户称呼一致。不要捏造与世界书冲突的设定。',
+    styleValue === 'egg'
+      ? '当前风格：彩蛋 Q 版。允许可爱、搞怪、夸张表情与动作；不要写质量词和体型词。'
+      : `当前风格：正常比例条漫，${styleValue === 'comic2' ? '2' : styleValue === 'comic4' ? '4' : '1'} 格分镜。不要 Q 版或夸张变形，不要自己写质量词和体型词。${styleValue === 'comic2' || styleValue === 'comic4' ? '画面提示词只输出一条 image###，使用 comic 与 '+(styleValue === 'comic2' ? '2koma' : '4koma')+' 标签；按 Panel 1、Panel 2'+(styleValue === 'comic4' ? '、Panel 3、Panel 4' : '')+' 顺序描述各格。角色外貌只在开头写一次，后续用 character A、character B 等纯英文占位符指代，不要重复角色名或外貌。' : '画面按单幅正常比例插画描述。'}`,
+    '只输出一条 image### 画面提示词和一份 eggroom### 聊天室。image 提示词只描述视觉内容，不包含画师串、质量词或负面词。聊天室内容要与剧情及人物关系一致，发言称呼与当前角色/用户称呼一致。不要捏造与世界书冲突的设定。',
     world ? buildWorldInfoSystem(world) : '',
     card ? buildCharCardSystem(card) : '',
     persona ? buildPersonaSystem(persona) : '',
@@ -88,9 +93,10 @@ async function buildGenerationMessages(userInput: string): Promise<Array<{ role:
     { role: 'system', content: system },
     ...historyMessages(),
     { role: 'user', content: (mode.value === 'plot' ? '剧情词：' : '画面词：') + userInput },
+    { role: 'system', content: '输出约束：只生成一张图片标记；不得输出第二条 image###。' },
   ];
 }
-async function createRecord(userInput: string, parsed: ParsedTheaterOutput, modeValue: 'scene' | 'plot'): Promise<TheaterRecord> {
+async function createRecord(userInput: string, parsed: ParsedTheaterOutput, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4'): Promise<TheaterRecord> {
   const context = getContext();
   if (!context) throw new Error('酒馆上下文尚未就绪');
   const snapshot = captureGenerationSnapshot();
@@ -114,6 +120,7 @@ async function createRecord(userInput: string, parsed: ParsedTheaterOutput, mode
     id,
     input: userInput,
     mode: modeValue,
+    style: styleValue,
     imagePath,
     createdAt: Date.now(),
     chatId: context.getCurrentChatId() || '',
@@ -127,7 +134,8 @@ async function generateTheater(): Promise<void> {
   try {
     const context = getContext();
     if (!context?.generateRaw) throw new Error('当前酒馆版本未提供 generateRaw，无法调用主 API 静默生成');
-    const messages = await buildGenerationMessages(text);
+    const styleValue = style.value;
+    const messages = await buildGenerationMessages(text, styleValue);
     status.value = '正在生成小剧场文本…';
     const raw = await context.generateRaw({ prompt: messages, responseLength: 4096 });
     rawOutput.value = raw;
@@ -135,7 +143,7 @@ async function generateTheater(): Promise<void> {
     if (!parsed.prompt) throw new Error('模型输出中没有找到 image###…### 画面提示词');
     if (!parsed.eggBlocks.length) throw new Error('模型输出中没有找到 eggroom###…eggend### 聊天室内容');
     status.value = '正在通过柏宝绘后端生成图片…';
-    const record = await createRecord(text, parsed, mode.value);
+    const record = await createRecord(text, parsed, mode.value, styleValue);
     const nextRecords = [record, ...records.value];
     const removed = nextRecords.splice(200);
     records.value = nextRecords;
@@ -164,7 +172,7 @@ async function reroll(): Promise<void> {
   try {
     const parsed: ParsedTheaterOutput = { ...current.value, prompt: promptDraft.value.trim() };
     if (!parsed.prompt) throw new Error('画面提示词不能为空');
-    const next = await createRecord(current.value.input, parsed, current.value.mode);
+    const next = await createRecord(current.value.input, parsed, current.value.mode, current.value.style || 'egg');
     const nextRecords = [next, ...records.value];
     const removed = nextRecords.splice(200);
     records.value = nextRecords;
@@ -196,6 +204,16 @@ async function removeRecord(record: TheaterRecord): Promise<void> {
       <div class="mode-row">
         <label><input v-model="mode" type="radio" value="scene"> 画面词</label>
         <label><input v-model="mode" type="radio" value="plot"> 剧情词</label>
+      </div>
+      <div class="style-row">
+        <label>画面风格
+          <select v-model="style">
+            <option value="egg">彩蛋 · Q版</option>
+            <option value="comic">条漫 · 单幅正常比例</option>
+            <option value="comic2">条漫 · 2格分镜</option>
+            <option value="comic4">条漫 · 4格分镜</option>
+          </select>
+        </label>
       </div>
       <textarea v-model="input" rows="3" placeholder="输入一段画面词或剧情词…"></textarea>
       <div class="actions"><button :disabled="busy || !input.trim()" @click="generateTheater">{{ busy ? '生成中…' : '生成小剧场' }}</button></div>
@@ -234,7 +252,7 @@ async function removeRecord(record: TheaterRecord): Promise<void> {
 .theater-page{display:flex;flex-direction:column;gap:16px;padding:16px;color:var(--SmartThemeBodyColor)}
 .page-head h2{margin:0;font-size:18px}.page-head p,.status,.room-meta{opacity:.72;font-size:12px}
 .composer,.result,.history{border:1px solid var(--SmartThemeBorderColor);border-radius:12px;padding:14px;background:var(--SmartThemeBlurTintColor)}
-.mode-row{display:flex;gap:18px;margin-bottom:10px}.composer textarea{width:100%;box-sizing:border-box;resize:vertical;border:1px solid var(--SmartThemeBorderColor);border-radius:8px;padding:10px;background:var(--SmartThemeBlurTintColor);color:inherit}
+.mode-row{display:flex;gap:18px;margin-bottom:10px}.style-row{margin:8px 0 10px}.style-row label{display:flex;align-items:center;gap:8px;font-size:12px}.style-row select{border:1px solid var(--SmartThemeBorderColor);border-radius:8px;padding:6px;background:var(--SmartThemeBlurTintColor);color:inherit}.composer textarea{width:100%;box-sizing:border-box;resize:vertical;border:1px solid var(--SmartThemeBorderColor);border-radius:8px;padding:10px;background:var(--SmartThemeBlurTintColor);color:inherit}
 .actions{display:flex;justify-content:flex-end;margin-top:10px}.theater-page button{border:1px solid var(--SmartThemeBorderColor);border-radius:8px;padding:7px 12px;background:var(--SmartThemeBlurTintColor);color:inherit;cursor:pointer}.theater-page button:disabled{opacity:.5;cursor:not-allowed}
 .error{color:var(--SmartThemeQuoteColor)}.composer pre{white-space:pre-wrap;max-height:220px;overflow:auto;font-size:11px}
 .result{display:grid;grid-template-columns:minmax(180px,38%) 1fr;gap:14px}.artwork img{display:block;width:100%;height:auto;max-height:620px;object-fit:contain;border-radius:8px;background:#111}
