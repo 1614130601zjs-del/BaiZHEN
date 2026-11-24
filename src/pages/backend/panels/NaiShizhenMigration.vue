@@ -100,6 +100,7 @@ async function importBackup() {
       artistBySourceIndex.push(id);
     }
 
+    const separator = String.fromCharCode(0);
     const knownVibes = new Set<string>();
     for (const existing of settings.nai.vibes) {
       let fingerprint = existing.fingerprint;
@@ -109,12 +110,12 @@ async function importBackup() {
       } catch {
         // Keep the stored fingerprint as a conservative fallback for unreadable legacy files.
       }
-      knownVibes.add(`${fingerprint}\\u0000${existing.group}\\u0000${existing.strength}`);
+      knownVibes.add([fingerprint, existing.group, String(existing.strength)].join(separator));
     }
     let duplicateVibes = 0;
     for (const item of value.vibes) {
       const fingerprint = vibeFingerprint(item.data.encodings);
-      const key = `${fingerprint}\u0000${item.group}`;
+      const key = [fingerprint, item.group, String(item.strength)].join(separator);
       if (knownVibes.has(key)) { duplicateVibes++; continue; }
       const id = `vibe_shizhen_${Date.now()}_${saved.length}`;
       const paths = await saveVibeFiles(item.data, null, id);
@@ -298,9 +299,13 @@ async function exportBackup() {
     const bindings = settings.nai.shizhenArtistProfiles.bindings.map(item => {
       const avatar = item.characterKey.startsWith('avatar:') ? item.characterKey.slice('avatar:'.length) : '';
       const legacyIndex = item.characterKey.startsWith('legacy-index:') ? item.characterKey.slice('legacy-index:'.length) : '';
-      const currentIndex = hostCharacters.findIndex(character =>
-        (avatar && character.avatar === avatar) || (!avatar && !!item.characterName && character.name === item.characterName),
-      );
+      const matchingIndices = hostCharacters
+        .map((character, index) => ({ character, index }))
+        .filter(({ character }) => avatar
+          ? character.avatar === avatar
+          : !!item.characterName && character.name?.trim() === item.characterName.trim());
+      // Name-only bindings cannot safely identify one character when names are duplicated.
+      const currentIndex = matchingIndices.length === 1 ? matchingIndices[0].index : -1;
       return {
       characterKey: currentIndex >= 0 ? String(currentIndex) : legacyIndex,
       characterName: item.characterName,
