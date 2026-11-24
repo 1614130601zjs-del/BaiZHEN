@@ -7,6 +7,7 @@ import { deleteUserImage, uploadUserImage } from '@/st/images';
 import { getContext } from '@/st/context';
 import { settings } from '@/state/settings';
 import type { GenerationMeta } from '@/generationMeta';
+import { buildStatusBarTaskKey, statusBarHash } from '@/floor/statusBarIdentity';
 
 const STORE_KEY = 'baibai_image_statusbar_cache';
 const IMAGE_FOLDER = '柏宝绘_状态栏';
@@ -58,11 +59,7 @@ function fnv(text: string): string {
   for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 16777619); }
   return (hash >>> 0).toString(36);
 }
-export function buildStatusBarTaskKey(chatId: string, messageId: string, swipeId: number, ordinal: number, prompt: string): string {
-  return `statusbar:${fnv(chatId)}:${messageId}:${swipeId}:${ordinal}:${fnv(prompt)}`;
-}
-
-function parseMarker(value: unknown): string {
+export function parseMarker(value: unknown): string {
   const text = String(value ?? '');
   return text.match(/image###([\s\S]*?)###/)?.[1]?.trim() || '';
 }
@@ -252,7 +249,7 @@ async function generateForFrame(frame: HTMLElement, prompt: string, task: Status
     if (!frame.isConnected || frame.dataset.bbiStatusbarTask !== task.taskKey || statusBarPromptForTarget(frame) !== prompt) return;
     const base64 = await resultToBase64ForUpload(output.result);
     const format = /^[a-z0-9]+$/i.test(output.result.format) ? output.result.format.toLowerCase() : 'png';
-    const filename = `status_${fnv(task.taskKey)}_${Date.now().toString(36)}.${format}`;
+    const filename = `status_${statusBarHash(task.taskKey)}_${Date.now().toString(36)}.${format}`;
     const path = await uploadUserImage(IMAGE_FOLDER, filename, base64, format);
     if (!frame.isConnected || frame.dataset.bbiStatusbarTask !== task.taskKey || statusBarPromptForTarget(frame) !== prompt) {
       await deleteUserImage(path).catch(() => undefined);

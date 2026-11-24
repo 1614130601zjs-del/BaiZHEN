@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildStatusBarTaskKey } from '@/floor/statusBar';
+import { buildStatusBarTaskKey } from '@/floor/statusBarIdentity';
 
 describe('状态栏任务身份', () => {
   it('相同聊天、消息、swipe、序号和提示词得到稳定 key', () => {
