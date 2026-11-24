@@ -25,6 +25,7 @@ export interface ShizhenImportVibe {
 export interface ShizhenBackupPlan {
   artists: ShizhenImportArtist[];
   combos: Array<{ name: string; artistIndex: number; vibeIndex: number }>;
+  vibeGroups: string[];
   global: { body: ShizhenImportTarget; statusBar: ShizhenImportTarget; egg: ShizhenImportTarget };
   bindings: ShizhenImportBinding[];
   vibes: ShizhenImportVibe[];
@@ -82,6 +83,7 @@ export function parseShizhenFullBackup(input: unknown, currentModelKey: string):
     const item = record(raw);
     return { raw: item, name: String(item.name ?? item.title ?? `Vibe 组 ${i + 1}`).trim() || `Vibe 组 ${i + 1}` };
   });
+  const vibeGroups = groups.map(group => group.name);
   const pool = Array.isArray(data.vibePool) ? data.vibePool : [];
   const poolById = new Map<string, Record<string, unknown>>();
   for (const raw of pool) {
@@ -157,5 +159,5 @@ export function parseShizhenFullBackup(input: unknown, currentModelKey: string):
     };
   }).filter(item => item.characterIndex || item.characterName);
 
-  return { artists, combos, global, bindings, vibes, unsupportedVibes };
+  return { artists, combos, vibeGroups, global, bindings, vibes, unsupportedVibes };
 }
