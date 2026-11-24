@@ -114,7 +114,8 @@ function persist(value: PersistedWorldbookMode): void {
 }
 
 async function worldInfoRuntime(): Promise<WorldInfoRuntime> {
-  runtimePromise ??= import(/* @vite-ignore */ '/scripts/world-info.js')
+  const modulePath: string = '/scripts/world-info.js';
+  runtimePromise ??= import(/* @vite-ignore */ modulePath)
     .then(module => module as unknown as WorldInfoRuntime);
   return runtimePromise;
 }
@@ -147,7 +148,8 @@ async function writeGlobalSelection(runtime: WorldInfoRuntime, names: string[]):
   runtime.world_info.globalSelect = [...normalized];
   getContext()?.saveSettingsDebounced?.();
   // ST 的原生世界书选择器监听此事件刷新 UI；动态取 eventSource，避免引入第二套事件总线。
-  const script = await import(/* @vite-ignore */ '/script.js') as Record<string, unknown>;
+  const modulePath: string = '/script.js';
+  const script = await import(/* @vite-ignore */ modulePath) as Record<string, unknown>;
   const source = script.eventSource as { emit?: (event: string) => Promise<void> | void } | undefined;
   const types = script.event_types as Record<string, string> | undefined;
   const event = types?.WORLDINFO_SETTINGS_UPDATED;
