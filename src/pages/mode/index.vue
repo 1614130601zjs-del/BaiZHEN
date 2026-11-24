@@ -11,13 +11,14 @@ import {
 } from '@/modes/worldbookMode';
 
 const profile = ref<WorldbookModeProfile>(getWorldbookModeProfile());
+const selectedMode = ref<'native' | 'worldbook'>(profile.value.enabled ? 'worldbook' : 'native');
 const books = ref<string[]>([]);
 const worldviews = ref<string[]>([]);
 const loading = ref(false);
 const busy = ref(false);
 const message = ref('');
 const error = ref(false);
-const mode = computed<'native' | 'worldbook'>(() => profile.value.enabled ? 'worldbook' : 'native');
+const mode = computed<'native' | 'worldbook'>(() => selectedMode.value);
 
 async function refreshBooks() {
   loading.value = true;
@@ -49,6 +50,7 @@ async function chooseMode(next: 'native' | 'worldbook') {
     try {
       await restoreWorldbookMode();
       profile.value = getWorldbookModeProfile();
+      selectedMode.value = 'native';
       message.value = '已切回柏宝绘原生模式，世界书状态已恢复';
       error.value = false;
     } catch (e) {
@@ -57,8 +59,7 @@ async function chooseMode(next: 'native' | 'worldbook') {
     } finally { busy.value = false; }
     return;
   }
-  profile.value.enabled = true;
-  saveWorldbookModeProfile(profile.value);
+  selectedMode.value = 'worldbook';
   message.value = '已选择拾帧世界书模式；配置完成后点击「应用模式」';
   error.value = false;
 }
@@ -69,9 +70,13 @@ async function applyMode() {
     profile.value.enabled = true;
     saveWorldbookModeProfile(profile.value);
     await applyWorldbookMode();
+    selectedMode.value = 'worldbook';
     message.value = '拾帧世界书模式已应用';
     error.value = false;
   } catch (e) {
+    // 失败时不让生图上下文误以为模式已经完整应用；保留恢复快照供切回原生时回滚。
+    profile.value.enabled = false;
+    saveWorldbookModeProfile(profile.value);
     message.value = e instanceof Error ? e.message : String(e);
     error.value = true;
   } finally { busy.value = false; }
