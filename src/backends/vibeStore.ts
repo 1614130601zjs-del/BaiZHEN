@@ -180,7 +180,17 @@ async function saveServerVibeFiles(
     );
     return { dataPath, thumbnailPath };
   } catch (error) {
-    if (!current?.dataPath) await deleteUploadedFile(dataPath).catch(() => {});
+    if (current?.dataPath) {
+      // The data file may already have been updated in place. Treat the thumbnail as
+      // optional so callers can still refresh their fingerprint and metadata.
+      console.warn('[柏宝绘] Vibe 数据已保存，但缩略图上传失败；保留原缩略图路径。', error);
+      return { dataPath, thumbnailPath: current.thumbnailPath ?? '' };
+    }
+    try {
+      await deleteUploadedFile(dataPath);
+    } catch (cleanupError) {
+      console.warn('[柏宝绘] Vibe 缩略图上传失败，且数据文件回滚失败；请检查孤立文件：', dataPath, cleanupError);
+    }
     throw error;
   }
 }

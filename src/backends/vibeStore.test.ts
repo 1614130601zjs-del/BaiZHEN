@@ -68,6 +68,52 @@ describe('vibeStore', () => {
     expect(fileStore.upload).toHaveBeenNthCalledWith(2, 'bbi-vibe-thumb-v1.jpg', 'dGh1bWI=');
   });
 
+  it('保留已有 Vibe 的数据更新结果，避免缩略图失败造成指纹与文件内容不一致', async () => {
+    fileStore.upload
+      .mockResolvedValueOnce('/user/files/bbi-vibe-v1.json')
+      .mockRejectedValueOnce(new Error('thumbnail upload failed'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await expect(saveVibeFiles(data, {
+      dataPath: '/user/files/bbi-vibe-v1.json',
+      thumbnailPath: '',
+    }, 'v1')).resolves.toEqual({
+      dataPath: '/user/files/bbi-vibe-v1.json',
+      thumbnailPath: '',
+    });
+
+    expect(fileStore.upload).toHaveBeenCalledTimes(2);
+    expect(fileStore.remove).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it('新 Vibe 的缩略图上传失败时会尝试清理已上传的数据文件', async () => {
+    fileStore.upload
+      .mockResolvedValueOnce('/user/files/bbi-vibe-new.json')
+      .mockRejectedValueOnce(new Error('thumbnail upload failed'));
+    fileStore.remove.mockResolvedValue(true);
+    // A failed server upload falls back to IndexedDB; stub the browser database
+    // so this test can assert the server-side rollback without depending on a real DB.
+    const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null };
+    const store = { put: vi.fn(() => { queueMicrotask(() => request.onsuccess?.()); return request; }) };
+    const transaction = { objectStore: vi.fn(() => store) };
+    const db = { transaction: vi.fn(() => transaction) };
+    vi.stubGlobal('indexedDB', {
+      open: vi.fn(() => {
+        const openRequest: { onsuccess: null | (() => void); onerror: null | (() => void); onupgradeneeded: null | (() => void); result: typeof db; error: null } = {
+          onsuccess: null, onerror: null, onupgradeneeded: null, result: db, error: null,
+        };
+        queueMicrotask(() => openRequest.onsuccess?.());
+        return openRequest;
+      }),
+    });
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await saveVibeFiles(data, null, 'new-vibe');
+    expect(result.dataPath).toContain('local:');
+    expect(fileStore.remove).toHaveBeenCalledWith('/user/files/bbi-vibe-new.json');
+  });
+
   it('按路径读取正文并删除两份文件', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(data), { status: 200 })));
     const vibe = vibeMetaFromData(
