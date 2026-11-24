@@ -213,6 +213,7 @@ describe('Vibe pool artist combo normalization', () => {
 
 
 describe('deleted Vibe combo reference normalization', () => {
+  beforeEach(() => { vi.resetModules(); });
   it('preserves a stale explicit resource ID so the combo cannot inherit the global Vibe group', async () => {
     mocks.context = {
       extensionSettings: {
