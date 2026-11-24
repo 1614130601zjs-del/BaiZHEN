@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref } from 'vue';
 import { backendStatus, captureGenerationSnapshot, decideSeed, generateImage } from '@/generate';
 import { saveExternalImage } from '@/floor/storage';
 import { getContext } from '@/st/context';
+import { ARTIST_PREVIEW_FOLDER, listUserImageFolders, listUserImages } from '@/st/images';
 
 type EditMode = 'img2img' | 'inpaint';
 type Tool = 'brush' | 'eraser' | 'rect';
@@ -19,6 +20,10 @@ const brushSize = ref(36);
 const busy = ref(false);
 const status = ref('');
 const sourceName = ref('');
+const galleryItems = ref<{ label: string; src: string }[]>([]);
+const galleryLoading = ref(false);
+const galleryError = ref('');
+const showGallery = ref(false);
 const resultPath = ref('');
 const sourceImage = ref<HTMLImageElement | null>(null);
 const undoStack: ImageData[] = [];
@@ -59,6 +64,43 @@ function syncCanvas() {
   mask.getContext('2d')?.clearRect(0, 0, size.width, size.height);
   undoStack.length = 0; redoStack.length = 0;
 }
+async function loadGallery() {
+  galleryLoading.value = true;
+  galleryError.value = '';
+  try {
+    const folders = (await listUserImageFolders()).filter(
+      folder => folder.startsWith('柏宝绘_') && folder !== ARTIST_PREVIEW_FOLDER,
+    );
+    const groups = await Promise.all(folders.map(async folder => ({
+      folder,
+      files: await listUserImages(folder),
+    })));
+    galleryItems.value = groups.flatMap(group => group.files.map(file => ({
+      label: `${group.folder.slice('柏宝绘_'.length) || '未命名角色'} / ${file}`,
+      src: `/user/images/${encodeURIComponent(group.folder)}/${encodeURIComponent(file)}`,
+    })));
+    if (!galleryItems.value.length) galleryError.value = '图库中暂无可编辑作品';
+  } catch (error) {
+    galleryError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    galleryLoading.value = false;
+  }
+}
+function chooseGalleryImage(item: { label: string; src: string }) {
+  if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = ''; }
+  const image = new Image();
+  image.onload = () => {
+    sourceImage.value = image;
+    sourceName.value = item.label;
+    resultPath.value = '';
+    try { syncCanvas(); status.value = '已从图库载入来源图片'; }
+    catch (error) { status.value = error instanceof Error ? error.message : String(error); }
+  };
+  image.onerror = () => { status.value = '图库图片读取失败'; };
+  image.src = item.src;
+  showGallery.value = false;
+}
+
 async function loadFile(file?: File) {
   if (!file) return;
   if (!file.type.startsWith('image/')) { status.value = '请选择图片文件'; return; }
@@ -181,8 +223,17 @@ onBeforeUnmount(() => { if (objectUrl) URL.revokeObjectURL(objectUrl); });
 
     <section class="workshop-card">
       <div class="toolbar">
-        <label class="file-button">选择来源图片<input type="file" accept="image/*" @change="loadFile(($event.target as HTMLInputElement).files?.[0])" /></label>
+        <label class="file-button">上传本地图片<input type="file" accept="image/*" @change="loadFile(($event.target as HTMLInputElement).files?.[0])" /></label>
+        <button type="button" @click="showGallery = !showGallery; showGallery && loadGallery()">从图库选择</button>
         <span v-if="sourceName" class="source-name">{{ sourceName }}</span>
+      </div>
+      <div v-if="showGallery" class="gallery-picker">
+        <p v-if="galleryLoading">正在读取图库…</p>
+        <p v-else-if="galleryError">{{ galleryError }}</p>
+        <button v-for="item in galleryItems" :key="item.src" type="button" class="gallery-item" @click="chooseGalleryImage(item)">
+          <img :src="item.src" :alt="item.label" loading="lazy" />
+          <span>{{ item.label }}</span>
+        </button>
       </div>
       <div v-if="sourceImage" class="stage">
         <canvas ref="baseCanvas" class="base-canvas"></canvas>
@@ -220,6 +271,10 @@ onBeforeUnmount(() => { if (objectUrl) URL.revokeObjectURL(objectUrl); });
 </template>
 
 <style scoped>
+.gallery-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; max-height: 300px; overflow: auto; padding: 10px; border: 1px solid var(--bbi-border); border-radius: 10px; }
+.gallery-item { display: grid; gap: 5px; min-width: 0; padding: 6px; text-align: left; }
+.gallery-item img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; }
+.gallery-item span { overflow-wrap: anywhere; font-size: 11px; }
 .workshop-page { display: grid; gap: 14px; padding: 4px 2px 24px; color: var(--bbi-ink); }
 .page-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 h2 { margin: 0 0 5px; font-size: 18px; } h3 { margin: 0; font-size: 15px; }
