@@ -41,39 +41,43 @@ async function refreshBooks() {
     message.value = books.value.length ? `已读取 ${books.value.length} 本世界书` : '当前未发现已加载的世界书';
     error.value = false;
   } catch (e) {
-    message.value = e instanceof Error ? e.message : String(e);
-    error.value = true;
+    if (revision === profileRefreshRevision) {
+      message.value = e instanceof Error ? e.message : String(e);
+      error.value = true;
+    }
   } finally {
-    loading.value = false;
+    if (revision === profileRefreshRevision) loading.value = false;
   }
 }
 
 async function refreshEntryLists(revision = profileRefreshRevision) {
   const core = profile.value.coreBook;
   const world = profile.value.worldviewBook;
-  if (core) {
-    const entries = await listWorldbookEntries(core);
-    if (revision !== profileRefreshRevision) return;
-    const mode = profile.value.mode;
-    const byBook = profile.value.modeEntryBindings[mode][core] ||= {};
-    for (const entry of entries) if (typeof byBook[entry.uid] !== 'boolean') byBook[entry.uid] = entry.enabled;
-    coreEntries.value = entries.map(entry => ({ uid: entry.uid, title: entry.title, enabled: byBook[entry.uid] }));
-  } else coreEntries.value = [];
-  if (world) {
-    const entries = await listWorldbookEntries(world);
-    if (revision !== profileRefreshRevision) return;
-    const overrides = profile.value.entryOverrides[world] ||= {};
-    worldviewEntries.value = entries.map(entry => ({ ...entry, enabled: typeof overrides[entry.uid] === 'boolean' ? overrides[entry.uid] : entry.enabled }));
-  } else worldviewEntries.value = [];
-}
+  const mode = profile.value.mode;
+  const [coreData, worldData] = await Promise.all([
+    core ? listWorldbookEntries(core) : Promise.resolve([]),
+    world ? listWorldbookEntries(world) : Promise.resolve([]),
+  ]);
+  // Do not let a slow response for the previous card overwrite the newly selected card.
+  if (revision !== profileRefreshRevision
+    || core !== profile.value.coreBook
+    || world !== profile.value.worldviewBook
+    || mode !== profile.value.mode) return;
 
-function changeCoreMode(event: Event) {
-  const next = (event.target as HTMLSelectElement).value === 'group' ? 'group' : 'pair';
-  const current = profile.value.mode;
-  profile.value.coreBooks[current] = profile.value.coreBook;
-  profile.value.mode = next;
-  profile.value.coreBook = profile.value.coreBooks[next] || '';
-  void refreshEntryLists();
+  const coreBindings = core ? (profile.value.modeEntryBindings[mode][core] ||= {}) : {};
+  for (const entry of coreData) {
+    if (typeof coreBindings[entry.uid] !== 'boolean') coreBindings[entry.uid] = entry.enabled;
+  }
+  const worldOverrides = world ? (profile.value.entryOverrides[world] ||= {}) : {};
+  coreEntries.value = coreData.map(entry => ({
+    uid: entry.uid,
+    title: entry.title,
+    enabled: coreBindings[entry.uid],
+  }));
+  worldviewEntries.value = worldData.map(entry => ({
+    ...entry,
+    enabled: typeof worldOverrides[entry.uid] === 'boolean' ? worldOverrides[entry.uid] : entry.enabled,
+  }));
 }
 
 function setCoreEntry(uid: string, event: Event) {
