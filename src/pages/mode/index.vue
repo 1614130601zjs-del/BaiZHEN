@@ -97,6 +97,19 @@ async function refreshWorldviews() {
 watch(() => profile.value.worldviewBook, () => { void refreshWorldviews(); void refreshEntryLists(); });
 watch(() => profile.value.coreBook, () => { void refreshEntryLists(); });
 
+function changeProfileScope(enabled: boolean): void {
+  try {
+    setWorldbookProfileIndependent(enabled, profile.value);
+    profile.value = getWorldbookModeProfile();
+    profileInfo.value = getWorldbookProfileInfo();
+    message.value = enabled ? '已为当前角色卡创建独立世界书配置' : '当前角色卡已恢复继承通用配置';
+    error.value = false;
+  } catch (cause) {
+    message.value = cause instanceof Error ? cause.message : String(cause);
+    error.value = true;
+  }
+}
+
 async function chooseMode(next: 'native' | 'worldbook') {
   if (next === 'native') {
     busy.value = true;
