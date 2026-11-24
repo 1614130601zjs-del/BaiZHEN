@@ -28,11 +28,16 @@ const error = ref(false);
 const mode = computed<'native' | 'worldbook'>(() => selectedMode.value);
 
 async function refreshBooks() {
+  const revision = profileRefreshRevision;
   loading.value = true;
   try {
-    books.value = await listWorldbooks();
-    await refreshWorldviews();
-    await refreshEntryLists();
+    const nextBooks = await listWorldbooks();
+    if (revision !== profileRefreshRevision) return;
+    books.value = nextBooks;
+    await refreshWorldviews(revision);
+    if (revision !== profileRefreshRevision) return;
+    await refreshEntryLists(revision);
+    if (revision !== profileRefreshRevision) return;
     message.value = books.value.length ? `已读取 ${books.value.length} 本世界书` : '当前未发现已加载的世界书';
     error.value = false;
   } catch (e) {
@@ -43,11 +48,12 @@ async function refreshBooks() {
   }
 }
 
-async function refreshEntryLists() {
+async function refreshEntryLists(revision = profileRefreshRevision) {
   const core = profile.value.coreBook;
   const world = profile.value.worldviewBook;
   if (core) {
     const entries = await listWorldbookEntries(core);
+    if (revision !== profileRefreshRevision) return;
     const mode = profile.value.mode;
     const byBook = profile.value.modeEntryBindings[mode][core] ||= {};
     for (const entry of entries) if (typeof byBook[entry.uid] !== 'boolean') byBook[entry.uid] = entry.enabled;
@@ -55,6 +61,7 @@ async function refreshEntryLists() {
   } else coreEntries.value = [];
   if (world) {
     const entries = await listWorldbookEntries(world);
+    if (revision !== profileRefreshRevision) return;
     const overrides = profile.value.entryOverrides[world] ||= {};
     worldviewEntries.value = entries.map(entry => ({ ...entry, enabled: typeof overrides[entry.uid] === 'boolean' ? overrides[entry.uid] : entry.enabled }));
   } else worldviewEntries.value = [];
@@ -88,15 +95,20 @@ function setWorldviewEntry(book: string, uid: string, event: Event) {
   if (item) item.enabled = enabled;
 }
 
-async function refreshWorldviews() {
-  worldviews.value = profile.value.worldviewBook
-    ? await listWorldviews(profile.value.worldviewBook)
-    : [];
+async function refreshWorldviews(revision = profileRefreshRevision) {
+  const book = profile.value.worldviewBook;
+  const nextWorldviews = book ? await listWorldviews(book) : [];
+  if (revision !== profileRefreshRevision || book !== profile.value.worldviewBook) return;
+  worldviews.value = nextWorldviews;
   if (!worldviews.value.includes(profile.value.worldview)) profile.value.worldview = '';
 }
 
-watch(() => profile.value.worldviewBook, () => { void refreshWorldviews(); void refreshEntryLists(); });
-watch(() => profile.value.coreBook, () => { void refreshEntryLists(); });
+watch(() => profile.value.worldviewBook, () => {
+  const revision = profileRefreshRevision;
+  void refreshWorldviews(revision);
+  void refreshEntryLists(revision);
+});
+watch(() => profile.value.coreBook, () => { void refreshEntryLists(profileRefreshRevision); });
 
 function changeProfileScope(enabled: boolean): void {
   try {
