@@ -22,7 +22,7 @@ const mode = computed<'native' | 'worldbook'>(() => profile.value.enabled ? 'wor
 async function refreshBooks() {
   loading.value = true;
   try {
-    books.value = listWorldbooks();
+    books.value = await listWorldbooks();
     await refreshWorldviews();
     message.value = books.value.length ? `已读取 ${books.value.length} 本世界书` : '当前未发现已加载的世界书';
     error.value = false;
