@@ -26,22 +26,27 @@ const preview = computed(() => {
   if (!value) return null;
   const existingArtists = new Set([...BUILTIN_NAI_ARTISTS, ...settings.nai.artistPresets].map(signature));
   const newArtists = value.artists.filter(item => !existingArtists.has(signature(item))).length;
-  const separator = String.fromCharCode(0);
-  const seenVibes = new Set<string>();
+  const uniqueResources = new Map<string, (typeof value.vibes)[number]>();
+  for (const item of value.vibes) {
+    const key = item.sourcePoolId || vibeFingerprint(item.data.encodings);
+    if (!uniqueResources.has(key)) uniqueResources.set(key, item);
+  }
+  const seenFingerprints = new Set<string>();
   let duplicateVibes = 0;
   let newVibes = 0;
-  for (const item of value.vibes) {
-    const key = [vibeFingerprint(item.data.encodings), item.group, String(item.strength)].join(separator);
-    if (existingVibeKeys.value.has(key) || seenVibes.has(key)) duplicateVibes++;
+  for (const item of uniqueResources.values()) {
+    const fingerprint = vibeFingerprint(item.data.encodings);
+    if (existingVibeKeys.value.has(fingerprint) || seenFingerprints.has(fingerprint)) duplicateVibes++;
     else newVibes++;
-    seenVibes.add(key);
+    seenFingerprints.add(fingerprint);
   }
   return {
     artists: value.artists.length,
     newArtists,
     combos: value.combos.length,
     bindings: value.bindings.length,
-    vibes: value.vibes.length,
+    vibes: uniqueResources.size,
+    references: value.vibes.length,
     newVibes,
     groups: value.vibeGroups.length,
     duplicateVibes,
@@ -65,14 +70,21 @@ async function readFile(event: Event) {
     plan.value = parseShizhenFullBackup(parsed, vibeModelKey(settings.nai.model));
     const separator = String.fromCharCode(0);
     const keys = new Set<string>();
-    await Promise.all(settings.nai.vibes.map(async existing => {
+    const resources = [...settings.nai.vibePool];
+    for (const legacy of settings.nai.vibes) {
+      if (!resources.some(item => item.id === legacy.id)) {
+        const { strength: _strength, enabled: _enabled, group: _group, ...resource } = legacy;
+        resources.push(resource);
+      }
+    }
+    await Promise.all(resources.map(async existing => {
       let fingerprint = existing.fingerprint;
       try {
         fingerprint = vibeFingerprint((await loadVibeData(existing)).encodings);
       } catch {
         // Preserve a fallback for legacy entries whose payload cannot currently be read.
       }
-      keys.add([fingerprint, existing.group, String(existing.strength)].join(separator));
+      keys.add(fingerprint);
     }));
     existingVibeKeys.value = keys;
     fileName.value = file.name;
@@ -484,7 +496,8 @@ async function exportBackup() {
         <span>画师串：{{ preview.artists }}（预计新增 {{ preview.newArtists }}）</span>
         <span>组合：{{ preview.combos }}</span>
         <span>角色绑定：{{ preview.bindings }}</span>
-        <span>Vibe：{{ preview.vibes }}（预计新增 {{ preview.newVibes }}，重复跳过 {{ preview.duplicateVibes }}）</span>
+        <span>Vibe 池资源：{{ preview.vibes }}（预计新增 {{ preview.newVibes }}，复用/重复 {{ preview.duplicateVibes }}）
+        <span>组引用：{{ preview.references }}</span></span>
         <span>Vibe 分组：{{ preview.groups }}</span>
         <span>无法识别：{{ preview.unsupported }}</span>
       </div>
