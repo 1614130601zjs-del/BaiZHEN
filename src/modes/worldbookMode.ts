@@ -257,16 +257,21 @@ export function applyWorldbookMode(): Promise<void> {
     const runtime = await worldInfoRuntime();
     ensureSnapshot(snapshot, runtime);
 
-    // 先恢复之前被本模块覆盖的条目状态，再基于原始快照应用本轮设置。
+    // 先恢复上一轮接管的条目，再捕获本轮目标书的原始状态。
+    const previousManaged = new Set(snapshot.managedBooks);
     for (const name of Object.keys(snapshot.entries)) await restoreBook(name, snapshot);
     const current = currentGlobalSelection(runtime);
-    const previousManaged = new Set(snapshot.managedBooks);
-    const original = snapshot.globalSelection ?? current;
     const next = current.filter(name => !previousManaged.has(name));
     for (const name of [core, worldviewBook]) if (!next.includes(name)) next.push(name);
-    // 如果目标书此前已挂载，快照仍会保留原始 true，退出时不会误卸载。
-    await writeGlobalSelection(runtime, next);
 
+    // 在任何全局挂载或条目写入前持久化完整恢复点，避免中途异常后丢失回滚依据。
+    await captureBook(snapshot, core);
+    await captureBook(snapshot, worldviewBook);
+    snapshot.managedBooks = [...new Set([...snapshot.managedBooks, core, worldviewBook])];
+    state.snapshot = snapshot;
+    persist(state);
+
+    await writeGlobalSelection(runtime, next);
     await applyEntryOverrides(core, profile.entryOverrides[core] ?? {}, snapshot);
     await applyEntryOverrides(worldviewBook, profile.entryOverrides[worldviewBook] ?? {}, snapshot);
 
@@ -288,7 +293,6 @@ export function applyWorldbookMode(): Promise<void> {
     }
     if (changed) await saveBook(worldviewBook, data);
 
-    snapshot.managedBooks = [...new Set([core, worldviewBook])];
     state.snapshot = snapshot;
     persist(state);
   });
