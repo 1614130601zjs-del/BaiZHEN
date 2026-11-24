@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseShizhenVibeJson } from '@/backends/shizhenVibeImport';
+import { parseShizhenVibeJson, readShizhenVibeFile } from '@/backends/shizhenVibeImport';
 
 const payload = 'A'.repeat(240);
 
@@ -148,5 +148,40 @@ describe('Shizhen V3 Vibe backup compatibility', () => {
     }, 'v4-5full');
     expect(result.items[0]?.data.encodings.v3.encoding).toBe('A'.repeat(220));
     expect(result.items[0]?.data.image).toBe('A'.repeat(220));
+  });
+});
+
+
+function makeStoredZip(content: string, declaredSize = new TextEncoder().encode(content).byteLength): File {
+  const name = new TextEncoder().encode('vibe.json');
+  const data = new TextEncoder().encode(content);
+  const localSize = 30 + name.length + data.length;
+  const centralSize = 46 + name.length;
+  const bytes = new Uint8Array(localSize + centralSize + 22);
+  const view = new DataView(bytes.buffer);
+  const put16 = (offset: number, value: number) => view.setUint16(offset, value, true);
+  const put32 = (offset: number, value: number) => view.setUint32(offset, value, true);
+  put32(0, 0x04034b50); put16(4, 20); put16(8, 0); put32(18, data.length); put32(22, declaredSize);
+  put16(26, name.length); bytes.set(name, 30); bytes.set(data, 30 + name.length);
+  const c = localSize;
+  put32(c, 0x02014b50); put16(c + 4, 20); put16(c + 6, 20); put16(c + 10, 0);
+  put32(c + 20, data.length); put32(c + 24, declaredSize); put16(c + 28, name.length);
+  put32(c + 42, 0); bytes.set(name, c + 46);
+  const e = c + centralSize;
+  put32(e, 0x06054b50); put16(e + 8, 1); put16(e + 10, 1); put32(e + 12, centralSize); put32(e + 16, c);
+  return new File([bytes], 'vibes.zip', { type: 'application/zip' });
+}
+
+describe('Vibe ZIP archive safety', () => {
+  it('reads a valid stored JSON member', async () => {
+    const json = JSON.stringify({ identifier: 'novelai-vibe-transfer', encodings: { 'v4-5full': { encoding: payload } } });
+    const result = await readShizhenVibeFile(makeStoredZip(json), 'v4-5full');
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].data.encodings['v4-5full'].encoding).toBe(payload);
+  });
+
+  it('rejects stored entries whose actual length exceeds the declared output size', async () => {
+    const json = JSON.stringify({ identifier: 'novelai-vibe-transfer', encodings: { 'v4-5full': { encoding: payload } } });
+    await expect(readShizhenVibeFile(makeStoredZip(json, 8), 'v4-5full')).rejects.toThrow(/长度不符/);
   });
 });
