@@ -194,18 +194,21 @@ async function exportBackup() {
     const artistIndex = new Map(artists.map((item, index) => [item.id, index]));
     const groups = [...new Set(settings.nai.vibes.map(item => item.group.trim()).filter(Boolean))];
     const pool: Array<Record<string, unknown>> = [];
-    const refsByGroup = new Map<string, Array<{ poolId: string; strength: number; informationExtracted: number }>>();
-    const refsUngrouped: Array<{ poolId: string; strength: number; informationExtracted: number }> = [];
+    const refsByGroup = new Map<string, Array<{ poolId: string; strength: number; informationExtracted?: number }>>();
+    const refsUngrouped: Array<{ poolId: string; strength: number; informationExtracted?: number }> = [];
+    const refByVibeId = new Map<string, { poolId: string; strength: number; informationExtracted?: number }>();
     for (const vibe of settings.nai.vibes) {
       const data = await loadVibeData(vibe);
       const poolId = vibe.id;
-      const firstEncoding = Object.values(data.encodings)[0];
+      const infoValues = Object.values(data.encodings).map(item => item.infoExtracted);
+      const sharedInfo = infoValues.length && infoValues.every(value => value === infoValues[0]) ? infoValues[0] : undefined;
       pool.push({
         id: poolId, name: vibe.name, image: data.image, thumbnail: data.thumbnail,
         thumb: data.thumbnail, raw: { encodings: data.encodings, image: data.image },
-        strength: vibe.strength, informationExtracted: firstEncoding?.infoExtracted ?? 1,
+        strength: vibe.strength, ...(sharedInfo !== undefined ? { informationExtracted: sharedInfo } : {}),
       });
-      const ref = { poolId, strength: vibe.strength, informationExtracted: firstEncoding?.infoExtracted ?? 1 };
+      const ref = { poolId, strength: vibe.strength, ...(sharedInfo !== undefined ? { informationExtracted: sharedInfo } : {}) };
+      refByVibeId.set(vibe.id, ref);
       if (vibe.group.trim()) {
         const list = refsByGroup.get(vibe.group.trim()) || [];
         list.push(ref); refsByGroup.set(vibe.group.trim(), list);
@@ -228,7 +231,7 @@ async function exportBackup() {
           if (syntheticIndex < 0) {
             syntheticIndex = groupNames.length;
             groupNames.push(syntheticName);
-            sourceGroups.push({ id: `group_${syntheticIndex}`, name: syntheticName, refs: [{ poolId: selected.id, strength: selected.strength, informationExtracted: 1 }] });
+            sourceGroups.push({ id: `group_${syntheticIndex}`, name: syntheticName, refs: [refByVibeId.get(selected.id) || { poolId: selected.id, strength: selected.strength }] });
           }
           vibeIndex = syntheticIndex;
         }

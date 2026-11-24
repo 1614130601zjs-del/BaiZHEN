@@ -39,3 +39,26 @@ describe('parseShizhenFullBackup', () => {
     expect(() => parseShizhenFullBackup({ extensions: { baibaiToolkit: {} } }, 'v4-5full')).toThrow(/拾帧完整备份/);
   });
 });
+
+
+describe('Shizhen Vibe pool reference metadata', () => {
+  it('preserves per-model Information Extracted when the group reference has no override', () => {
+    const plan = parseShizhenFullBackup({
+      format: 'shizhen-lite-full-backup',
+      data: {
+        presets: [], combinations: [],
+        vibes: [{ name: 'multi-model', refs: [{ poolId: 'p2', strength: 0.55 }] }],
+        vibePool: [{
+          id: 'p2', name: 'multi-model',
+          raw: { encodings: {
+            'v4-5full': { encoding: payload, infoExtracted: 0.72 },
+            v3: { encoding: payload + 'B', infoExtracted: 0.91 },
+          } },
+        }],
+      },
+    }, 'v4-5full');
+    expect(plan.vibes[0].data.encodings['v4-5full'].infoExtracted).toBe(0.72);
+    expect(plan.vibes[0].data.encodings.v3.infoExtracted).toBe(0.91);
+    expect(plan.vibes[0].strength).toBe(0.55);
+  });
+});
