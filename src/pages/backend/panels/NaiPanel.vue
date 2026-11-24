@@ -25,7 +25,6 @@ import {
   naiSupportsVarietyBoost,
   naiSupportsVibes,
   NAI_NOISE_SCHEDULES,
-  parseNaiv4vibe,
   testNaiConnection,
   vibeModelKey,
 } from '@/backends/nai';
@@ -37,6 +36,7 @@ import {
   vibeFingerprint,
   vibeMetaFromData,
 } from '@/backends/vibeStore';
+import { readShizhenVibeFile } from '@/backends/shizhenVibeImport';
 import NaiArtistManager from '@/pages/backend/panels/NaiArtistManager.vue';
 import NaiAccountBalance from '@/pages/backend/panels/NaiAccountBalance.vue';
 import ComicExtraRules from '@/pages/backend/panels/ComicExtraRules.vue';
@@ -766,16 +766,45 @@ async function onVibeImportChange(event: Event) {
   const file = input.files?.[0];
   input.value = '';
   if (!file) return;
+
+  const saved: NaiVibe[] = [];
   try {
-    const parsed = parseNaiv4vibe(await file.text());
-    const id = `vibe_${Date.now()}_${++vibeSeq}`;
-    const data = { image: parsed.image, thumbnail: parsed.thumbnail, encodings: parsed.encodings };
-    const paths = await saveVibeFiles(data, null, id);
-    settings.nai.vibes.push(
-      vibeMetaFromData(id, parsed.name, paths.dataPath, paths.thumbnailPath, data, parsed.strength, true),
-    );
-    toastr.success(`已导入「${parsed.name}」`, 'Vibe');
+    const parsed = await readShizhenVibeFile(file, currentVibeKey.value);
+    if (!parsed.items.length) {
+      throw new Error('没有识别到可用的 Vibe 编码；请检查文件是否包含 NovelAI Vibe 编码数据。');
+    }
+
+    const known = new Set(settings.nai.vibes.map(vibe => vibe.fingerprint).filter(Boolean));
+    let duplicates = 0;
+    for (const item of parsed.items) {
+      const fingerprint = vibeFingerprint(item.data.encodings);
+      if (known.has(fingerprint)) {
+        duplicates++;
+        continue;
+      }
+      const id = `vibe_${Date.now()}_${++vibeSeq}`;
+      const paths = await saveVibeFiles(item.data, null, id);
+      const meta = vibeMetaFromData(
+        id,
+        item.name,
+        paths.dataPath,
+        paths.thumbnailPath,
+        item.data,
+        item.strength,
+        false,
+        item.group,
+      );
+      saved.push(meta);
+      known.add(fingerprint);
+    }
+
+    settings.nai.vibes.push(...saved);
+    const parts = [`新增 ${saved.length} 个`];
+    if (duplicates) parts.push(`重复跳过 ${duplicates} 个`);
+    if (parsed.unsupported) parts.push(`无法识别 ${parsed.unsupported} 个`);
+    toastr.success(`Vibe 导入完成：${parts.join('，')}。新导入项目默认关闭，请按需启用。`, 'Vibe');
   } catch (error) {
+    await Promise.all(saved.map(vibe => deleteVibeData(vibe).catch(() => undefined)));
     toastr.error(errorMessage(error), 'Vibe 导入失败');
   }
 }
@@ -1407,7 +1436,7 @@ async function removeVibe(vibe: NaiVibe) {
             <input v-model="settings.nai.normalizeRefStrength" type="checkbox" class="bbi-checkbox" :disabled="!vibesSupported" />
           </label>
           <input ref="vibeFileInput" type="file" accept="image/*" hidden @change="onVibeFileChange" />
-          <input ref="vibeImportInput" type="file" accept=".naiv4vibe" hidden @change="onVibeImportChange" />
+          <input ref="vibeImportInput" type="file" accept=".naiv4vibe,.json,.zip,.naiv4vibebundle,application/json,application/zip" hidden @change="onVibeImportChange" />
         </div>
 
         <p v-if="!settings.nai.vibes.length" class="bbi-field-hint">还没有 vibe;上传一张参考图开始。</p>
