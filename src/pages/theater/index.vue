@@ -151,7 +151,7 @@ async function generateTheater(): Promise<void> {
     if (!context?.generateRaw) throw new Error('当前酒馆版本未提供 generateRaw，无法调用主 API 静默生成');
     const styleValue = style.value;
     // 在发起文本模型请求前固定本次图片的聊天/角色快照，避免生成期间聊天切换造成错配。
-    const contextAtStart = getContext();
+    const contextAtStart = context;
     const characterAtStart = contextAtStart?.characters?.[Number(contextAtStart.characterId)];
     const sourceSnapshot = {
       chatSnapshot: historyMessages(contextAtStart?.chat ?? []),
