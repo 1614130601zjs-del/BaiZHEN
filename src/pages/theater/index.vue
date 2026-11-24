@@ -263,7 +263,15 @@ async function removeRecord(record: TheaterRecord): Promise<void> {
       <div class="artwork"><img :src="current.imagePath" alt="小剧场插画"></div>
       <div class="result-body">
         <h3>{{ current.title || '未命名小剧场' }}</h3>
+        <p class="source-meta">来源角色：{{ current.characterName || '未知角色' }} · 来源聊天：{{ current.chatId || current.sourceChatId || '未知聊天' }}</p>
         <label class="prompt-editor">画面提示词<textarea v-model="promptDraft" rows="4"></textarea></label>
+        <details v-if="current.chatSnapshot?.length" class="context-snapshot">
+          <summary>查看本张图片的生成上下文（{{ current.chatSnapshot.length }} 条）</summary>
+          <div v-for="(message, index) in current.chatSnapshot" :key="index" class="snapshot-message">
+            <strong>{{ message.role === 'system' ? '系统上下文' : message.role === 'user' ? '用户' : '角色' }}</strong>
+            <pre>{{ message.content }}</pre>
+          </div>
+        </details>
         <div class="result-actions"><button @click="savePrompt">保存 Tag</button><button :disabled="rerolling" @click="reroll">{{ rerolling ? '重 Roll 中…' : '重 Roll 图片' }}</button></div>
         <div v-for="(block, index) in current.eggBlocks" :key="index" class="room">
           <h4>{{ block.room.roomName || '聊天室' }}</h4>
@@ -294,7 +302,7 @@ async function removeRecord(record: TheaterRecord): Promise<void> {
 .actions{display:flex;justify-content:flex-end;margin-top:10px}.theater-page button{border:1px solid var(--SmartThemeBorderColor);border-radius:8px;padding:7px 12px;background:var(--SmartThemeBlurTintColor);color:inherit;cursor:pointer}.theater-page button:disabled{opacity:.5;cursor:not-allowed}
 .error{color:var(--SmartThemeQuoteColor)}.composer pre{white-space:pre-wrap;max-height:220px;overflow:auto;font-size:11px}
 .result{display:grid;grid-template-columns:minmax(180px,38%) 1fr;gap:14px}.artwork img{display:block;width:100%;height:auto;max-height:620px;object-fit:contain;border-radius:8px;background:#111}
-.result-body h3{margin:0 0 8px}.prompt-editor{display:flex;flex-direction:column;gap:6px;font-size:12px}.prompt-editor textarea{width:100%;box-sizing:border-box;resize:vertical;border:1px solid var(--SmartThemeBorderColor);border-radius:8px;padding:8px;background:var(--SmartThemeBlurTintColor);color:inherit}.result-actions{display:flex;gap:8px;margin:10px 0}.room{margin-top:14px;padding:12px;border:1px solid var(--SmartThemeBorderColor);border-radius:10px}.room h4{margin:0 0 4px}.bubble-row{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin:9px 0}.bubble-row.right{align-items:flex-end}.speaker{font-size:11px;opacity:.7}.bubble{max-width:90%;padding:8px 11px;border-radius:12px;background:var(--SmartThemeQuoteColor);color:var(--SmartThemeBodyColor);white-space:pre-wrap}
+.result-body h3{margin:0 0 8px}.source-meta{font-size:11px;opacity:.68;overflow-wrap:anywhere}.context-snapshot{margin:10px 0;border:1px solid var(--SmartThemeBorderColor);border-radius:8px;padding:8px;font-size:12px}.context-snapshot summary{cursor:pointer}.snapshot-message{margin-top:8px;padding:8px;border-radius:6px;background:var(--SmartThemeBlurTintColor)}.snapshot-message pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto;margin:5px 0 0;font-size:11px}.prompt-editor{display:flex;flex-direction:column;gap:6px;font-size:12px}.prompt-editor textarea{width:100%;box-sizing:border-box;resize:vertical;border:1px solid var(--SmartThemeBorderColor);border-radius:8px;padding:8px;background:var(--SmartThemeBlurTintColor);color:inherit}.result-actions{display:flex;gap:8px;margin:10px 0}.room{margin-top:14px;padding:12px;border:1px solid var(--SmartThemeBorderColor);border-radius:10px}.room h4{margin:0 0 4px}.bubble-row{display:flex;flex-direction:column;align-items:flex-start;gap:3px;margin:9px 0}.bubble-row.right{align-items:flex-end}.speaker{font-size:11px;opacity:.7}.bubble{max-width:90%;padding:8px 11px;border-radius:12px;background:var(--SmartThemeQuoteColor);color:var(--SmartThemeBodyColor);white-space:pre-wrap}
 .history-list{display:flex;gap:8px;flex-wrap:wrap}.history-item{display:flex;align-items:center;gap:8px;max-width:240px;text-align:left}.history-item img{width:48px;height:48px;object-fit:cover;border-radius:6px}.delete{margin-left:auto}
 @media(max-width:640px){.result{grid-template-columns:1fr}}
 </style>
