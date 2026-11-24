@@ -1483,8 +1483,6 @@ async function removeVibe(vibe: NaiVibe) {
           <input ref="vibeImportInput" type="file" accept=".naiv4vibe,.json,.zip,.naiv4vibebundle,application/json,application/zip" hidden @change="onVibeImportChange" />
         </div>
 
-        <p v-if="!settings.nai.vibes.length" class="bbi-field-hint">还没有 vibe;上传一张参考图开始。</p>
-
         <div class="vibe-pool-manager">
           <div class="vibe-toolbar">
             <strong>独立 Vibe 池</strong>
@@ -1526,6 +1524,8 @@ async function removeVibe(vibe: NaiVibe) {
             </div>
           </div>
         </div>
+
+        <p v-if="!settings.nai.vibes.length" class="bbi-field-hint">还没有 vibe;上传一张参考图开始。</p>
 
         <template v-else>
           <div class="vibe-toolbar">
