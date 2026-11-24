@@ -150,7 +150,7 @@ export function applyArtistProfileToNai(
         next.vibes = materializeVibeGroup({
           id: `combo:${combo.id}`,
           name: combo.name,
-          refs: [{ poolId: resource.id, strength: legacyVibes.find(vibe => vibe.id === resource.id)?.strength ?? 0.6, enabled: true }],
+          refs: [{ poolId: resource.id, strength: legacyVibes.find(vibe => vibe.id === resource.id)?.strength ?? 0.6, enabled: true, informationExtracted: legacyVibes.find(vibe => vibe.id === resource.id)?.informationExtracted }],
         }, poolItems);
       } else {
         next.activeVibeGroupId = '';

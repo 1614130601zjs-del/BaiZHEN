@@ -20,7 +20,7 @@ export function materializeVibeGroup(group: NaiVibeGroup, pool: readonly NaiVibe
   const byId = new Map(pool.map(item => [item.id, item]));
   return group.refs.flatMap(ref => {
     const resource = byId.get(ref.poolId);
-    return resource ? [{ ...resource, strength: ref.strength, enabled: ref.enabled, group: group.name, informationExtracted: ref.informationExtracted }] : [];
+    return resource ? [{ ...resource, strength: ref.strength, enabled: ref.enabled, group: group.name, informationExtracted: ref.informationExtracted ?? resource.informationExtracted }] : [];
   });
 }
 

@@ -22,4 +22,13 @@ describe('Vibe group Information Extracted overrides',()=>{
   const source={image:'',thumbnail:'',encodings:{v5:{encoding:'abc',infoExtracted:0.7}}};
   expect(applyVibeRefInformationExtracted(source)).toBe(source);
  });
+ it('falls back to resource Information Extracted unless a group ref overrides it',()=>{
+  const source={...v('a','',.5,true),informationExtracted:0.72};
+  const pool=migrateLegacyVibeLibrary([source]).pool;
+  const inherited=materializeVibeGroup({id:'g1',name:'继承',refs:[{poolId:'a',strength:.4,enabled:true}]},pool);
+  const overridden=materializeVibeGroup({id:'g2',name:'覆盖',refs:[{poolId:'a',strength:.8,enabled:true,informationExtracted:0.91}]},pool);
+  expect(inherited[0].informationExtracted).toBe(0.72);
+  expect(overridden[0].informationExtracted).toBe(0.91);
+ });
+
 });
