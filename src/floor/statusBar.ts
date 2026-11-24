@@ -65,10 +65,8 @@ function parseMarker(value: unknown): string {
 
 /** Resolve the marker from the scanning node, its data-tag children, or its containing message. */
 export function statusBarPromptForTarget(target: Element): string {
-  if (target.hasAttribute('data-ql-stable')) {
-    const stable = parseMarker(target.getAttribute('data-tag'));
-    if (stable) return stable;
-  }
+  // External stable stages are keyed only by their own marker; never scrape rendered card text.
+  if (target.hasAttribute('data-ql-stable')) return parseMarker(target.getAttribute('data-tag'));
   const values: unknown[] = [
     target.getAttribute('data-qlPrompt'),
     target.textContent,
