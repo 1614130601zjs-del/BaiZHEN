@@ -40,6 +40,8 @@ export interface GenerateInput {
   artistTarget?: 'body' | 'statusBar' | 'egg';
   /** 当前角色卡的稳定身份键；空值时只使用通用预设。 */
   characterKey?: string;
+  /** Current ST character name, used as a migration fallback for name-only Shizhen bindings. */
+  characterName?: string;
   /** 正向 danbooru 短 tag。 */
   prompt: string;
   /** 自然语言部分(可空)。 */
@@ -220,6 +222,7 @@ export async function generateImage(
         renderedNai,
         input.characterKey ?? '',
         input.artistTarget ?? 'body',
+        input.characterName ?? '',
       ).nai;
       const output = await generateNaiImage(
         profiledNai,

@@ -191,6 +191,8 @@ export interface NaiArtistCombo {
   name: string;
   artistId: string;
   vibeId: string;
+  /** Shizhen combo references a Vibe group; every member is enabled for this request. */
+  vibeGroup?: string;
   updatedAt: number;
 }
 
@@ -2123,6 +2125,7 @@ function normalizeShizhenArtistProfiles(raw: unknown, artistIds: ReadonlySet<str
       name: typeof item.name === 'string' ? item.name : `组合 ${index + 1}`,
       artistId: typeof item.artistId === 'string' && artistIds.has(item.artistId) ? item.artistId : '',
       vibeId: typeof item.vibeId === 'string' && vibeIds.has(item.vibeId) ? item.vibeId : '',
+      vibeGroup: typeof item.vibeGroup === 'string' ? item.vibeGroup : '',
       updatedAt: typeof item.updatedAt === 'number' && Number.isFinite(item.updatedAt) ? item.updatedAt : 0,
     }));
   const comboIds = new Set(combos.map(item => item.id));

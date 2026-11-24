@@ -25,6 +25,7 @@ const vibeOptions = computed(() => [
   { value: '', label: '不使用 Vibe' },
   ...settings.nai.vibes.map(item => ({ value: item.id, label: item.name || '未命名 Vibe' })),
 ]);
+const vibeGroupOptions = computed(() => [...new Set(settings.nai.vibes.map(item => item.group.trim()).filter(Boolean))]);
 const comboOptions = computed(() => [
   { value: '', label: '跟随通用预设' },
   ...profiles.value.combos.map(item => ({ value: item.id, label: item.name || '未命名组合' })),
@@ -34,6 +35,7 @@ const editingId = ref('');
 const comboName = ref('');
 const comboArtistId = ref('');
 const comboVibeId = ref('');
+const comboVibeGroup = ref('');
 const characterKey = ref('');
 const characterName = ref('');
 const targetDraft = ref({
@@ -68,6 +70,7 @@ function beginNewCombo() {
   comboName.value = '';
   comboArtistId.value = '';
   comboVibeId.value = '';
+  comboVibeGroup.value = '';
 }
 
 function editCombo(combo: NaiArtistCombo) {
@@ -75,6 +78,7 @@ function editCombo(combo: NaiArtistCombo) {
   comboName.value = combo.name;
   comboArtistId.value = combo.artistId;
   comboVibeId.value = combo.vibeId;
+  comboVibeGroup.value = combo.vibeGroup || '';
 }
 
 function saveCombo() {
@@ -88,7 +92,8 @@ function saveCombo() {
     id: existing?.id || `nac_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     name,
     artistId: comboArtistId.value,
-    vibeId: comboVibeId.value,
+    vibeId: comboVibeGroup.value ? '' : comboVibeId.value,
+    vibeGroup: comboVibeGroup.value,
     updatedAt: Date.now(),
   };
   if (existing) Object.assign(existing, combo);
@@ -105,7 +110,8 @@ function loadCharacterBinding(key: string) {
   characterKey.value = key;
   const character = characters.value.find(item => item.key === key);
   characterName.value = character?.name || '';
-  const binding = profiles.value.bindings.find(item => item.characterKey === key);
+  const binding = profiles.value.bindings.find(item => item.characterKey === key)
+    ?? profiles.value.bindings.find(item => !!character?.name && item.characterName.trim() === character.name.trim());
   targetDraft.value = binding
     ? {
         body: { ...binding.body },
@@ -131,7 +137,7 @@ function saveCharacterBinding() {
     statusBar: { ...targetDraft.value.statusBar },
     egg: { ...targetDraft.value.egg },
   };
-  const index = profiles.value.bindings.findIndex(item => item.characterKey === next.characterKey);
+  const index = profiles.value.bindings.findIndex(item => item.characterKey === next.characterKey || (!!next.characterName && item.characterName.trim() === next.characterName.trim()));
   if (index >= 0) profiles.value.bindings.splice(index, 1, next);
   else profiles.value.bindings.push(next);
   toastr.success(`已保存「${characterName.value}」的组合绑定`, '角色卡绑定');
@@ -172,9 +178,16 @@ const globalTargets = computed(() => profiles.value.global);
             </select>
           </label>
           <label class="bbi-field">
-            <span class="bbi-field-label">Vibe</span>
+            <span class="bbi-field-label">单条 Vibe</span>
             <select v-model="comboVibeId" class="bbi-input">
               <option v-for="item in vibeOptions" :key="item.value" :value="item.value">{{ item.label }}</option>
+            </select>
+          </label>
+          <label class="bbi-field">
+            <span class="bbi-field-label">Vibe 分组（拾帧组合）</span>
+            <select v-model="comboVibeGroup" class="bbi-input">
+              <option value="">不使用分组</option>
+              <option v-for="name in vibeGroupOptions" :key="name" :value="name">{{ name }}</option>
             </select>
           </label>
         </div>
@@ -187,7 +200,7 @@ const globalTargets = computed(() => profiles.value.global);
         <div v-for="combo in profiles.combos" :key="combo.id" class="sap-row">
           <div class="sap-info">
             <strong>{{ combo.name }}</strong>
-            <span>{{ artistOptions.find(item => item.value === combo.artistId)?.label || '不使用画师串' }} · {{ vibeOptions.find(item => item.value === combo.vibeId)?.label || '不使用 Vibe' }}</span>
+            <span>{{ artistOptions.find(item => item.value === combo.artistId)?.label || '不使用画师串' }} · {{ combo.vibeGroup || vibeOptions.find(item => item.value === combo.vibeId)?.label || '不使用 Vibe' }}</span>
           </div>
           <button class="bbi-btn bbi-btn-sm" type="button" @click="editCombo(combo)">编辑</button>
           <button class="bbi-btn bbi-btn-sm am-btn-danger" type="button" @click="deleteCombo(combo.id)">删除</button>

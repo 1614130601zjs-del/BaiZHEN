@@ -36,6 +36,7 @@ export async function generateSlot(job: SlotJob): Promise<void> {
     characters:job.characters?.map(character=>({...character})),
     seed:decideSeed(snapshot.backend),
     characterKey: job.characterKey || makeCharacterBindingKey(currentCharacter?.avatar, currentCharacter?.name, host.characterId),
+    characterName: job.characterName || currentCharacter?.name || '',
     artistTarget: job.artistTarget ?? (isEggPrompt ? 'egg' : 'body'),
     renderProfile:job.renderProfile??inferRenderProfile(job.prompt)};
   const {signal,token}=beginGen(key,hash,snapshot.backend==='nai'?'queued':'generating');

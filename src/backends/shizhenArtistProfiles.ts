@@ -58,8 +58,10 @@ export function resolveArtistTarget(
   profiles: NaiArtistProfileSettings,
   characterKey: string,
   target: 'body' | 'statusBar' | 'egg',
+  characterName = '',
 ): NaiArtistTargetConfig {
-  const binding = profiles.bindings.find(item => item.characterKey === characterKey);
+  const binding = profiles.bindings.find(item => item.characterKey === characterKey)
+    ?? profiles.bindings.find(item => !!characterName && item.characterName.trim() === characterName.trim());
   const local = binding?.[target];
   const global = profiles.global[target];
   const selected = {
@@ -114,8 +116,9 @@ export function applyArtistProfileToNai(
   nai: NaiSettings,
   characterKey: string,
   target: 'body' | 'statusBar' | 'egg' = 'body',
+  characterName = '',
 ): { nai: NaiSettings; applied: boolean; size: string } {
-  const selected = resolveArtistTarget(nai.shizhenArtistProfiles, characterKey, target);
+  const selected = resolveArtistTarget(nai.shizhenArtistProfiles, characterKey, target, characterName);
   const combo = selected.comboId
     ? nai.shizhenArtistProfiles.combos.find(item => item.id === selected.comboId)
     : undefined;
@@ -126,7 +129,12 @@ export function applyArtistProfileToNai(
   if (combo) {
     next.activeArtistId = combo.artistId;
     // A selected combo owns the Vibe choice for this request, including an explicit "none".
-    next.vibes = nai.vibes.map(vibe => ({ ...vibe, enabled: !!combo.vibeId && vibe.id === combo.vibeId }));
+    next.vibes = nai.vibes.map(vibe => ({
+      ...vibe,
+      enabled: combo.vibeGroup
+        ? vibe.group === combo.vibeGroup
+        : !!combo.vibeId && vibe.id === combo.vibeId,
+    }));
   }
   if (size) {
     next.portraitSize = size;

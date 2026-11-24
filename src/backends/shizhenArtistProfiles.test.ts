@@ -149,3 +149,32 @@ describe('profile size-only and target fallback', () => {
     expect(result.nai.activeArtistId).toBe('native');
   });
 });
+
+
+describe('Shizhen Vibe groups and name fallback', () => {
+  it('uses imported character-name bindings when avatar identity is unavailable in backup', () => {
+    const result = resolveArtistTarget(profiles, 'avatar:alice.png', 'body', 'Alice');
+    expect(result.comboId).toBe('combo-a');
+  });
+
+  it('enables every Vibe in a selected imported group on a request-local copy', () => {
+    const native = {
+      activeArtistId: 'native',
+      vibes: [
+        { id: 'v1', group: '雨夜', enabled: false },
+        { id: 'v2', group: '雨夜', enabled: false },
+        { id: 'v3', group: '晴天', enabled: true },
+      ],
+      portraitSize: '832x1216',
+      landscapeSize: '1216x832',
+      shizhenArtistProfiles: {
+        ...profiles,
+        combos: [{ id: 'group-combo', name: '雨夜组合', artistId: '', vibeId: '', vibeGroup: '雨夜', updatedAt: 1 }],
+        global: { ...profiles.global, body: { comboId: 'group-combo', size: '' } },
+      },
+    } as unknown as import('@/state/settings').NaiSettings;
+    const result = applyArtistProfileToNai(native, '', 'body');
+    expect(result.nai.vibes.map(v => v.enabled)).toEqual([true, true, false]);
+    expect(native.vibes.map(v => v.enabled)).toEqual([false, false, true]);
+  });
+});
