@@ -23,16 +23,27 @@ const summary = ref('');
 const preview = computed(() => {
   const value = plan.value;
   if (!value) return null;
-  const existingArtists = new Set([...BUILTIN_NAI_ARTISTS, ...settings.nai.artistPresets].map(item => [item.name, item.prompt, item.quality, item.negative].join('\u0000')));
-  const newArtists = value.artists.filter(item => !existingArtists.has([item.name, item.prompt, item.quality, item.negative].join('\u0000'))).length;
+  const existingArtists = new Set([...BUILTIN_NAI_ARTISTS, ...settings.nai.artistPresets].map(signature));
+  const newArtists = value.artists.filter(item => !existingArtists.has(signature(item))).length;
+  const existingVibes = new Set(settings.nai.vibes.map(item => `${item.fingerprint}\\u0000${item.group}`));
+  const seenVibes = new Set<string>();
+  let duplicateVibes = 0;
+  let newVibes = 0;
+  for (const item of value.vibes) {
+    const key = `${vibeFingerprint(item.data.encodings)}\\u0000${item.group}`;
+    if (existingVibes.has(key) || seenVibes.has(key)) duplicateVibes++;
+    else newVibes++;
+    seenVibes.add(key);
+  }
   return {
     artists: value.artists.length,
     newArtists,
     combos: value.combos.length,
     bindings: value.bindings.length,
     vibes: value.vibes.length,
+    newVibes,
     groups: value.vibeGroups.length,
-    duplicateVibes: value.vibes.filter(item => settings.nai.vibes.some(v => v.fingerprint === vibeFingerprint(item.data.encodings) && v.group === item.group)).length,
+    duplicateVibes,
     unsupported: value.unsupportedVibes,
   };
 });
@@ -141,7 +152,7 @@ async function importBackup() {
 
     let bindingAdded = 0, bindingSkipped = 0;
     for (const item of value.bindings) {
-      const sourceIndex = Number(item.characterIndex);
+      const sourceIndex = item.characterIndex.trim() ? Number(item.characterIndex) : -1;
       const indexedCharacter = Number.isInteger(sourceIndex) && sourceIndex >= 0
         ? getContext()?.characters?.[sourceIndex]
         : undefined;
@@ -320,7 +331,7 @@ async function exportBackup() {
         <span>画师串：{{ preview.artists }}（预计新增 {{ preview.newArtists }}）</span>
         <span>组合：{{ preview.combos }}</span>
         <span>角色绑定：{{ preview.bindings }}</span>
-        <span>Vibe：{{ preview.vibes }}（同组重复 {{ preview.duplicateVibes }}）</span>
+        <span>Vibe：{{ preview.vibes }}（预计新增 {{ preview.newVibes }}，重复跳过 {{ preview.duplicateVibes }}）</span>
         <span>Vibe 分组：{{ preview.groups }}</span>
         <span>无法识别：{{ preview.unsupported }}</span>
       </div>
