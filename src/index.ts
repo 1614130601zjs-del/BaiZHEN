@@ -4,6 +4,7 @@ import App from '@/App.vue';
 import { bindAutoTagging } from '@/autoTag/runner';
 import { bindTagActionButtons } from '@/floor/actionButton';
 import { bindFloorHydration } from '@/floor/hydrate';
+import { bindStatusBarObserver } from '@/floor/statusBar';
 import { injectMenuButton } from '@/menu';
 import { registerPublicInterface } from '@/public/register';
 import { bindCharTagSync } from '@/state/charTags';
@@ -104,6 +105,7 @@ async function hydrateWhenReady(attempt = 0) {
       ensureImageTagRegexRegistered();
       bindAutoTagging();
       bindFloorHydration();
+      bindStatusBarObserver();
       bindTagActionButtons();
       bindMarkerInjection();
       syncMarkerInjection();

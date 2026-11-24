@@ -242,7 +242,7 @@ export async function mutateStore(
 
 /* —— 保存流程 —— */
 
-async function resultToBase64(result: ComfyImageResult): Promise<string> {
+export async function resultToBase64ForUpload(result: ComfyImageResult): Promise<string> {
   if (result.url.startsWith('data:')) {
     // server 代理模式：data URL 去前缀直接用
     const comma = result.url.indexOf(',');
@@ -340,7 +340,7 @@ export async function prepareImageForStorage(result: ComfyImageResult): Promise<
       console.warn('[柏宝绘] JPG 转码失败，本次回退保存原格式', error);
     }
   }
-  return { base64: await resultToBase64(result), format: result.format };
+  return { base64: await resultToBase64ForUpload(result), format: result.format };
 }
 
 /**
