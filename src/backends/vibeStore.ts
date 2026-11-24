@@ -100,10 +100,18 @@ export function clampVibeStrength(raw: unknown, def = DEFAULT_VIBE_STRENGTH): nu
 }
 
 export function vibeFingerprint(encodings: NaiVibeEncodings): string {
-  return Object.keys(encodings)
-    .sort()
-    .map(key => `${key}:${encodings[key].encoding.slice(0, 64)}`)
-    .join('|');
+  return Object.keys(encodings).sort().map(key => {
+    const value = encodings[key].encoding;
+    // Hash the complete payload without copying large base64 strings into settings metadata.
+    let hashA = 0x811c9dc5;
+    let hashB = 0x9e3779b9;
+    for (let i = 0; i < value.length; i++) {
+      const code = value.charCodeAt(i);
+      hashA = Math.imul(hashA ^ code, 0x01000193);
+      hashB = Math.imul(hashB ^ (code + i), 0x85ebca6b);
+    }
+    return `${key}:${value.length}:${(hashA >>> 0).toString(16)}${(hashB >>> 0).toString(16)}`;
+  }).join('|');
 }
 
 export function vibeMetaFromData(

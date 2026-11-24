@@ -16,6 +16,7 @@ import {
   loadVibeData,
   saveVibeFiles,
   vibeMetaFromData,
+  vibeFingerprint,
 } from '@/backends/vibeStore';
 import type { NaiVibeData } from '@/state/settings';
 
@@ -109,5 +110,14 @@ describe('clampVibeStrength', () => {
     expect(clampVibeStrength('', 0.9)).toBe(0.9);
     expect(clampVibeStrength('abc', 0.25)).toBe(0.25);
     expect(clampVibeStrength('0.5', 0.9)).toBe(0.5);
+  });
+});
+
+describe('vibeFingerprint', () => {
+  it('检测完整编码尾部的差异，而不只比较前缀', () => {
+    const prefix = 'A'.repeat(240);
+    const left = vibeFingerprint({ 'v4-5full': { encoding: prefix + 'B', infoExtracted: 1 } });
+    const right = vibeFingerprint({ 'v4-5full': { encoding: prefix + 'C', infoExtracted: 1 } });
+    expect(left).not.toBe(right);
   });
 });
