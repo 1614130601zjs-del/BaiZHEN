@@ -2217,14 +2217,15 @@ function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
   const vibes = Array.isArray(o.vibes)
     ? o.vibes.map((v, i) => normalizeVibe(v, i)).filter((v): v is NaiVibe => v !== null)
     : def.vibes;
+  const legacyPool = migrateLegacyVibeLibrary(vibes);
   const vibePool = Array.isArray(o.vibePool)
     ? o.vibePool.map((v, i) => normalizeVibePoolItem(v, i)).filter((v): v is NaiVibePoolItem => v !== null)
-    : [];
+    : legacyPool.pool;
   const poolIds = new Set(vibePool.map(item => item.id));
   const vibeGroups = Array.isArray(o.vibeGroups)
     ? o.vibeGroups.map((group, i) => normalizeVibeGroup(group, i, poolIds))
       .filter((group): group is NaiVibeGroup => group !== null)
-    : [];
+    : legacyPool.groups;
   const activeVibeGroupId =
     typeof o.activeVibeGroupId === 'string' && vibeGroups.some(group => group.id === o.activeVibeGroupId)
       ? o.activeVibeGroupId
