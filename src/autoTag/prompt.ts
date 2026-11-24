@@ -21,6 +21,7 @@ import {
 import type { BookMemoryContext } from '@/autoTag/bookMemory';
 import { buildSimpleComicPrompt } from '@/autoTag/comicSimplePrompt';
 import { readVisualArchive } from '@/autoTag/visualArchive';
+import { getWorldbookModeProfile } from '@/modes/worldbookMode';
 import { isAiStoryMessage, isStoryMessage, type STContext } from '@/st/context';
 import type { AutoTagSettings, NaiSettings, BackendId } from '@/state/settings';
 import {
@@ -254,8 +255,13 @@ export async function buildAutoTagMessages(
     ...Array.from((library ?? '').matchAll(/^- (.+?)(?: \[locked\])?: /gm), match => match[1]),
     ...Object.keys(readVisualArchive(context.chat, targetFloor, settings.excludes.customStripTags).changes),
   ]) : undefined;
+  const worldbookMode = getWorldbookModeProfile();
+  const allowedWorldNames = worldbookMode.enabled
+    ? [worldbookMode.coreBook, worldbookMode.worldviewBook].filter(Boolean)
+    : undefined;
   const worldInfo = await fetchWorldInfo(context.chat, scanFloors, context.name1, context.name2, visualReferences,
-    knownCharacters ? { knownCharacters, targetText: preparedTarget.segments.map(segment => segment.text).join('\n') } : undefined);
+    knownCharacters ? { knownCharacters, targetText: preparedTarget.segments.map(segment => segment.text).join('\n') } : undefined,
+    allowedWorldNames);
 
   // 自然语言模式(profile.nl):ComfyUI 当前工作流或 NAI 渠道开启了「生成自然语言」。
   // 开启后协议变为 tag/nl 两键——自然语言是配合短 tag 用的,不是替代。
