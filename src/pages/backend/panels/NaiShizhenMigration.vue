@@ -100,7 +100,17 @@ async function importBackup() {
       artistBySourceIndex.push(id);
     }
 
-    const knownVibes = new Set(settings.nai.vibes.map(item => `${item.fingerprint}\u0000${item.group}`));
+    const knownVibes = new Set<string>();
+    for (const existing of settings.nai.vibes) {
+      let fingerprint = existing.fingerprint;
+      try {
+        // Recompute from stored payloads so legacy truncated fingerprints remain compatible.
+        fingerprint = vibeFingerprint((await loadVibeData(existing)).encodings);
+      } catch {
+        // Keep the stored fingerprint as a conservative fallback for unreadable legacy files.
+      }
+      knownVibes.add(`${fingerprint}\\u0000${existing.group}\\u0000${existing.strength}`);
+    }
     let duplicateVibes = 0;
     for (const item of value.vibes) {
       const fingerprint = vibeFingerprint(item.data.encodings);
