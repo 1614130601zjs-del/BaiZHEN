@@ -51,6 +51,7 @@ const nai: NaiSettings = {
   vibePool: [],
   vibeGroups: [],
   activeVibeGroupId: '',
+  vibeCleanupQueue: [],
   artistPresets: [],
   activeArtistId: '',
   shizhenArtistProfiles: {

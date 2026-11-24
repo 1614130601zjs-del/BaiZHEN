@@ -58,6 +58,7 @@ function nai(overrides: Partial<NaiSettings> = {}): NaiSettings {
     vibePool: [],
     vibeGroups: [],
     activeVibeGroupId: '',
+    vibeCleanupQueue: [],
     artistPresets: [],
     activeArtistId: '',
     shizhenArtistProfiles: {
