@@ -22,6 +22,7 @@ export interface ShizhenImportVibe {
   group: string;
   strength: number;
   informationExtracted?: number;
+  enabled?: boolean;
   data: NaiVibeData;
 }
 export interface ShizhenBackupPlan {
@@ -104,6 +105,7 @@ export function parseShizhenFullBackup(input: unknown, currentModelKey: string):
     groupName: string,
     refStrength?: unknown,
     refInfo?: unknown,
+    rawRefEnabled?: unknown,
     sourcePoolId = String(raw.id ?? ''),
   ) => {
     const parsed = parseShizhenVibeJson(raw, currentModelKey, String(raw.name ?? raw.title ?? '导入的 Vibe'));
@@ -122,6 +124,7 @@ export function parseShizhenFullBackup(input: unknown, currentModelKey: string):
       name: String(raw.name ?? raw.title ?? item.name ?? '导入的 Vibe').trim() || '导入的 Vibe',
       group: groupName,
       strength: strength(refStrength, item.strength),
+      ...(typeof rawRefEnabled === 'boolean' ? { enabled: rawRefEnabled } : {}),
       ...(typeof refInfo === 'number' && Number.isFinite(refInfo)
         ? { informationExtracted: Math.max(0, Math.min(1, refInfo)) }
         : {}),
@@ -138,13 +141,13 @@ export function parseShizhenFullBackup(input: unknown, currentModelKey: string):
         const entry = poolById.get(poolId);
         if (!entry) { unsupportedVibes++; continue; }
         consumedPoolIds.add(poolId);
-        appendVibe(entry, group.name, ref.strength, ref.informationExtracted);
+        appendVibe(entry, group.name, ref.strength, ref.informationExtracted, ref.enabled);
       }
       continue;
     }
     // Older Shizhen backups stored complete entries directly on each Vibe group.
     if (Array.isArray(group.raw.entries)) {
-      for (const rawEntry of group.raw.entries) appendVibe(record(rawEntry), group.name, undefined, undefined, `legacy:${group.name}:${vibes.length}`);
+      for (const rawEntry of group.raw.entries) appendVibe(record(rawEntry), group.name, undefined, undefined, undefined, `legacy:${group.name}:${vibes.length}`);
     }
   }
 

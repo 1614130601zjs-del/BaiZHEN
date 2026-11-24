@@ -182,7 +182,7 @@ async function importBackup() {
           group.refs.push({
             poolId,
             strength: item.strength,
-            enabled: false,
+            enabled: item.enabled ?? false,
             ...(item.informationExtracted !== undefined ? { informationExtracted: item.informationExtracted } : {}),
           });
         }
@@ -316,16 +316,16 @@ async function exportBackup() {
       ...settings.nai.shizhenArtistProfiles.combos.map(item => item.vibeGroup?.trim()).filter((name): name is string => !!name),
     ])];
     const pool: Array<Record<string, unknown>> = [];
-    const refsByGroup = new Map<string, Array<{ poolId: string; strength: number; informationExtracted?: number }>>();
-    const refsUngrouped: Array<{ poolId: string; strength: number; informationExtracted?: number }> = [];
+    const refsByGroup = new Map<string, Array<{ poolId: string; strength: number; informationExtracted?: number; enabled?: boolean }>>();
+    const refsUngrouped: Array<{ poolId: string; strength: number; informationExtracted?: number; enabled?: boolean }> = [];
     const refByVibeId = new Map<string, { poolId: string; strength: number; informationExtracted?: number }>();
     const refsByPoolId = new Map<string, Array<{ group: string; strength: number; informationExtracted?: number }>>();
     for (const group of groups) {
       const refs = refsByGroup.get(group.name) || [];
       for (const ref of group.refs) {
-        refs.push({ poolId: ref.poolId, strength: ref.strength, ...(ref.informationExtracted !== undefined ? { informationExtracted: ref.informationExtracted } : {}) });
+        refs.push({ poolId: ref.poolId, strength: ref.strength, enabled: ref.enabled, ...(ref.informationExtracted !== undefined ? { informationExtracted: ref.informationExtracted } : {}) });
         const existing = refsByPoolId.get(ref.poolId) || [];
-        existing.push({ group: group.name, strength: ref.strength, ...(ref.informationExtracted !== undefined ? { informationExtracted: ref.informationExtracted } : {}) });
+        existing.push({ group: group.name, strength: ref.strength, enabled: ref.enabled, ...(ref.informationExtracted !== undefined ? { informationExtracted: ref.informationExtracted } : {}) });
         refsByPoolId.set(ref.poolId, existing);
       }
       refsByGroup.set(group.name, refs);
@@ -334,9 +334,9 @@ async function exportBackup() {
       const existingRefs = refsByPoolId.get(legacy.id) || [];
       if (legacy.group.trim() && !existingRefs.some(ref => ref.group === legacy.group.trim())) {
         const refs = refsByGroup.get(legacy.group.trim()) || [];
-        const legacyRef = { poolId: legacy.id, strength: legacy.strength, ...(legacy.informationExtracted !== undefined ? { informationExtracted: legacy.informationExtracted } : {}) };
+        const legacyRef = { poolId: legacy.id, strength: legacy.strength, enabled: legacy.enabled, ...(legacy.informationExtracted !== undefined ? { informationExtracted: legacy.informationExtracted } : {}) };
         refs.push(legacyRef); refsByGroup.set(legacy.group.trim(), refs);
-        existingRefs.push({ group: legacy.group.trim(), strength: legacy.strength, ...(legacy.informationExtracted !== undefined ? { informationExtracted: legacy.informationExtracted } : {}) });
+        existingRefs.push({ group: legacy.group.trim(), strength: legacy.strength, enabled: legacy.enabled, ...(legacy.informationExtracted !== undefined ? { informationExtracted: legacy.informationExtracted } : {}) });
         refsByPoolId.set(legacy.id, existingRefs);
       }
     }
