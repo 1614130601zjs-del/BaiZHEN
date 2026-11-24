@@ -48,6 +48,7 @@ interface WorldInfoData {
 
 interface WorldInfoRuntime {
   selected_world_info?: string[];
+  world_names?: string[];
   world_info?: { globalSelect?: string[] };
   saveWorldInfo?: (name: string, data: WorldInfoData, immediately?: boolean) => Promise<void>;
 }
@@ -216,8 +217,9 @@ export function saveWorldbookModeProfile(profile: WorldbookModeProfile): void {
 }
 
 /** 当前可选世界书名称，使用 ST 已加载的书名列表，不另发自定义 API。 */
-export function listWorldbooks(): string[] {
-  const names = getContext()?.getWorldInfoNames?.();
+export async function listWorldbooks(): Promise<string[]> {
+  const runtime = await worldInfoRuntime();
+  const names = runtime.world_names ?? getContext()?.getWorldInfoNames?.();
   return Array.isArray(names) ? [...new Set(names.filter((x): x is string => typeof x === 'string'))].sort((a, b) => a.localeCompare(b, 'zh')) : [];
 }
 
@@ -247,7 +249,7 @@ export function applyWorldbookMode(): Promise<void> {
     const worldview = profile.worldview.trim();
     if (!core || !worldviewBook || !worldview) throw new Error('请先选择核心世界书、世界观特化书和世界观');
     if (core === worldviewBook) throw new Error('核心世界书与世界观特化书不能是同一本');
-    const available = new Set(listWorldbooks());
+    const available = new Set(await listWorldbooks());
     for (const name of [core, worldviewBook]) if (!available.has(name)) throw new Error(`世界书「${name}」不存在，请刷新酒馆世界书列表`);
     const worldviews = await listWorldviews(worldviewBook);
     if (!worldviews.includes(worldview)) throw new Error(`世界观「${worldview}」不在「${worldviewBook}」中`);
