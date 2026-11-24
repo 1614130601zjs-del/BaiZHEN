@@ -7,6 +7,7 @@ import Library from './library/index.vue';
 import Mode from './mode/index.vue';
 import Theater from './theater/index.vue';
 import Workshop from './workshop/index.vue';
+import WorldbookTag from './worldbook-tag/index.vue';
 import Settings from './settings/index.vue';
 
 export interface PageDef {
@@ -26,6 +27,7 @@ export const PAGES: PageDef[] = [
   { id: 'characters', label: '角色管理', component: Characters },
   { id: 'gallery', label: '图库', component: Gallery },
   { id: 'library', label: '素材库', component: Library },
+  { id: 'worldbook-tag', label: '世界书转 Tag', component: WorldbookTag },
   { id: 'workshop', label: '工坊', component: Workshop },
   { id: 'history', label: '请求历史', component: History },
   { id: 'mode', label: '生图模式', component: Mode },

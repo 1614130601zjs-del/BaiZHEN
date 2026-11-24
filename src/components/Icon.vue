@@ -39,6 +39,8 @@ const PATHS: Record<string, string> = {
   workshop: '<path d="M4 20 14.5 9.5M13 5l6 6M4 20l5-.8L20 8a2.1 2.1 0 0 0-3-3L6 16z"/><path d="m9 16 3 3"/>',
   // 素材库:书本与书签
   library: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21z"/><path d="M4 5.5v15.5M8 7h8M8 10.5h6M15.5 14v3l1.5-1 1.5 1v-3"/>',
+  // 世界书转 Tag:打开的书页与转换箭头
+  'worldbook-tag': '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H12v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H12v17h5.5A2.5 2.5 0 0 1 20 22z"/><path d="M8 8h1M15 8h1M8 11h1M15 11h1"/>',
   // 请求历史:时钟 + 左上回拨箭头(时间倒流)。墨迹 3.5~20.5,与 characters/settings 同量级
   history:
     '<path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5v4h4"/><path d="M12 7.5V12l3 1.8"/>',
