@@ -174,14 +174,7 @@ async function saveServerVibeFiles(
   const versionKey = current ? `${safeFileKey(key) || 'vibe'}-${randomUuid()}` : key;
   const dataPath = await saveVibeData(data, '', versionKey);
   if (!data.thumbnail) {
-    if (current?.thumbnailPath) {
-      try {
-        await deleteUploadedFile(current.thumbnailPath);
-      } catch (cleanupError) {
-        // Do not expose a stale preview path after the thumbnail was removed.
-        console.warn('[柏宝绘] Vibe 已移除缩略图，但旧文件清理失败：', current.thumbnailPath, cleanupError);
-      }
-    }
+    // The caller still owns the previous metadata until it commits the new paths.
     return { dataPath, thumbnailPath: '' };
   }
   try {

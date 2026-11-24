@@ -86,7 +86,7 @@ describe('vibeStore', () => {
     expect(fileStore.remove).not.toHaveBeenCalled();
   });
 
-  it('更新时移除缩略图会清理旧文件并清空缩略图路径', async () => {
+  it('更新时移除缩略图会先保留旧文件，交由元数据提交后的调用方清理', async () => {
     fileStore.upload.mockResolvedValueOnce('/user/files/bbi-vibe-v1.json');
     fileStore.remove.mockResolvedValue(true);
     await expect(saveVibeFiles({ ...data, thumbnail: '' }, {
@@ -97,10 +97,10 @@ describe('vibeStore', () => {
       thumbnailPath: '',
     });
     expect(fileStore.upload).toHaveBeenCalledTimes(1);
-    expect(fileStore.remove).toHaveBeenCalledWith('/user/files/bbi-vibe-thumb-v1.jpg');
+    expect(fileStore.remove).not.toHaveBeenCalled();
   });
 
-  it('缩略图移除后的旧文件清理失败也不会继续展示过期缩略图', async () => {
+  it('缩略图移除时不在元数据提交前删除旧文件', async () => {
     fileStore.upload.mockResolvedValueOnce('/user/files/bbi-vibe-v1.json');
     fileStore.remove.mockRejectedValueOnce(new Error('remove failed'));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -111,7 +111,8 @@ describe('vibeStore', () => {
       dataPath: '/user/files/bbi-vibe-v1.json',
       thumbnailPath: '',
     });
-    expect(warn).toHaveBeenCalled();
+    expect(fileStore.remove).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('保留已有 Vibe 的数据更新结果，避免缩略图失败造成指纹与文件内容不一致', async () => {
@@ -173,7 +174,7 @@ describe('vibeStore', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const result = await saveVibeFiles(data, null, 'new-vibe');
-    expect(result.dataPath).toContain('idb:');
+    expect(result.dataPath).toMatch(/^idb:new-vibe-/);
     expect(fileStore.remove).toHaveBeenCalledWith('/user/files/bbi-vibe-new.json');
   });
 
@@ -196,10 +197,10 @@ describe('vibeStore', () => {
       dataPath: 'idb:local-vibe',
       thumbnailPath: '/user/files/old-vibe-thumb.jpg',
     }, 'local-vibe')).resolves.toEqual({
-      dataPath: 'idb:local-vibe',
+      dataPath: expect.stringMatching(/^idb:local-vibe-/),
       thumbnailPath: '',
     });
-    // IndexedDB connection is cached across tests; this case focuses on metadata/file cleanup.
+    // IndexedDB connection is cached across tests; the old version remains until metadata commits.
     expect(fileStore.remove).not.toHaveBeenCalled();
     expect(fileStore.upload).not.toHaveBeenCalled();
   });
