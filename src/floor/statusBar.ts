@@ -33,6 +33,7 @@ interface StatusBarStore { tasks: Record<string, StatusBarTask> }
 let memoryStore: StatusBarStore = { tasks: {} };
 const observedBodies = new WeakSet<Node>();
 const hookedIframes = new WeakSet<HTMLIFrameElement>();
+const warnedCrossOriginIframes = new WeakSet<HTMLIFrameElement>();
 const liveCards = new WeakSet<Element>();
 const activeTasks = new Set<string>();
 let bound = false;
@@ -95,7 +96,10 @@ function collectDocs(root: Document = document, depth = 0, out: Document[] = [])
       const inner = frame.contentDocument;
       if (inner) collectDocs(inner, depth + 1, out);
     } catch {
-      console.warn('[柏宝绘] 跨域 iframe 无法读取，其中的状态栏图片标记不会被接管。');
+      if (!warnedCrossOriginIframes.has(frame)) {
+        warnedCrossOriginIframes.add(frame);
+        console.warn('[柏宝绘] 跨域 iframe 无法读取，其中的状态栏图片标记不会被接管。');
+      }
     }
   }
   return out;
