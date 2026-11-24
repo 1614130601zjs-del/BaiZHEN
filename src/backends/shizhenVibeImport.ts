@@ -42,7 +42,19 @@ function normalizedModelKey(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-function unwrapEncoding(value: unknown): { encoding: string; infoExtracted: number } | null {
+function readNumericField(value: unknown, pattern: RegExp, fallback: number): number {
+  try {
+    const serialized = JSON.stringify(value);
+    const match = serialized.match(pattern);
+    if (!match) return fallback;
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function unwrapEncoding(value: unknown, fallbackInfo = 1): { encoding: string; infoExtracted: number } | null {
   if (typeof value === 'string') {
     return isPayload(value) ? { encoding: cleanPayload(value), infoExtracted: 1 } : null;
   }
@@ -56,11 +68,11 @@ function unwrapEncoding(value: unknown): { encoding: string; infoExtracted: numb
     const info = params.information_extracted ?? params.informationExtracted ?? record.infoExtracted;
     return {
       encoding: cleanPayload(direct),
-      infoExtracted: Number.isFinite(Number(info)) ? Math.min(1, Math.max(0, Number(info))) : 1,
+      infoExtracted: Number.isFinite(Number(info)) ? Math.min(1, Math.max(0, Number(info))) : fallbackInfo,
     };
   }
   for (const child of Object.values(record)) {
-    const found = unwrapEncoding(child);
+    const found = unwrapEncoding(child, fallbackInfo);
     if (found) return found;
   }
   return null;
@@ -68,17 +80,22 @@ function unwrapEncoding(value: unknown): { encoding: string; infoExtracted: numb
 
 function collectEncodings(raw: Record<string, unknown>, currentModelKey: string): Record<string, { encoding: string; infoExtracted: number }> {
   const result: Record<string, { encoding: string; infoExtracted: number }> = {};
+  const fallbackInfo = Math.min(1, Math.max(0, readNumericField(
+    raw,
+    /"(?:reference_information_extracted|referenceInformationExtracted|information_extracted|informationExtracted|info_extracted|infoExtracted)"\\s*:\\s*([0-9.]+)/i,
+    1,
+  )));
   const encodings = raw.encodings;
   if (encodings && typeof encodings === 'object' && !Array.isArray(encodings)) {
     for (const [modelKey, value] of Object.entries(encodings as Record<string, unknown>)) {
-      const extracted = unwrapEncoding(value);
+      const extracted = unwrapEncoding(value, fallbackInfo);
       if (extracted) result[modelKey] = extracted;
     }
   }
 
   // Shizhen supports V3 exports where the Vibe payload is stored in image rather than encodings.
   if (!Object.keys(result).length && raw.identifier === 'novelai-vibe-transfer' && isPayload(raw.image) && !looksLikeImage(raw.image)) {
-    result[currentModelKey] = { encoding: cleanPayload(raw.image as string), infoExtracted: 1 };
+    result[currentModelKey] = { encoding: cleanPayload(raw.image as string), infoExtracted: fallbackInfo };
   }
 
   // Some exports place a model-specific payload directly beside the encodings object.
@@ -103,7 +120,7 @@ function collectEncodings(raw: Record<string, unknown>, currentModelKey: string)
       return null;
     };
     const found = walk(raw);
-    if (found) result[currentModelKey] = { encoding: found, infoExtracted: 1 };
+    if (found) result[currentModelKey] = { encoding: found, infoExtracted: fallbackInfo };
   }
   return result;
 }
@@ -131,7 +148,11 @@ function extractOne(
   const raw = nestedRaw ? { ...nestedRaw, ...wrapper, raw: undefined } : wrapper;
   const encodings = collectEncodings(raw, currentModelKey);
   const imageValue = typeof raw.image === 'string' ? raw.image : '';
-  const image = imageValue && looksLikeImage(imageValue) ? cleanPayload(imageValue) : '';
+  // Shizhen stores V3 Vibe payloads in image; BaiZHEN's V3 backend consumes this field directly.
+  const image = imageValue && (looksLikeImage(imageValue)
+    || (currentModelKey === 'v3' && isPayload(imageValue)))
+    ? cleanPayload(imageValue)
+    : '';
   const thumbnailValue = typeof raw.thumbnail === 'string'
     ? raw.thumbnail
     : typeof raw.thumb === 'string' ? raw.thumb : '';
@@ -140,7 +161,11 @@ function extractOne(
   const importInfo = raw.importInfo && typeof raw.importInfo === 'object'
     ? raw.importInfo as Record<string, unknown>
     : {};
-  const strength = clampVibeStrength(importInfo.strength ?? raw.strength, 0.6);
+  const importedStrength = importInfo.strength ?? raw.strength;
+  const strength = clampVibeStrength(
+    importedStrength ?? readNumericField(raw, /"(?:reference_strength|referenceStrength|strength)"\\s*:\\s*([0-9.]+)/i, 0.6),
+    0.6,
+  );
   const infoValues = Object.values(encodings).map(item => item.infoExtracted);
   const infoExtracted = infoValues[0] ?? 1;
   const name = String(raw.name ?? raw.title ?? raw.label ?? raw.filename ?? fallbackName).trim() || fallbackName;
