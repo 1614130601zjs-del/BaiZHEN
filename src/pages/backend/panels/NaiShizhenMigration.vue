@@ -146,7 +146,7 @@ async function importBackup() {
     }
     let duplicateVibes = 0;
     for (const item of value.vibes) {
-      const fingerprint = vibeFingerprint(item.data.encodings);
+      const fingerprint = vibePoolFingerprint(item.data);
       const sourceKey = item.sourcePoolId || `legacy:${item.group}:${item.name}:${fingerprint}`;
       let poolId: string = sourceToPoolId.get(sourceKey) || fingerprintToPoolId.get(fingerprint) || '';
       let resource = pool.find(candidate => candidate.id === poolId);
