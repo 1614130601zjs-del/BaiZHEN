@@ -106,6 +106,27 @@ describe('parseShizhenFullBackup', () => {
     expect(plan.vibes[0].data.image).toBe(v3Payload);
   });
 
+
+  it('preserves an explicit per-group enabled flag while keeping old backups compatible', () => {
+    const plan = parseShizhenFullBackup({
+      format: 'shizhen-lite-full-backup',
+      data: {
+        presets: [], combinations: [],
+        vibes: [
+          { name: 'enabled', refs: [{ poolId: 'shared-enabled', strength: 0.7, enabled: true }] },
+          { name: 'disabled', refs: [{ poolId: 'shared-enabled', strength: 0.4, enabled: false }] },
+          { name: 'legacy', refs: [{ poolId: 'shared-enabled', strength: 0.5 }] },
+        ],
+        vibePool: [{
+          id: 'shared-enabled',
+          name: 'shared-enabled',
+          raw: { encodings: { 'v4-5full': { encoding: payload } } },
+        }],
+      },
+    }, 'v4-5full');
+    expect(plan.vibes.map(item => item.enabled)).toEqual([true, false, undefined]);
+  });
+
 });
 
 
