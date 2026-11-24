@@ -420,31 +420,50 @@ export function applyWorldbookMode(): Promise<void> {
     state.snapshot = snapshot;
     persist(state);
 
-    await writeGlobalSelection(runtime, next);
-    await applyEntryOverrides(core, profile.entryOverrides[core] ?? {}, snapshot);
-    await applyEntryOverrides(worldviewBook, profile.entryOverrides[worldviewBook] ?? {}, snapshot);
-    await applyModeEntryBindings(core, profile.mode, profile, snapshot);
+    try {
+      await writeGlobalSelection(runtime, next);
+      await applyEntryOverrides(core, profile.entryOverrides[core] ?? {}, snapshot);
+      await applyEntryOverrides(worldviewBook, profile.entryOverrides[worldviewBook] ?? {}, snapshot);
+      await applyModeEntryBindings(core, profile.mode, profile, snapshot);
 
-    // 自动世界观单选：只有符合命名约定的条目才由此功能管理。
-    await captureBook(snapshot, worldviewBook);
-    const data = await loadBook(worldviewBook);
-    let changed = false;
-    for (const [uid, entry] of Object.entries(data.entries)) {
-      const comment = String(entry.comment ?? '').trim();
-      if (!comment.startsWith(WORLDVIEW_PREFIX)) continue;
-      const entryName = comment.slice(WORLDVIEW_PREFIX.length).trim();
-      const hasOverride = Object.prototype.hasOwnProperty.call(profile.entryOverrides[worldviewBook] ?? {}, uid);
-      if (hasOverride) continue;
-      const disable = entryName !== worldview;
-      if (Boolean(entry.disable) !== disable) {
-        entry.disable = disable;
-        changed = true;
+      // 自动世界观单选：只有符合命名约定的条目才由此功能管理。
+      await captureBook(snapshot, worldviewBook);
+      const data = await loadBook(worldviewBook);
+      let changed = false;
+      for (const [uid, entry] of Object.entries(data.entries)) {
+        const comment = String(entry.comment ?? '').trim();
+        if (!comment.startsWith(WORLDVIEW_PREFIX)) continue;
+        const entryName = comment.slice(WORLDVIEW_PREFIX.length).trim();
+        const hasOverride = Object.prototype.hasOwnProperty.call(profile.entryOverrides[worldviewBook] ?? {}, uid);
+        if (hasOverride) continue;
+        const disable = entryName !== worldview;
+        if (Boolean(entry.disable) !== disable) {
+          entry.disable = disable;
+          changed = true;
+        }
       }
-    }
-    if (changed) await saveBook(worldviewBook, data);
+      if (changed) await saveBook(worldviewBook, data);
 
-    state.snapshot = snapshot;
-    persist(state);
+      state.snapshot = snapshot;
+      persist(state);
+    } catch (error) {
+      // 任一世界书写入失败时，尽力恢复接管前的挂载和条目状态，避免半应用状态残留。
+      try {
+        if (snapshot.globalSelection) await writeGlobalSelection(runtime, snapshot.globalSelection);
+        for (const name of Object.keys(snapshot.entries)) await restoreBook(name, snapshot);
+        snapshot.managedBooks = [];
+        snapshot.globalSelection = undefined;
+        profile.enabled = false;
+        state.snapshot = snapshot;
+        persist(state);
+      } catch (rollbackError) {
+        // 恢复失败时保留完整快照，后续可由用户切回原生模式或重启恢复。
+        state.snapshot = snapshot;
+        persist(state);
+        console.warn('[柏宝绘] 世界书模式应用失败，自动回滚未完全成功；恢复快照已保留。', rollbackError);
+      }
+      throw error;
+    }
   });
 }
 
