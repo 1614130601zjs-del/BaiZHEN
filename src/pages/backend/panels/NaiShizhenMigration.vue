@@ -286,7 +286,7 @@ async function importBackup() {
     settings.nai.vibePool = pool;
     settings.nai.vibeGroups = groups;
     settings.nai.shizhenArtistProfiles = profiles;
-    summary.value = `导入完成：画师串映射 ${artistBySourceIndex.length} 条，Vibe 池新增 ${savedPool.length} 条（复用/重复 ${duplicateVibes} 条），组合 ${comboBySourceIndex.length} 条，角色绑定新增 ${bindingAdded} 条（冲突跳过 ${bindingSkipped}）。新导入 Vibe 默认关闭。`;
+    summary.value = `导入完成：画师串映射 ${artistBySourceIndex.length} 条，Vibe 池新增 ${savedPool.length} 条（复用/重复 ${duplicateVibes} 条），组合 ${comboBySourceIndex.length} 条，角色绑定新增 ${bindingAdded} 条（冲突跳过 ${bindingSkipped}），Vibe 分组引用设置冲突 ${referenceConflicts} 处（保留现有设置）。新导入 Vibe 默认关闭。`;
     if (value.unsupportedVibes) summary.value += ` 未识别 Vibe：${value.unsupportedVibes} 条。`;
     plan.value = null;
     toastr.success('拾帧配置已合并；原有配置未被覆盖。', '拾帧迁移');
