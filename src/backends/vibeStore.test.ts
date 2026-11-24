@@ -178,6 +178,33 @@ describe('vibeStore', () => {
     expect(fileStore.remove).toHaveBeenCalledWith('/user/files/bbi-vibe-new.json');
   });
 
+  it('更新 IndexedDB 中的 Vibe 时清除旧远程缩略图引用', async () => {
+    const request = { onsuccess: null as null | (() => void), onerror: null as null | (() => void), error: null };
+    const store = { put: vi.fn(() => { queueMicrotask(() => request.onsuccess?.()); return request; }) };
+    const transaction = { objectStore: vi.fn(() => store) };
+    const db = { transaction: vi.fn(() => transaction) };
+    vi.stubGlobal('indexedDB', {
+      open: vi.fn(() => {
+        const openRequest: { onsuccess: null | (() => void); onerror: null | (() => void); onupgradeneeded: null | (() => void); result: typeof db; error: null } = {
+          onsuccess: null, onerror: null, onupgradeneeded: null, result: db, error: null,
+        };
+        queueMicrotask(() => openRequest.onsuccess?.());
+        return openRequest;
+      }),
+    });
+    fileStore.remove.mockResolvedValue(true);
+    await expect(saveVibeFiles(data, {
+      dataPath: 'idb:local-vibe',
+      thumbnailPath: '/user/files/old-vibe-thumb.jpg',
+    }, 'local-vibe')).resolves.toEqual({
+      dataPath: 'idb:local-vibe',
+      thumbnailPath: '',
+    });
+    expect(store.put).toHaveBeenCalledWith(data, 'local-vibe');
+    expect(fileStore.remove).toHaveBeenCalledWith('/user/files/old-vibe-thumb.jpg');
+    expect(fileStore.upload).not.toHaveBeenCalled();
+  });
+
   it('按路径读取正文并删除两份文件', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify(data), { status: 200 })));
     const vibe = vibeMetaFromData(

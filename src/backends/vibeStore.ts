@@ -154,7 +154,17 @@ export async function saveVibeFiles(
     ? current.dataPath.slice(LOCAL_PATH_PREFIX.length)
     : safeFileKey(key) || randomUuid();
   if (current?.dataPath.startsWith(LOCAL_PATH_PREFIX)) {
-    return { dataPath: await writeLocalData(localKey, data), thumbnailPath: current.thumbnailPath };
+    const dataPath = await writeLocalData(localKey, data);
+    // Local Vibe data already contains its thumbnail. Do not keep a remote thumbnail
+    // reference that may point to an older image after the IndexedDB update.
+    if (current.thumbnailPath) {
+      try {
+        await deleteUploadedFile(current.thumbnailPath);
+      } catch (cleanupError) {
+        console.warn('[柏宝绘] 本地 Vibe 已更新，但旧缩略图文件清理失败：', current.thumbnailPath, cleanupError);
+      }
+    }
+    return { dataPath, thumbnailPath: '' };
   }
   try {
     return await saveServerVibeFiles(data, current, localKey);
