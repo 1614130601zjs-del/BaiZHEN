@@ -54,7 +54,8 @@ describe('Shizhen artist profile mapping', () => {
 
   it('优先使用角色头像名作为稳定绑定键', () => {
     expect(makeCharacterBindingKey('hero.png', 'Hero', 3)).toBe('avatar:hero.png');
-    expect(makeCharacterBindingKey('', 'Hero', 3)).toBe('name:Hero');
+    expect(makeCharacterBindingKey('', 'Hero', 3)).toBe('legacy-index:3');
+    expect(makeCharacterBindingKey('', 'Hero')).toBe('name:Hero');
     expect(makeCharacterBindingKey('', '', 3)).toBe('legacy-index:3');
   });
 
@@ -354,5 +355,26 @@ describe('stable Vibe group ID resolution', () => {
     expect(resolveVibeGroupId('group-stable', groups)).toBe('group-stable');
     expect(resolveVibeGroupId('deleted-group', groups)).toBe('deleted-group');
     expect(resolveVibeGroupId('', groups)).toBe('');
+  });
+});
+
+
+describe('ambiguous legacy character binding names', () => {
+  it('does not apply a name fallback when multiple legacy bindings share that name', () => {
+    const duplicated = {
+      ...profiles,
+      global: { ...profiles.global, body: { comboId: 'combo-a', size: '' } },
+      bindings: ['legacy-index:1', 'legacy-index:2'].map((characterKey, index) => ({
+        characterKey, characterName: 'Alice',
+        body: { comboId: index === 0 ? 'combo-b' : 'combo-a', size: '' },
+        statusBar: { comboId: '', size: '' }, egg: { comboId: '', size: '' },
+      })),
+    };
+    expect(resolveArtistTarget(duplicated, 'avatar:alice.png', 'body', 'Alice').comboId).toBe('combo-a');
+  });
+
+  it('uses the exact index key for cards without avatars even when names duplicate', () => {
+    expect(makeCharacterBindingKey('', 'Alice', 1)).toBe('legacy-index:1');
+    expect(makeCharacterBindingKey('', 'Alice', 2)).toBe('legacy-index:2');
   });
 });

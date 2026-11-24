@@ -36,10 +36,12 @@ export function mapShizhenComboReferences(
 export function makeCharacterBindingKey(avatar: unknown, name: unknown, legacyIndex?: unknown): string {
   const avatarName = typeof avatar === 'string' ? avatar.trim() : '';
   if (avatarName) return `avatar:${avatarName}`;
-  const characterName = typeof name === 'string' ? name.trim() : '';
-  if (characterName) return `name:${characterName}`;
+  // Avatar is the durable identity. Without one, use the host character index
+  // before the display name so duplicate names never collapse into one binding.
   const index = Number(legacyIndex);
-  return Number.isInteger(index) && index >= 0 ? `legacy-index:${index}` : '';
+  if (Number.isInteger(index) && index >= 0) return `legacy-index:${index}`;
+  const characterName = typeof name === 'string' ? name.trim() : '';
+  return characterName ? `name:${characterName}` : '';
 }
 
 /** Shizhen's three targets keep independent combo and size overrides. */
@@ -62,10 +64,14 @@ export function resolveArtistTarget(
   target: 'body' | 'statusBar' | 'egg',
   characterName = '',
 ): NaiArtistTargetConfig {
-  const binding = profiles.bindings.find(item => item.characterKey === characterKey)
-    ?? profiles.bindings.find(item => !!characterName
-      && (item.characterKey.startsWith('name:') || item.characterKey.startsWith('legacy-index:'))
-      && item.characterName.trim() === characterName.trim());
+  const exactBinding = profiles.bindings.find(item => item.characterKey === characterKey);
+  const legacyNameMatches = characterName
+    ? profiles.bindings.filter(item =>
+      (item.characterKey.startsWith('name:') || item.characterKey.startsWith('legacy-index:'))
+      && item.characterName.trim() === characterName.trim())
+    : [];
+  // Name fallback is safe only when it identifies exactly one legacy binding.
+  const binding = exactBinding ?? (legacyNameMatches.length === 1 ? legacyNameMatches[0] : undefined);
   const local = binding?.[target];
   const global = profiles.global[target];
   const selected = {

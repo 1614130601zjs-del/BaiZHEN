@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { removeArtistCombo, resolveVibeGroupId } from '@/backends/shizhenArtistProfiles';
+import { makeCharacterBindingKey, removeArtistCombo, resolveVibeGroupId } from '@/backends/shizhenArtistProfiles';
 import Collapsible from '@/components/Collapsible.vue';
 import Icon from '@/components/Icon.vue';
 import {
@@ -54,7 +54,7 @@ const characters = computed(() => {
     ? context.characters
     : Array.isArray(hostCharacters) ? hostCharacters : [];
   return list.map((item, index) => ({
-    key: item.avatar ? `avatar:${item.avatar}` : item.name ? `name:${item.name}` : `legacy-index:${index}`,
+    key: makeCharacterBindingKey(item.avatar, item.name, index),
     name: item.name || item.avatar || `角色 ${index + 1}`,
   }));
 });
@@ -113,10 +113,13 @@ function loadCharacterBinding(key: string) {
   characterKey.value = key;
   const character = characters.value.find(item => item.key === key);
   characterName.value = character?.name || '';
-  const binding = profiles.value.bindings.find(item => item.characterKey === key)
-    ?? profiles.value.bindings.find(item => !!character?.name
-      && (item.characterKey.startsWith('name:') || item.characterKey.startsWith('legacy-index:'))
-      && item.characterName.trim() === character.name.trim());
+  const exactBinding = profiles.value.bindings.find(item => item.characterKey === key);
+  const legacyNameMatches = character?.name
+    ? profiles.value.bindings.filter(item =>
+      (item.characterKey.startsWith('name:') || item.characterKey.startsWith('legacy-index:'))
+      && item.characterName.trim() === character.name.trim())
+    : [];
+  const binding = exactBinding ?? (legacyNameMatches.length === 1 ? legacyNameMatches[0] : undefined);
   targetDraft.value = binding
     ? {
         body: { ...binding.body },
@@ -143,11 +146,14 @@ function saveCharacterBinding() {
     egg: { ...targetDraft.value.egg },
   };
   let index = profiles.value.bindings.findIndex(item => item.characterKey === next.characterKey);
-  if (index < 0 && next.characterKey.startsWith('avatar:')) {
-    index = profiles.value.bindings.findIndex(item =>
-      (item.characterKey.startsWith('name:') || item.characterKey.startsWith('legacy-index:'))
-      && !!next.characterName && item.characterName.trim() === next.characterName.trim(),
-    );
+  if (index < 0 && next.characterKey.startsWith('avatar:') && next.characterName) {
+    const matches = profiles.value.bindings
+      .map((item, bindingIndex) => ({ item, bindingIndex }))
+      .filter(({ item }) =>
+        (item.characterKey.startsWith('name:') || item.characterKey.startsWith('legacy-index:'))
+        && item.characterName.trim() === next.characterName.trim(),
+      );
+    if (matches.length === 1) index = matches[0].bindingIndex;
   }
   if (index >= 0) profiles.value.bindings.splice(index, 1, next);
   else profiles.value.bindings.push(next);
