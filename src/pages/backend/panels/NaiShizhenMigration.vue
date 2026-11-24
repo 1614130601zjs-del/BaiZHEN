@@ -223,8 +223,16 @@ async function importBackup() {
     settings.nai.artistPresets = originalArtists;
     settings.nai.vibes = originalVibes;
     settings.nai.shizhenArtistProfiles = originalProfiles;
-    await Promise.all(createdFiles.map(paths => deleteVibeData(paths).catch(() => undefined)));
-    error.value = cause instanceof Error ? cause.message : String(cause);
+    const cleanupResults = await Promise.allSettled(createdFiles.map(paths => deleteVibeData(paths)));
+    const failedCleanup = cleanupResults
+      .map((result, index) => ({ result, paths: createdFiles[index] }))
+      .filter((item): item is { result: PromiseRejectedResult; paths: { dataPath: string; thumbnailPath: string } } =>
+        item.result.status === 'rejected',
+      );
+    const reason = cause instanceof Error ? cause.message : String(cause);
+    error.value = failedCleanup.length
+      ? `${reason}；另外有 ${failedCleanup.length} 组新建 Vibe 文件未能自动清理，请检查存储：${failedCleanup.map(item => item.paths.dataPath).join('、')}`
+      : reason;
   } finally {
     busy.value = false;
   }
