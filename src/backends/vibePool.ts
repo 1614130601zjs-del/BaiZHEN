@@ -12,7 +12,7 @@ export function migrateLegacyVibeLibrary(vibes: readonly NaiVibe[]): { pool: Nai
     const id = name ? `legacy-group:${name}` : 'legacy-group:ungrouped';
     let group = groups.get(id);
     if (!group) { group = { id, name: name || '未分组', refs: [] }; groups.set(id, group); }
-    if (!group.refs.some(ref => ref.poolId === vibe.id)) group.refs.push({ poolId: vibe.id, strength: vibe.strength, enabled: vibe.enabled });
+    if (!group.refs.some(ref => ref.poolId === vibe.id)) group.refs.push({ poolId: vibe.id, strength: vibe.strength, enabled: vibe.enabled, ...(vibe.informationExtracted !== undefined ? { informationExtracted: vibe.informationExtracted } : {}) });
   }
   return { pool, groups: [...groups.values()] };
 }

@@ -563,7 +563,7 @@ function registerVibePoolResource(vibe: NaiVibe) {
       settings.nai.vibeGroups.push(group);
     }
     if (!group.refs.some(ref => ref.poolId === vibe.id)) {
-      group.refs.push({ poolId: vibe.id, strength: vibe.strength, enabled: vibe.enabled });
+      group.refs.push({ poolId: vibe.id, strength: vibe.strength, enabled: vibe.enabled, ...(vibe.informationExtracted !== undefined ? { informationExtracted: vibe.informationExtracted } : {}) });
     }
   }
 }
@@ -611,6 +611,7 @@ function createPoolGroupFromSelection() {
       poolId: id,
       strength: legacy?.strength ?? 0.6,
       enabled: true,
+      ...(legacy?.informationExtracted !== undefined ? { informationExtracted: legacy.informationExtracted } : {}),
     });
     added++;
   }

@@ -322,8 +322,9 @@ async function exportBackup() {
       if (legacy.group.trim() && !existingRefs.some(ref => ref.group === legacy.group.trim())) {
         const ref = { poolId: legacy.id, strength: legacy.strength };
         const refs = refsByGroup.get(legacy.group.trim()) || [];
-        refs.push(ref); refsByGroup.set(legacy.group.trim(), refs);
-        existingRefs.push({ group: legacy.group.trim(), strength: legacy.strength });
+        const legacyRef = { poolId: legacy.id, strength: legacy.strength, ...(legacy.informationExtracted !== undefined ? { informationExtracted: legacy.informationExtracted } : {}) };
+        refs.push(legacyRef); refsByGroup.set(legacy.group.trim(), refs);
+        existingRefs.push({ group: legacy.group.trim(), strength: legacy.strength, ...(legacy.informationExtracted !== undefined ? { informationExtracted: legacy.informationExtracted } : {}) });
         refsByPoolId.set(legacy.id, existingRefs);
       }
     }
@@ -364,7 +365,7 @@ async function exportBackup() {
         strength: firstRef.strength,
         ...(firstRef.informationExtracted !== undefined ? { informationExtracted: firstRef.informationExtracted } : {}),
       });
-      if (!references.length) refsUngrouped.push({ poolId: vibe.id, strength: defaultStrength });
+      if (!references.length) refsUngrouped.push({ poolId: vibe.id, strength: defaultStrength, ...(legacy?.informationExtracted !== undefined ? { informationExtracted: legacy.informationExtracted } : {}) });
     }
     const groupNamesWithUngrouped = [...groupNames];
     let ungroupedName = '';

@@ -31,4 +31,12 @@ describe('Vibe group Information Extracted overrides',()=>{
   expect(overridden[0].informationExtracted).toBe(0.91);
  });
 
+ it('migrates per-group Information Extracted overrides independently',()=>{
+  const first={...v('shared','甲',.3,true),informationExtracted:0.42};
+  const second={...first,group:'乙',strength:.9,informationExtracted:0.93};
+  const migrated=migrateLegacyVibeLibrary([first,second]);
+  expect(migrated.pool).toHaveLength(1);
+  expect(migrated.groups.map(group=>group.refs[0].informationExtracted)).toEqual([0.42,0.93]);
+ });
+
 });
