@@ -269,6 +269,11 @@ export function parseShizhenVibeJson(input: unknown, currentModelKey: string, fa
   return { items, unsupported: unsupported.count };
 }
 
+const MAX_VIBE_ARCHIVE_BYTES = 64 * 1024 * 1024;
+const MAX_VIBE_ARCHIVE_ENTRIES = 256;
+const MAX_VIBE_ARCHIVE_ENTRY_BYTES = 16 * 1024 * 1024;
+const MAX_VIBE_ARCHIVE_TOTAL_BYTES = 64 * 1024 * 1024;
+
 /** Read JSON directly or JSON resources inside a ZIP/.naiv4vibebundle archive. */
 export async function readShizhenVibeFile(file: File, currentModelKey: string): Promise<ShizhenVibeImportResult> {
   try {
@@ -293,6 +298,7 @@ export async function readShizhenVibeFile(file: File, currentModelKey: string): 
 }
 
 async function readZipJson(file: File): Promise<unknown[]> {
+  if (file.size > MAX_VIBE_ARCHIVE_BYTES) throw new Error('Vibe 压缩包超过 64 MB 安全限制。');
   const buffer = await file.arrayBuffer();
   const view = new DataView(buffer);
   const bytes = new Uint8Array(buffer);
