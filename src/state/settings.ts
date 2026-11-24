@@ -185,20 +185,6 @@ export interface NaiVibe {
   group: string;
 }
 
-/**
- * 一条具名画风配方:画师串 + 可选绑定的正面质量词/负面提示词。
- * 下拉切换时三者一起生效——一套配方即用户的一套完整画风搭配。
- *
- * 为什么不按模型分表:官方推荐词是**模型的属性**,切模型必须跟着换
- * (见 nai.ts 的 QUALITY_TAGS / DEFAULT_UNDESIRED_CONTENT);配方是**用户自己的搭配**,
- * 跨模型复用才是常态。故做成可增删的库,而非 Record<model, …>。
- *
- * 绑定字段的回落链(与渠道级「留空 = 跟随官方」同口径,逐级往下):
- *   配方绑定值 → 渠道级覆盖值(qualityTags / undesiredContent)→ 内置默认(当前 = 模型官方词)。
- * 空串 = 跟随下一级;解析汇聚在 nai.ts 的 naiQualityTags / naiUndesiredContent,
- * 以后内置默认要换成插件自己的精选词,只改 naiDefaultQualityTags / naiDefaultUndesired,
- * 链结构与存储口径都不变。老数据没有这两个字段,normalize 补空串即零变化。
- */
 /** 拾帧式画师串组合：引用柏宝绘稳定 ID，不使用数组下标。 */
 export interface NaiArtistCombo {
   id: string;
@@ -234,6 +220,20 @@ export interface NaiArtistProfileSettings {
   bindings: NaiArtistCharacterBinding[];
 }
 
+/**
+ * 一条具名画风配方:画师串 + 可选绑定的正面质量词/负面提示词。
+ * 下拉切换时三者一起生效——一套配方即用户的一套完整画风搭配。
+ *
+ * 为什么不按模型分表:官方推荐词是**模型的属性**,切模型必须跟着换
+ * (见 nai.ts 的 QUALITY_TAGS / DEFAULT_UNDESIRED_CONTENT);配方是**用户自己的搭配**,
+ * 跨模型复用才是常态。故做成可增删的库,而非 Record<model, …>。
+ *
+ * 绑定字段的回落链(与渠道级「留空 = 跟随官方」同口径,逐级往下):
+ *   配方绑定值 → 渠道级覆盖值(qualityTags / undesiredContent)→ 内置默认(当前 = 模型官方词)。
+ * 空串 = 跟随下一级;解析汇聚在 nai.ts 的 naiQualityTags / naiUndesiredContent,
+ * 以后内置默认要换成插件自己的精选词,只改 naiDefaultQualityTags / naiDefaultUndesired,
+ * 链结构与存储口径都不变。老数据没有这两个字段,normalize 补空串即零变化。
+ */
 export interface NaiArtistPreset {
   id: string;
   /** 显示名(下拉列表与切换用;允许重名,以 id 为键)。 */
