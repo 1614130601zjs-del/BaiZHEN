@@ -83,25 +83,25 @@ describe('saved automatic image tasks without mounted cards',()=>{
  });
  it('keeps earlier successful images when the same trigger is deliberately generated again',async()=>{
    const sameTag=tag(0);
-   await generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
+   const first=generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
    await flush();expect(h.requests).toHaveLength(1);
-   h.requests[0].resolve();await flush();expect(h.saved).toHaveLength(1);
+   h.requests[0].resolve();await first;await flush();expect(h.saved).toHaveLength(1);
    // Shizhen TriggerRegistry.beginCandidate semantics: rerun a succeeded trigger
    // while retaining its prior result rather than replacing the history.
-   await generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
+   const second=generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
    await flush();expect(h.requests).toHaveLength(2);
-   h.requests[1].resolve();await flush();
+   h.requests[1].resolve();await second;await flush();
    expect(h.saved).toHaveLength(2);
    expect(h.saved.map(args=>args[2])).toEqual([0,0]);
  });
  it('allows a failed trigger to be retried without disturbing successful history',async()=>{
    const sameTag=tag(0);
-   await generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
-   await flush();h.requests[0].reject(new Error('temporary failure'));await flush();
+   const failed=generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
+   await flush();h.requests[0].reject(new Error('temporary failure'));await failed;await flush();
    expect(getGenRecord(slotKey('A',0,0,0))?.phase).toBe('error');
-   await generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
+   const retried=generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
    await flush();expect(h.requests).toHaveLength(2);
-   h.requests[1].resolve();await flush();
+   h.requests[1].resolve();await retried;await flush();
    expect(h.saved).toHaveLength(1);
    expect(getGenRecord(slotKey('A',0,0,0))).toBeUndefined();
  });
