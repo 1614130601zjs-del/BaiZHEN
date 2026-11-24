@@ -32,6 +32,38 @@ describe('旧版 Vibe 设置迁移', () => {
     });
   });
 
+  it('删除活动分组后，重载设置仍保留悬空 ID 以阻止回退旧 Vibe 库', async () => {
+    mocks.context = {
+      extensionSettings: {
+        baibai_image: {
+          nai: {
+            vibes: [{
+              id: 'legacy-vibe',
+              name: '旧 Vibe',
+              dataPath: '/user/files/legacy.json',
+              thumbnailPath: '',
+              modelKeys: ['v4-5full'],
+              hasImage: true,
+              fingerprint: 'legacy',
+              strength: 0.6,
+              enabled: true,
+              group: '',
+            }],
+            vibePool: [],
+            vibeGroups: [],
+            activeVibeGroupId: 'deleted-group-id',
+          },
+        },
+      },
+      saveSettingsDebounced: vi.fn(),
+    };
+
+    const { hydrateSettings, settings } = await import('@/state/settings');
+    await hydrateSettings();
+
+    expect(settings.nai.activeVibeGroupId).toBe('deleted-group-id');
+  });
+
   it('把大字段上传后只留下文件路径和小型索引', async () => {
     const saveSettingsDebounced = vi.fn();
     const legacy = {
