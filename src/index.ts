@@ -5,6 +5,7 @@ import { bindAutoTagging } from '@/autoTag/runner';
 import { bindTagActionButtons } from '@/floor/actionButton';
 import { bindFloorHydration } from '@/floor/hydrate';
 import { bindStatusBarObserver, refreshStatusBarObserver } from '@/floor/statusBar';
+import { bindWorldbookModeLifecycle } from '@/modes/worldbookMode';
 import { injectMenuButton } from '@/menu';
 import { registerPublicInterface } from '@/public/register';
 import { bindCharTagSync } from '@/state/charTags';
@@ -106,6 +107,7 @@ async function hydrateWhenReady(attempt = 0) {
       bindAutoTagging();
       bindFloorHydration();
       bindStatusBarObserver();
+      bindWorldbookModeLifecycle();
       bindTagActionButtons();
       bindMarkerInjection();
       syncMarkerInjection();

@@ -15,6 +15,7 @@ export type WorldbookSceneMode = 'pair' | 'group';
 export type WorldbookModeEntryBindings = Record<WorldbookSceneMode, Record<string, Record<string, boolean>>>;
 
 export interface WorldbookModeProfile {
+  profileType: 'inherit' | 'independent';
   enabled: boolean;
   mode: WorldbookSceneMode;
   coreBook: string;
@@ -36,8 +37,11 @@ interface Snapshot {
 }
 
 interface PersistedWorldbookMode {
-  schemaVersion: 2;
+  schemaVersion: 3;
   profile: WorldbookModeProfile;
+  defaultProfile: WorldbookModeProfile;
+  cardProfiles: Record<string, WorldbookModeProfile>;
+  activeProfileKey: string;
   snapshot: Snapshot;
 }
 
@@ -62,6 +66,7 @@ interface WorldInfoRuntime {
 const STORAGE_KEY = 'baibai_image_worldbook_mode';
 const WORLDVIEW_PREFIX = '世界观｜';
 const DEFAULT_PROFILE: WorldbookModeProfile = {
+  profileType: 'inherit',
   enabled: false,
   mode: 'pair',
   coreBook: '',
@@ -97,6 +102,7 @@ function normalizeProfile(input: unknown): WorldbookModeProfile {
     ? source.modeEntryBindings : DEFAULT_PROFILE.modeEntryBindings;
   return {
     ...clone(DEFAULT_PROFILE),
+    profileType: source.profileType === 'independent' ? 'independent' : 'inherit',
     enabled: source.enabled === true,
     mode,
     coreBook: coreBooks[mode] || legacyCore,
@@ -111,19 +117,50 @@ function normalizeProfile(input: unknown): WorldbookModeProfile {
   };
 }
 
+function currentProfileIdentity(): { key: string; name: string } | null {
+  const ctx = getContext();
+  if (!ctx || (ctx.groupId != null && String(ctx.groupId).trim())) return null;
+  const index = Number(ctx.characterId);
+  const character = Number.isInteger(index) && index >= 0 ? ctx.characters?.[index] : undefined;
+  const avatar = String(character?.avatar ?? '').trim();
+  if (!avatar) return null;
+  return { key: avatar, name: String(character?.name ?? avatar).trim() || avatar };
+}
+
 function readPersisted(): PersistedWorldbookMode {
   const raw = getContext()?.extensionSettings?.[STORAGE_KEY];
   if (!raw || typeof raw !== 'object') {
-    return { schemaVersion: 2, profile: clone(DEFAULT_PROFILE), snapshot: { entries: {}, managedBooks: [] } };
+    return {
+      schemaVersion: 3,
+      profile: clone(DEFAULT_PROFILE),
+      defaultProfile: clone(DEFAULT_PROFILE),
+      cardProfiles: {},
+      activeProfileKey: currentProfileIdentity()?.key ?? '',
+      snapshot: { entries: {}, managedBooks: [] },
+    };
   }
-  const value = raw as Partial<PersistedWorldbookMode> & { profile?: unknown };
-  const profile = normalizeProfile(value.profile);
+  const value = raw as Partial<PersistedWorldbookMode> & { profile?: unknown; defaultProfile?: unknown; cardProfiles?: unknown };
+  const defaultProfile = normalizeProfile(value.defaultProfile ?? value.profile);
+  const cardProfiles: Record<string, WorldbookModeProfile> = {};
+  if (value.cardProfiles && typeof value.cardProfiles === 'object') {
+    for (const [key, item] of Object.entries(value.cardProfiles)) {
+      if (key && item && typeof item === 'object') cardProfiles[key] = normalizeProfile(item);
+    }
+  }
+  const identity = currentProfileIdentity();
+  const stored = identity ? cardProfiles[identity.key] : undefined;
+  const profile = stored?.profileType === 'independent'
+    ? normalizeProfile({ ...stored, profileType: 'independent' })
+    : normalizeProfile({ ...defaultProfile, profileType: 'inherit' });
   const snapshot: Snapshot = value.snapshot && typeof value.snapshot === 'object'
     ? value.snapshot
     : { entries: {}, managedBooks: [] };
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     profile,
+    defaultProfile,
+    cardProfiles,
+    activeProfileKey: identity?.key ?? '',
     snapshot: {
       globalSelection: Array.isArray(snapshot.globalSelection) ? snapshot.globalSelection.filter((x): x is string => typeof x === 'string') : undefined,
       entries: snapshot.entries && typeof snapshot.entries === 'object' ? snapshot.entries : {},
@@ -236,8 +273,9 @@ export function saveWorldbookModeProfile(profile: WorldbookModeProfile): void {
   const state = readPersisted();
   const mode: WorldbookSceneMode = profile.mode === 'group' ? 'group' : 'pair';
   const coreBook = String(profile.coreBook ?? '').trim();
-  state.profile = normalizeProfile({
+  const normalized = normalizeProfile({
     ...profile,
+    profileType: profile.profileType,
     enabled: profile.enabled === true,
     mode,
     coreBook,
@@ -247,6 +285,44 @@ export function saveWorldbookModeProfile(profile: WorldbookModeProfile): void {
     entryOverrides: clone(profile.entryOverrides ?? {}),
     modeEntryBindings: clone(profile.modeEntryBindings ?? DEFAULT_PROFILE.modeEntryBindings),
   });
+  const identity = currentProfileIdentity();
+  if (normalized.profileType === 'independent' && identity) {
+    state.cardProfiles[identity.key] = { ...normalized, profileType: 'independent' };
+  } else {
+    state.defaultProfile = { ...normalized, profileType: 'inherit' };
+  }
+  state.profile = normalized;
+  state.activeProfileKey = identity?.key ?? '';
+  persist(state);
+}
+
+export function getWorldbookProfileInfo(): { available: boolean; key: string; name: string; independent: boolean } {
+  const identity = currentProfileIdentity();
+  if (!identity) return { available: false, key: '', name: '', independent: false };
+  const state = readPersisted();
+  return {
+    available: true,
+    key: identity.key,
+    name: identity.name,
+    independent: state.cardProfiles[identity.key]?.profileType === 'independent',
+  };
+}
+
+/** 为当前角色卡创建/删除独立配置；创建时以当前编辑草稿为初始值。 */
+export function setWorldbookProfileIndependent(enabled: boolean, draft?: WorldbookModeProfile): void {
+  const identity = currentProfileIdentity();
+  if (!identity) throw new Error('当前为群聊或角色身份不可用，无法设置角色卡独立世界书配置');
+  const state = readPersisted();
+  if (enabled) {
+    const source = draft ?? state.defaultProfile;
+    state.cardProfiles[identity.key] = normalizeProfile({ ...source, profileType: 'independent' });
+  } else {
+    delete state.cardProfiles[identity.key];
+  }
+  state.profile = enabled
+    ? normalizeProfile({ ...state.cardProfiles[identity.key], profileType: 'independent' })
+    : normalizeProfile({ ...state.defaultProfile, profileType: 'inherit' });
+  state.activeProfileKey = identity.key;
   persist(state);
 }
 
@@ -373,7 +449,7 @@ export function applyWorldbookMode(): Promise<void> {
 }
 
 /** 退出世界书模式，恢复本模块接管前的挂载状态和条目 disable 状态。 */
-export function restoreWorldbookMode(): Promise<void> {
+export function restoreWorldbookMode(disableProfile = true): Promise<void> {
   return serialize(async () => {
     const state = readPersisted();
     const runtime = await worldInfoRuntime();
@@ -391,8 +467,46 @@ export function restoreWorldbookMode(): Promise<void> {
     for (const name of Object.keys(snapshot.entries)) await restoreBook(name, snapshot);
     snapshot.managedBooks = [];
     snapshot.globalSelection = undefined;
-    state.profile.enabled = false;
+    if (disableProfile) state.profile.enabled = false;
     state.snapshot = snapshot;
     persist(state);
   });
+}
+
+
+let lifecycleBound = false;
+let activeProfileKey = '';
+
+/** Bind chat/character changes so card-specific worldbook profiles never leak across chats. */
+export function bindWorldbookModeLifecycle(): boolean {
+  if (lifecycleBound) return true;
+  const ctx = getContext();
+  if (!ctx?.eventSource || !ctx.eventTypes) return false;
+  lifecycleBound = true;
+  activeProfileKey = currentProfileIdentity()?.key ?? '';
+  const onProfileChange = async () => {
+    const previousKey = activeProfileKey;
+    let nextKey = currentProfileIdentity()?.key ?? '';
+    for (let attempt = 0; attempt < 20 && nextKey === previousKey; attempt++) {
+      await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+      nextKey = currentProfileIdentity()?.key ?? '';
+    }
+    if (nextKey === previousKey) return;
+    activeProfileKey = nextKey;
+    try {
+      await restoreWorldbookMode(false);
+      if (getWorldbookModeProfile().enabled) await applyWorldbookMode();
+    } catch (error) {
+      console.warn('[柏宝绘] 切换角色卡世界书配置失败；保留恢复快照供下次重试。', error);
+      activeProfileKey = previousKey;
+    }
+  };
+  const chatChanged = ctx.eventTypes.CHAT_CHANGED;
+  const characterSelected = ctx.eventTypes.CHARACTER_SELECTED;
+  if (chatChanged) ctx.eventSource.on(chatChanged, onProfileChange);
+  if (characterSelected) ctx.eventSource.on(characterSelected, onProfileChange);
+  if (getWorldbookModeProfile().enabled) {
+    void applyWorldbookMode().catch(error => console.warn('[柏宝绘] 启动时恢复世界书模式失败。', error));
+  }
+  return true;
 }

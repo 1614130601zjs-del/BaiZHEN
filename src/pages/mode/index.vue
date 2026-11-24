@@ -3,6 +3,8 @@ import { computed, onMounted, ref, watch } from 'vue';
 import {
   applyWorldbookMode,
   getWorldbookModeProfile,
+  getWorldbookProfileInfo,
+  setWorldbookProfileIndependent,
   listWorldbooks,
   listWorldbookEntries,
   listWorldviews,
@@ -12,6 +14,7 @@ import {
 } from '@/modes/worldbookMode';
 
 const profile = ref<WorldbookModeProfile>(getWorldbookModeProfile());
+const profileInfo = ref(getWorldbookProfileInfo());
 const selectedMode = ref<'native' | 'worldbook'>(profile.value.enabled ? 'worldbook' : 'native');
 const books = ref<string[]>([]);
 const worldviews = ref<string[]>([]);
@@ -121,6 +124,7 @@ async function applyMode() {
     profile.value.coreBooks[profile.value.mode] = profile.value.coreBook;
     saveWorldbookModeProfile(profile.value);
     await applyWorldbookMode();
+    await refreshEntryLists();
     selectedMode.value = 'worldbook';
     message.value = '拾帧世界书模式已应用';
     error.value = false;
@@ -160,6 +164,14 @@ onMounted(() => { void refreshBooks(); });
           <span>按指定核心世界书与世界观条目管理生图上下文。</span>
         </button>
       </div>
+    </section>
+
+    <section v-if="profileInfo.available" class="mode-card">
+      <div class="mode-heading">角色卡世界书配置</div>
+      <p class="mode-hint">当前角色卡：{{ profileInfo.name }}</p>
+      <button v-if="!profileInfo.independent" class="bbi-btn" type="button" :disabled="busy" @click="changeProfileScope(true)">为当前角色卡创建独立配置</button>
+      <button v-else class="bbi-btn" type="button" :disabled="busy" @click="changeProfileScope(false)">恢复继承通用配置</button>
+      <p class="mode-hint">独立配置只影响当前角色卡；群聊和未识别角色继续使用通用配置。</p>
     </section>
 
     <section v-if="mode === 'worldbook'" class="mode-card">
