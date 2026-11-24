@@ -110,7 +110,7 @@ describe('vibeStore', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const result = await saveVibeFiles(data, null, 'new-vibe');
-    expect(result.dataPath).toContain('local:');
+    expect(result.dataPath).toContain('idb:');
     expect(fileStore.remove).toHaveBeenCalledWith('/user/files/bbi-vibe-new.json');
   });
 
