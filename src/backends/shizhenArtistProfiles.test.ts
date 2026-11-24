@@ -152,9 +152,24 @@ describe('profile size-only and target fallback', () => {
 
 
 describe('Shizhen Vibe groups and name fallback', () => {
-  it('uses imported character-name bindings when avatar identity is unavailable in backup', () => {
-    const result = resolveArtistTarget(profiles, 'avatar:alice.png', 'body', 'Alice');
-    expect(result.comboId).toBe('combo-a');
+  it('uses name-only imported bindings as a fallback for avatar-based runtime identities', () => {
+    const imported = {
+      ...profiles,
+      bindings: [{
+        characterKey: 'name:Alice', characterName: 'Alice',
+        body: { comboId: 'combo-b', size: '' },
+        statusBar: { comboId: '', size: '' }, egg: { comboId: '', size: '' },
+      }],
+    };
+    expect(resolveArtistTarget(imported, 'avatar:alice.png', 'body', 'Alice').comboId).toBe('combo-b');
+  });
+
+  it('does not bind a different avatar merely because its display name matches', () => {
+    const avatarBound = {
+      ...profiles,
+      bindings: [{ ...profiles.bindings[0], characterKey: 'avatar:other.png', body: { comboId: 'combo-b', size: '' } }],
+    };
+    expect(resolveArtistTarget(avatarBound, 'avatar:alice.png', 'body', 'Hero').comboId).toBe('combo-a');
   });
 
   it('enables every Vibe in a selected imported group on a request-local copy', () => {

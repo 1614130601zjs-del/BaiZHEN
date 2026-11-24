@@ -325,7 +325,7 @@ function attachDocuments(): void {
       attachDocuments();
       processFrames();
     });
-    observer.observe(target, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] });
+    observer.observe(target, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'data-tag', 'data-qlprompt', 'data-ql-stable', 'data-ql-autoarm'] });
     for (const frame of Array.from(doc.querySelectorAll('iframe'))) {
       if (hookedIframes.has(frame)) continue;
       hookedIframes.add(frame);

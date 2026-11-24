@@ -10,6 +10,8 @@ import {
 } from '@/backends/vibeStore';
 import { vibeModelKey, BUILTIN_NAI_ARTISTS } from '@/backends/nai';
 import { newNaiArtist, settings, type NaiArtistPreset, type NaiVibe } from '@/state/settings';
+import { getContext } from '@/st/context';
+import { makeCharacterBindingKey } from '@/backends/shizhenArtistProfiles';
 import Icon from '@/components/Icon.vue';
 
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -64,6 +66,10 @@ async function importBackup() {
   busy.value = true;
   error.value = '';
   const saved: NaiVibe[] = [];
+  const createdFiles: Array<{ dataPath: string; thumbnailPath: string }> = [];
+  const originalArtists = settings.nai.artistPresets;
+  const originalVibes = settings.nai.vibes;
+  const originalProfiles = settings.nai.shizhenArtistProfiles;
   try {
     const artistBySourceIndex: string[] = [];
     const pendingArtists: NaiArtistPreset[] = [];
@@ -91,6 +97,7 @@ async function importBackup() {
       if (knownVibes.has(key)) { duplicateVibes++; continue; }
       const id = `vibe_shizhen_${Date.now()}_${saved.length}`;
       const paths = await saveVibeFiles(item.data, null, id);
+      createdFiles.push(paths);
       const meta = vibeMetaFromData(id, item.name, paths.dataPath, paths.thumbnailPath, item.data, item.strength, false, item.group);
       saved.push(meta);
       knownVibes.add(key);
@@ -134,15 +141,25 @@ async function importBackup() {
 
     let bindingAdded = 0, bindingSkipped = 0;
     for (const item of value.bindings) {
-      const key = item.characterName.trim() ? `name:${item.characterName.trim()}` : item.characterIndex ? `legacy-index:${item.characterIndex}` : '';
+      const sourceIndex = Number(item.characterIndex);
+      const sourceCharacter = Number.isInteger(sourceIndex) && sourceIndex >= 0
+        ? getContext()?.characters?.[sourceIndex]
+        : undefined;
+      const characterName = item.characterName.trim() || sourceCharacter?.name || '';
+      const key = sourceCharacter
+        ? makeCharacterBindingKey(sourceCharacter.avatar, sourceCharacter.name || characterName, sourceIndex)
+        : characterName ? `name:${characterName}` : item.characterIndex ? `legacy-index:${item.characterIndex}` : '';
       if (!key) { bindingSkipped++; continue; }
-      const exists = profiles.bindings.some(binding =>
-        binding.characterKey === key || (!!item.characterName && binding.characterName.trim() === item.characterName.trim()),
+      const exactExists = profiles.bindings.some(binding => binding.characterKey === key);
+      const legacyNameExists = key.startsWith('avatar:') && profiles.bindings.some(binding =>
+        (binding.characterKey.startsWith('name:') || binding.characterKey.startsWith('legacy-index:'))
+        && !!characterName && binding.characterName.trim() === characterName.trim(),
       );
+      if (exactExists || legacyNameExists) { bindingSkipped++; continue; }
       if (exists) { bindingSkipped++; continue; }
       profiles.bindings.push({
         characterKey: key,
-        characterName: item.characterName,
+        characterName,
         body: mapTarget(item.body),
         statusBar: mapTarget(item.statusBar),
         egg: mapTarget(item.egg),
@@ -158,7 +175,10 @@ async function importBackup() {
     plan.value = null;
     toastr.success('拾帧配置已合并；原有配置未被覆盖。', '拾帧迁移');
   } catch (cause) {
-    await Promise.all(saved.map(item => deleteVibeData(item).catch(() => undefined)));
+    settings.nai.artistPresets = originalArtists;
+    settings.nai.vibes = originalVibes;
+    settings.nai.shizhenArtistProfiles = originalProfiles;
+    await Promise.all(createdFiles.map(paths => deleteVibeData(paths).catch(() => undefined)));
     error.value = cause instanceof Error ? cause.message : String(cause);
   } finally {
     busy.value = false;

@@ -111,7 +111,9 @@ function loadCharacterBinding(key: string) {
   const character = characters.value.find(item => item.key === key);
   characterName.value = character?.name || '';
   const binding = profiles.value.bindings.find(item => item.characterKey === key)
-    ?? profiles.value.bindings.find(item => !!character?.name && item.characterName.trim() === character.name.trim());
+    ?? profiles.value.bindings.find(item => !!character?.name
+      && (item.characterKey.startsWith('name:') || item.characterKey.startsWith('legacy-index:'))
+      && item.characterName.trim() === character.name.trim());
   targetDraft.value = binding
     ? {
         body: { ...binding.body },
@@ -137,7 +139,13 @@ function saveCharacterBinding() {
     statusBar: { ...targetDraft.value.statusBar },
     egg: { ...targetDraft.value.egg },
   };
-  const index = profiles.value.bindings.findIndex(item => item.characterKey === next.characterKey || (!!next.characterName && item.characterName.trim() === next.characterName.trim()));
+  let index = profiles.value.bindings.findIndex(item => item.characterKey === next.characterKey);
+  if (index < 0 && next.characterKey.startsWith('avatar:')) {
+    index = profiles.value.bindings.findIndex(item =>
+      (item.characterKey.startsWith('name:') || item.characterKey.startsWith('legacy-index:'))
+      && !!next.characterName && item.characterName.trim() === next.characterName.trim(),
+    );
+  }
   if (index >= 0) profiles.value.bindings.splice(index, 1, next);
   else profiles.value.bindings.push(next);
   toastr.success(`已保存「${characterName.value}」的组合绑定`, '角色卡绑定');

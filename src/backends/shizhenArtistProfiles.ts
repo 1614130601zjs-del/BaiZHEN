@@ -61,7 +61,9 @@ export function resolveArtistTarget(
   characterName = '',
 ): NaiArtistTargetConfig {
   const binding = profiles.bindings.find(item => item.characterKey === characterKey)
-    ?? profiles.bindings.find(item => !!characterName && item.characterName.trim() === characterName.trim());
+    ?? profiles.bindings.find(item => !!characterName
+      && (item.characterKey.startsWith('name:') || item.characterKey.startsWith('legacy-index:'))
+      && item.characterName.trim() === characterName.trim());
   const local = binding?.[target];
   const global = profiles.global[target];
   const selected = {

@@ -18,6 +18,8 @@ describe('parseShizhenFullBackup', () => {
     expect(plan.artists[0].prompt).toBe('soft lighting');
     expect(plan.combos[0]).toEqual({ name: '柔和+氛围', artistIndex: 0, vibeIndex: 0 });
     expect(plan.global.body).toEqual({ comboIndex: 0, size: '832x1216' });
+    expect(plan.bindings[0].characterIndex).toBe('2');
+    expect(plan.bindings[0].characterName).toBe('A');
     expect(plan.bindings[0].body.size).toBe('1024x1024');
     expect(plan.vibes[0].group).toBe('氛围');
     expect(plan.vibes[0].strength).toBe(0.7);
