@@ -92,7 +92,7 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-function normalizeProfile(input: unknown): WorldbookModeProfile {
+export function normalizeWorldbookModeProfile(input: unknown): WorldbookModeProfile {
   const source = input && typeof input === 'object' ? input as Partial<WorldbookModeProfile> : {};
   const mode: WorldbookSceneMode = source.mode === 'group' ? 'group' : 'pair';
   const legacyCore = typeof source.coreBook === 'string' ? source.coreBook : '';
@@ -148,18 +148,18 @@ function readPersisted(): PersistedWorldbookMode {
     };
   }
   const value = raw as Partial<PersistedWorldbookMode> & { profile?: unknown; defaultProfile?: unknown; cardProfiles?: unknown };
-  const defaultProfile = normalizeProfile(value.defaultProfile ?? value.profile);
+  const defaultProfile = normalizeWorldbookModeProfile(value.defaultProfile ?? value.profile);
   const cardProfiles: Record<string, WorldbookModeProfile> = {};
   if (value.cardProfiles && typeof value.cardProfiles === 'object') {
     for (const [key, item] of Object.entries(value.cardProfiles)) {
-      if (key && item && typeof item === 'object') cardProfiles[key] = normalizeProfile(item);
+      if (key && item && typeof item === 'object') cardProfiles[key] = normalizeWorldbookModeProfile(item);
     }
   }
   const identity = currentProfileIdentity();
   const stored = identity ? cardProfiles[identity.key] : undefined;
   const profile = stored?.profileType === 'independent'
-    ? normalizeProfile({ ...stored, profileType: 'independent' })
-    : normalizeProfile({ ...defaultProfile, profileType: 'inherit' });
+    ? normalizeWorldbookModeProfile({ ...stored, profileType: 'independent' })
+    : normalizeWorldbookModeProfile({ ...defaultProfile, profileType: 'inherit' });
   const snapshot: Snapshot = value.snapshot && typeof value.snapshot === 'object'
     ? value.snapshot
     : { entries: {}, managedBooks: [] };
@@ -292,7 +292,7 @@ export function saveWorldbookModeProfile(profile: WorldbookModeProfile): void {
   const state = readPersisted();
   const mode: WorldbookSceneMode = profile.mode === 'group' ? 'group' : 'pair';
   const coreBook = String(profile.coreBook ?? '').trim();
-  const normalized = normalizeProfile({
+  const normalized = normalizeWorldbookModeProfile({
     ...profile,
     profileType: profile.profileType,
     enabled: profile.enabled === true,
@@ -335,13 +335,13 @@ export function setWorldbookProfileIndependent(enabled: boolean, draft?: Worldbo
   const state = readPersisted();
   if (enabled) {
     const source = draft ?? state.defaultProfile;
-    state.cardProfiles[identity.key] = normalizeProfile({ ...source, profileType: 'independent' });
+    state.cardProfiles[identity.key] = normalizeWorldbookModeProfile({ ...source, profileType: 'independent' });
   } else {
     delete state.cardProfiles[identity.key];
   }
   state.profile = enabled
-    ? normalizeProfile({ ...state.cardProfiles[identity.key], profileType: 'independent' })
-    : normalizeProfile({ ...state.defaultProfile, profileType: 'inherit' });
+    ? normalizeWorldbookModeProfile({ ...state.cardProfiles[identity.key], profileType: 'independent' })
+    : normalizeWorldbookModeProfile({ ...state.defaultProfile, profileType: 'inherit' });
   state.activeProfileKey = identity.key;
   persist(state);
 }
