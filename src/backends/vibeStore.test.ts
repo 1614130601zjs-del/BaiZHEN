@@ -68,6 +68,25 @@ describe('vibeStore', () => {
     expect(fileStore.upload).toHaveBeenNthCalledWith(2, 'bbi-vibe-thumb-v1.jpg', 'dGh1bWI=');
   });
 
+  it('更新已有 Vibe 时同步刷新缩略图并清理旧路径', async () => {
+    fileStore.upload
+      .mockResolvedValueOnce('/user/files/bbi-vibe-v1.json')
+      .mockResolvedValueOnce('/user/files/bbi-vibe-thumb-v2.jpg');
+    fileStore.remove.mockResolvedValue(true);
+
+    await expect(saveVibeFiles(data, {
+      dataPath: '/user/files/bbi-vibe-v1.json',
+      thumbnailPath: '/user/files/bbi-vibe-thumb-v1.jpg',
+    }, 'v1')).resolves.toEqual({
+      dataPath: '/user/files/bbi-vibe-v1.json',
+      thumbnailPath: '/user/files/bbi-vibe-thumb-v2.jpg',
+    });
+
+    expect(fileStore.upload).toHaveBeenCalledTimes(2);
+    expect(fileStore.upload).toHaveBeenNthCalledWith(2, 'bbi-vibe-thumb-v1.jpg', 'dGh1bWI=');
+    expect(fileStore.remove).toHaveBeenCalledWith('/user/files/bbi-vibe-thumb-v1.jpg');
+  });
+
   it('保留已有 Vibe 的数据更新结果，避免缩略图失败造成指纹与文件内容不一致', async () => {
     fileStore.upload
       .mockResolvedValueOnce('/user/files/bbi-vibe-v1.json')

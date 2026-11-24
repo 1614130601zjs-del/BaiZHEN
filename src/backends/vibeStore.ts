@@ -171,13 +171,21 @@ async function saveServerVibeFiles(
   key: string,
 ): Promise<{ dataPath: string; thumbnailPath: string }> {
   const dataPath = await saveVibeData(data, current?.dataPath, key);
-  if (current?.thumbnailPath) return { dataPath, thumbnailPath: current.thumbnailPath };
   if (!data.thumbnail) return { dataPath, thumbnailPath: current?.thumbnailPath ?? '' };
   try {
+    // Refresh the thumbnail when the Vibe image changes; keeping an existing path
+    // without uploading would leave the preview stale after a successful data update.
     const thumbnailPath = await uploadBase64File(
       thumbnailFileName(data.thumbnail, current?.thumbnailPath, key),
       dataUrlBase64(data.thumbnail),
     );
+    if (current?.thumbnailPath && current.thumbnailPath !== thumbnailPath) {
+      try {
+        await deleteUploadedFile(current.thumbnailPath);
+      } catch (cleanupError) {
+        console.warn('[柏宝绘] 新 Vibe 缩略图已保存，但旧缩略图清理失败：', current.thumbnailPath, cleanupError);
+      }
+    }
     return { dataPath, thumbnailPath };
   } catch (error) {
     if (current?.dataPath) {
