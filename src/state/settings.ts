@@ -16,6 +16,7 @@ import {
 import {
   clampVibeStrength,
   saveVibeFiles,
+  deleteVibeData,
   vibeFingerprint,
   vibeMetaFromData,
 } from '@/backends/vibeStore';

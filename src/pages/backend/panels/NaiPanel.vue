@@ -521,8 +521,8 @@ async function reencodeVibe(vibe: NaiVibe) {
     data.encodings[currentVibeKey.value] = { encoding, infoExtracted: 1 };
     const previousFiles = { dataPath: vibe.dataPath, thumbnailPath: vibe.thumbnailPath };
     const paths = await saveVibeFiles(data, vibe, vibe.id);
-    // Commit the new metadata before deleting the previous version: the old record
-    // remains fully usable if the upload fails or the page exits mid-update.
+    // Commit the new metadata and queue the old paths together. The queue is drained
+    // only after a later settings reload, outside the debounced persistence window.
     vibe.dataPath = paths.dataPath;
     vibe.thumbnailPath = paths.thumbnailPath;
     vibe.modelKeys = Object.keys(data.encodings);
