@@ -23,7 +23,6 @@ const preview = computed(() => {
   if (!value) return null;
   const existingArtists = new Set(settings.nai.artistPresets.map(item => [item.name, item.prompt, item.quality, item.negative].join('\u0000')));
   const newArtists = value.artists.filter(item => !existingArtists.has([item.name, item.prompt, item.quality, item.negative].join('\u0000'))).length;
-  const existingCombos = new Set(settings.nai.shizhenArtistProfiles.combos.map(item => [item.name, item.artistId, item.vibeGroup || '', item.vibeId].join('\u0000')));
   return {
     artists: value.artists.length,
     newArtists,
@@ -33,7 +32,6 @@ const preview = computed(() => {
     groups: value.vibeGroups.length,
     duplicateVibes: value.vibes.filter(item => settings.nai.vibes.some(v => v.fingerprint === vibeFingerprint(item.data.encodings) && v.group === item.group)).length,
     unsupported: value.unsupportedVibes,
-    existingCombos: value.combos.filter(item => existingCombos.has([item.name, '', value.vibeGroups[item.vibeIndex] || '', ''].join('\u0000'))).length,
   };
 });
 
@@ -68,6 +66,7 @@ async function importBackup() {
   const saved: NaiVibe[] = [];
   try {
     const artistBySourceIndex: string[] = [];
+    const pendingArtists: NaiArtistPreset[] = [];
     const knownArtists = new Map(settings.nai.artistPresets.map(item => [signature(item), item.id]));
     for (const item of value.artists) {
       const key = signature(item);
@@ -77,7 +76,7 @@ async function importBackup() {
         preset.prompt = item.prompt;
         preset.quality = item.quality;
         preset.negative = item.negative;
-        settings.nai.artistPresets.push(preset);
+        pendingArtists.push(preset);
         id = preset.id;
         knownArtists.set(key, id);
       }
@@ -97,7 +96,17 @@ async function importBackup() {
       knownVibes.add(key);
     }
 
-    const profiles = settings.nai.shizhenArtistProfiles;
+    const currentProfiles = settings.nai.shizhenArtistProfiles;
+    const profiles = {
+      ...currentProfiles,
+      combos: [...currentProfiles.combos],
+      global: {
+        body: { ...currentProfiles.global.body },
+        statusBar: { ...currentProfiles.global.statusBar },
+        egg: { ...currentProfiles.global.egg },
+      },
+      bindings: [...currentProfiles.bindings],
+    };
     const comboBySourceIndex: string[] = [];
     for (const item of value.combos) {
       const artistId = item.artistIndex >= 0 ? artistBySourceIndex[item.artistIndex] || '' : '';
@@ -141,8 +150,9 @@ async function importBackup() {
       bindingAdded++;
     }
 
+    settings.nai.artistPresets.push(...pendingArtists);
     settings.nai.vibes.push(...saved);
-    const addedArtists = new Set(artistBySourceIndex).size;
+    settings.nai.shizhenArtistProfiles = profiles;
     summary.value = `导入完成：画师串映射 ${artistBySourceIndex.length} 条，Vibe 新增 ${saved.length} 条（重复跳过 ${duplicateVibes}），组合 ${comboBySourceIndex.length} 条，角色绑定新增 ${bindingAdded} 条（冲突跳过 ${bindingSkipped}）。新导入 Vibe 默认关闭。`;
     if (value.unsupportedVibes) summary.value += ` 未识别 Vibe：${value.unsupportedVibes} 条。`;
     plan.value = null;

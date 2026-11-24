@@ -94,8 +94,8 @@ function collectEncodings(raw: Record<string, unknown>, currentModelKey: string)
   }
 
   // Shizhen supports V3 exports where the Vibe payload is stored in image rather than encodings.
-  if (!Object.keys(result).length && raw.identifier === 'novelai-vibe-transfer' && isPayload(raw.image) && !looksLikeImage(raw.image)) {
-    result[currentModelKey] = { encoding: cleanPayload(raw.image as string), infoExtracted: fallbackInfo };
+  if (raw.identifier === 'novelai-vibe-transfer' && isPayload(raw.image) && !looksLikeImage(raw.image)) {
+    result.v3 = { encoding: cleanPayload(raw.image as string), infoExtracted: fallbackInfo };
   }
 
   // Shizhen's Vibe pool entries may store the already-extracted payload in image.
@@ -156,6 +156,7 @@ function extractOne(
   const imageValue = typeof raw.image === 'string' ? raw.image : '';
   // Shizhen stores V3 Vibe payloads in image; BaiZHEN's V3 backend consumes this field directly.
   const image = imageValue && (looksLikeImage(imageValue)
+    || (raw.identifier === 'novelai-vibe-transfer' && isPayload(imageValue))
     || (currentModelKey === 'v3' && isPayload(imageValue)))
     ? cleanPayload(imageValue)
     : '';

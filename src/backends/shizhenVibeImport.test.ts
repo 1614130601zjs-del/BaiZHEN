@@ -137,3 +137,16 @@ describe('parseShizhenVibeJson', () => {
     expect(result.unsupported).toBe(1);
   });
 });
+
+
+describe('Shizhen V3 Vibe backup compatibility', () => {
+  it('keeps V3 image encoding under the v3 model key even when current model is V4.5', () => {
+    const result = parseShizhenVibeJson({
+      identifier: 'novelai-vibe-transfer',
+      image: 'A'.repeat(220),
+      name: 'V3 reference',
+    }, 'v4-5full');
+    expect(result.items[0]?.data.encodings.v3.encoding).toBe('A'.repeat(220));
+    expect(result.items[0]?.data.image).toBe('A'.repeat(220));
+  });
+});
