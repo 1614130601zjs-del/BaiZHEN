@@ -750,14 +750,13 @@ function finishVibeGroupSelection() {
     toastr.info('请先选择要加入分组的 Vibe', 'Vibe');
     return;
   }
-  const suggested = '';
-  const name = window.prompt('分组名称（输入已有组名可合并）', suggested)?.trim();
-  if (!name) return;
-  const selected = settings.nai.vibes.filter(vibe => ids.has(vibe.id));
-  for (const vibe of selected) vibe.group = name;
+  for (const vibe of settings.nai.vibes) {
+    if (ids.has(vibe.id)) registerVibePoolResource(vibe);
+  }
+  selectedPoolIds.value = new Set(ids);
   selectedVibeIds.value = new Set();
   vibeGroupSelectionMode.value = false;
-  toastr.success(`已将 ${selected.length} 个 Vibe 加入「${name}」`, 'Vibe 分组');
+  createPoolGroupFromSelection();
 }
 
 function cancelVibeGroupSelection() {
@@ -1591,7 +1590,7 @@ async function removeVibe(vibe: NaiVibe) {
               type="button"
               @click="vibeGroupSelectionMode = true"
             >
-              <Icon name="checklist" :size="12" /> 选择 Vibe 组建分组
+              <Icon name="checklist" :size="12" /> 从 Vibe 列表选择加入池组
             </button>
             <template v-else>
               <span class="vibe-count">已选 {{ selectedVibeCount }} 个</span>
