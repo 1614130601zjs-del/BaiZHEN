@@ -206,6 +206,7 @@ export async function fetchWorldInfo(
   name2: string,
   suppliedReferences?: readonly string[],
   newCharacterOnly?: { knownCharacters: ReadonlySet<string>; targetText: string },
+  allowedWorldNames?: readonly string[],
 ): Promise<string> {
   const scanText = buildScanText(chat, targets, name1, name2);
   if (!scanText.length) return '';
@@ -214,6 +215,8 @@ export async function fetchWorldInfo(
   try {
     const check = await getCheckWorldInfo();
     if (!check) {
+      // 世界书模式必须按书名隔离；旧版宿主的字符串降级接口丢失来源元数据，宁可不带书也不泄漏其他书。
+      if (allowedWorldNames) return '';
       const text = await fetchWorldInfoViaPrompt(scanText, refFloor);
       return newCharacterOnly ? text.split(/\n\s*\n/).filter(content => needsCharacterReference({ content }, newCharacterOnly)).join('\n\n') : text;
     }
@@ -226,7 +229,7 @@ export async function fetchWorldInfo(
     // 然后按共享排除名单过滤(整本/条目名),最后逐条渲染(展宏 + 执行 EJS)。
     const entries = sortWorldInfoEntriesLikeST(
       activated instanceof Map ? [...activated.values()] : [...activated],
-    );
+    ).filter(entry => !allowedWorldNames || allowedWorldNames.includes(String(entry.world ?? '')));
     const chunks = await Promise.all(
       entries
         .filter(e => e && !isWorldInfoEntryExcluded(e, settings.excludes))
