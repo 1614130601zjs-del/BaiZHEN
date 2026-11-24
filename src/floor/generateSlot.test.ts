@@ -13,7 +13,7 @@ vi.mock('@/generate',()=>({captureGenerationSnapshot:()=>({backend:'nai',orienta
     const {acquireNaiSlot}=await import('@/floor/genQueue');const release=await acquireNaiSlot(signal);
     try{progress.onStart?.();return await new Promise((resolve,reject)=>{
       const result={result:{url:'blob:fixture',revoke:vi.fn()},seed:input.seed,size:input.size,backend:'nai',meta:{}};
-      h.requests.push({input,signal,result,resolve:()=>resolve(result)});
+      h.requests.push({input,signal,result,resolve:()=>resolve(result),reject:(error:unknown)=>reject(error)});
       signal.addEventListener('abort',()=>reject(new DOMException('Cancelled','AbortError')),{once:true});
     });}finally{release();}
   },
@@ -80,6 +80,30 @@ describe('saved automatic image tasks without mounted cards',()=>{
    startMarkedFloorGeneration('A',0,0);markForAutoGenerate('A',0,0,0);startMarkedFloorGeneration('A',0,0);await flush();
    expect(h.requests).toHaveLength(1);h.requests[0].resolve();await flush();
    markForAutoGenerate('A',0,0,0);startMarkedFloorGeneration('A',0,0);await flush();expect(h.requests).toHaveLength(1);
+ });
+ it('keeps earlier successful images when the same trigger is deliberately generated again',async()=>{
+   const sameTag=tag(0);
+   await generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
+   await flush();expect(h.requests).toHaveLength(1);
+   h.requests[0].resolve();await flush();expect(h.saved).toHaveLength(1);
+   // Shizhen TriggerRegistry.beginCandidate semantics: rerun a succeeded trigger
+   // while retaining its prior result rather than replacing the history.
+   await generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
+   await flush();expect(h.requests).toHaveLength(2);
+   h.requests[1].resolve();await flush();
+   expect(h.saved).toHaveLength(2);
+   expect(h.saved.map(args=>args[2])).toEqual([0,0]);
+ });
+ it('allows a failed trigger to be retried without disturbing successful history',async()=>{
+   const sameTag=tag(0);
+   await generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
+   await flush();h.requests[0].reject(new Error('temporary failure'));await flush();
+   expect(getGenRecord(slotKey('A',0,0,0))?.phase).toBe('error');
+   await generateSlot({chatId:'A',messageId:0,swipeId:0,seq:0,tag:sameTag,prompt:'1girl'});
+   await flush();expect(h.requests).toHaveLength(2);
+   h.requests[1].resolve();await flush();
+   expect(h.saved).toHaveLength(1);
+   expect(getGenRecord(slotKey('A',0,0,0))).toBeUndefined();
  });
  it('preserves force regeneration of a saved prompt even when the text is unchanged',async()=>{
    h.history.add(0);markForAutoGenerate('A',0,0,0,'force');
