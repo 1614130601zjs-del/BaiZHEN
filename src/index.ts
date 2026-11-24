@@ -4,7 +4,7 @@ import App from '@/App.vue';
 import { bindAutoTagging } from '@/autoTag/runner';
 import { bindTagActionButtons } from '@/floor/actionButton';
 import { bindFloorHydration } from '@/floor/hydrate';
-import { bindStatusBarObserver } from '@/floor/statusBar';
+import { bindStatusBarObserver, refreshStatusBarObserver } from '@/floor/statusBar';
 import { injectMenuButton } from '@/menu';
 import { registerPublicInterface } from '@/public/register';
 import { bindCharTagSync } from '@/state/charTags';
@@ -109,6 +109,7 @@ async function hydrateWhenReady(attempt = 0) {
       bindTagActionButtons();
       bindMarkerInjection();
       syncMarkerInjection();
+      watch(() => settings.enabled, refreshStatusBarObserver);
       watch(() => [settings.enabled, settings.autoTag.enabled, settings.autoTag.streamGen, settings.autoTag.minImages, settings.autoTag.maxImages], () => {
         syncMarkerInjection(); if (!settings.enabled || !settings.autoTag.enabled || !settings.autoTag.streamGen) stopCurrentStream();
       });

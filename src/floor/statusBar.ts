@@ -214,6 +214,7 @@ async function removeCurrent(frame: HTMLElement, task: StatusBarTask): Promise<v
 
 async function generateForFrame(frame: HTMLElement, prompt: string, task: StatusBarTask): Promise<void> {
   if (activeTasks.has(task.taskKey) || !settings.enabled) return;
+  let output: Awaited<ReturnType<typeof generateImage>> | undefined;
   activeTasks.add(task.taskKey);
   frame.dataset.bbiStatusbarBusy = '1';
   frame.querySelector('.bbi-statusbar-trigger,.bbi-statusbar-error')?.remove();
@@ -229,7 +230,7 @@ async function generateForFrame(frame: HTMLElement, prompt: string, task: Status
     const context = getContext();
     const currentCharacter = context?.characters?.[Number(context?.characterId)];
     const orientation: Orientation = frame.clientWidth > frame.clientHeight ? 'landscape' : 'portrait';
-    const output = await generateImage({
+    output = await generateImage({
       prompt,
       seed: decideSeed(snapshot.backend),
       size: effectiveOrientation(snapshot.orientation, orientation),
@@ -238,12 +239,20 @@ async function generateForFrame(frame: HTMLElement, prompt: string, task: Status
       artistTarget: 'statusBar',
       renderProfile: inferRenderProfile(prompt),
     }, undefined, {}, snapshot);
+    if (frame.dataset.bbiStatusbarTask !== task.taskKey || statusBarPromptForTarget(frame) !== prompt) return;
     const base64 = await resultToBase64ForUpload(output.result);
     const format = /^[a-z0-9]+$/i.test(output.result.format) ? output.result.format.toLowerCase() : 'png';
     const filename = `status_${fnv(task.taskKey)}_${Date.now().toString(36)}.${format}`;
     const path = await uploadUserImage(IMAGE_FOLDER, filename, base64, format);
+    if (frame.dataset.bbiStatusbarTask !== task.taskKey || statusBarPromptForTarget(frame) !== prompt) {
+      await deleteUserImage(path).catch(() => undefined);
+      return;
+    }
     task.images.push({ path, createdAt: Date.now(), meta: output.meta });
-    if (task.images.length > MAX_HISTORY_PER_TASK) task.images.splice(0, task.images.length - MAX_HISTORY_PER_TASK);
+    if (task.images.length > MAX_HISTORY_PER_TASK) {
+      const removed = task.images.splice(0, task.images.length - MAX_HISTORY_PER_TASK);
+      await Promise.all(removed.map(item => deleteUserImage(item.path).catch(() => undefined)));
+    }
     task.currentIndex = task.images.length - 1;
     task.updatedAt = Date.now();
     store().tasks[task.taskKey] = task;
@@ -253,6 +262,7 @@ async function generateForFrame(frame: HTMLElement, prompt: string, task: Status
     const message = error instanceof Error ? error.message : String(error);
     showError(frame, message, () => void generateForFrame(frame, prompt, task));
   } finally {
+    output?.result.revoke();
     loading.remove();
     frame.dataset.bbiStatusbarBusy = '0';
     activeTasks.delete(task.taskKey);
@@ -277,12 +287,13 @@ function processFrames(): void {
       const prompt = statusBarPromptForTarget(frame);
       if (!prompt) continue;
       const identity = taskIdentity(frame, prompt, doc);
-      if (frame.dataset.bbiStatusbarPrompt !== prompt) {
+      if (frame.dataset.bbiStatusbarPrompt !== prompt || frame.dataset.bbiStatusbarTask !== identity.taskKey) {
         frame.dataset.bbiStatusbarPrompt = prompt;
         frame.dataset.bbiStatusbarTask = identity.taskKey;
+        frame.dataset.bbiStatusbarAutoStarted = '';
         frame.querySelectorAll('.bbi-statusbar-card,.bbi-statusbar-trigger,.bbi-statusbar-error,.bbi-statusbar-loading').forEach(node => node.remove());
       }
-      if (frame.dataset.bbiStatusbarBusy === '1') continue;
+      if (frame.dataset.bbiStatusbarBusy === '1' || frame.querySelector('.bbi-statusbar-error')) continue;
       const cached = store().tasks[identity.taskKey];
       if (cached?.images?.length) {
         if (!frame.querySelector('.bbi-statusbar-card')) renderCard(frame, cached);
@@ -317,6 +328,10 @@ function attachDocuments(): void {
       frame.addEventListener('load', () => { attachDocuments(); processFrames(); });
     }
   }
+}
+
+export function refreshStatusBarObserver(): void {
+  if (bound) processFrames();
 }
 
 export function bindStatusBarObserver(): boolean {
