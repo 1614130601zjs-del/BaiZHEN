@@ -21,7 +21,7 @@ const summary = ref('');
 const preview = computed(() => {
   const value = plan.value;
   if (!value) return null;
-  const existingArtists = new Set(settings.nai.artistPresets.map(item => [item.name, item.prompt, item.quality, item.negative].join('\u0000')));
+  const existingArtists = new Set([...BUILTIN_NAI_ARTISTS, ...settings.nai.artistPresets].map(item => [item.name, item.prompt, item.quality, item.negative].join('\u0000')));
   const newArtists = value.artists.filter(item => !existingArtists.has([item.name, item.prompt, item.quality, item.negative].join('\u0000'))).length;
   return {
     artists: value.artists.length,
@@ -67,7 +67,7 @@ async function importBackup() {
   try {
     const artistBySourceIndex: string[] = [];
     const pendingArtists: NaiArtistPreset[] = [];
-    const knownArtists = new Map(settings.nai.artistPresets.map(item => [signature(item), item.id]));
+    const knownArtists = new Map([...BUILTIN_NAI_ARTISTS, ...settings.nai.artistPresets].map(item => [signature(item), item.id]));
     for (const item of value.artists) {
       const key = signature(item);
       let id = knownArtists.get(key);
