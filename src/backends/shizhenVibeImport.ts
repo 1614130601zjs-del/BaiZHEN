@@ -44,7 +44,7 @@ function normalizedModelKey(value: string): string {
 
 function readNumericField(value: unknown, pattern: RegExp, fallback: number): number {
   try {
-    const serialized = JSON.stringify(value);
+    const serialized = JSON.stringify(value) ?? '';
     const match = serialized.match(pattern);
     if (!match) return fallback;
     const parsed = Number(match[1]);
