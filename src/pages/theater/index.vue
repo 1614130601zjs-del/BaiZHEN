@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { fetchCharCard, fetchUserPersona, fetchWorldInfo, buildCharCardSystem, buildPersonaSystem, buildWorldInfoSystem } from '@/autoTag/context';
-import { captureGenerationSnapshot, decideSeed, generateImage } from '@/generate';
+import { captureGenerationSnapshot, decideSeed, generateImage, type GenerationSnapshot } from '@/generate';
 import { inferRenderProfile } from '@/autoTag/renderProfile';
 import { resultToBase64ForUpload, generationId } from '@/floor/storage';
 import { deleteUserImage, uploadUserImage } from '@/st/images';
@@ -107,10 +107,10 @@ async function buildGenerationMessages(userInput: string, modeValue: 'scene' | '
     { role: 'user', content: (modeValue === 'plot' ? '剧情词：' : '画面词：') + userInput },
   ];
 }
-async function createRecord(userInput: string, parsed: ParsedTheaterOutput, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', comboIdValue = '', sourceSnapshot?: Pick<TheaterRecord, 'chatSnapshot' | 'characterName' | 'characterKey' | 'sourceChatId' | 'chatId'>): Promise<TheaterRecord> {
+async function createRecord(userInput: string, parsed: ParsedTheaterOutput, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', comboIdValue = '', sourceSnapshot?: Pick<TheaterRecord, 'chatSnapshot' | 'characterName' | 'characterKey' | 'sourceChatId' | 'chatId'>, generationSnapshot: GenerationSnapshot = captureGenerationSnapshot()): Promise<TheaterRecord> {
   const context = getContext();
   if (!context) throw new Error('酒馆上下文尚未就绪');
-  const snapshot = captureGenerationSnapshot();
+  const snapshot = generationSnapshot;
   if (!snapshot.status.configured) throw new Error(snapshot.status.reason || '生图后端尚未配置');
   const prompt = parsed.prompt.replace(/^\s*[\[【]\s*彩蛋[】\]]\s*/u, '').trim();
   const character = context.characters?.[Number(context.characterId)];
@@ -160,6 +160,9 @@ async function generateTheater(): Promise<void> {
     const styleValue = style.value;
     const modeValue = mode.value;
     const comboIdValue = comboId.value;
+    // 在任何异步文本请求前固定后端、模型、凭据和画幅配置，避免等待期间设置变化导致图片走另一套配置。
+    const generationSnapshot = captureGenerationSnapshot();
+    if (!generationSnapshot.status.configured) throw new Error(generationSnapshot.status.reason || '生图后端尚未配置');
     // 在发起文本模型请求前固定本次图片的聊天/角色快照，避免生成期间聊天切换造成错配。
     const contextAtStart = context;
     const characterAtStart = contextAtStart?.characters?.[Number(contextAtStart.characterId)];
@@ -180,7 +183,7 @@ async function generateTheater(): Promise<void> {
     if (!parsed.prompt) throw new Error('模型输出中没有找到 image###…### 画面提示词');
     if (!parsed.eggBlocks.length) throw new Error('模型输出中没有找到 eggroom###…eggend### 聊天室内容');
     status.value = '正在通过柏宝绘后端生成图片…';
-    const record = await createRecord(text, parsed, modeValue, styleValue, comboIdValue, sourceSnapshot);
+    const record = await createRecord(text, parsed, modeValue, styleValue, comboIdValue, sourceSnapshot, generationSnapshot);
     await commitRecord(record);
     status.value = parsed.extraImages ? `完成（模型多输出了 ${parsed.extraImages} 张图片标记，本次只生成第一张）` : '小剧场已生成并保存';
   } catch (cause) {
