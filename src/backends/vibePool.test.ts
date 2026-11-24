@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyVibeRefInformationExtracted, materializeVibeGroup, migrateLegacyVibeLibrary } from '@/backends/vibePool';
+import { applyVibeRefInformationExtracted, getNaiVibesForGeneration, materializeVibeGroup, migrateLegacyVibeLibrary } from '@/backends/vibePool';
 import { vibePoolFingerprint } from '@/backends/vibeStore';
 import type { NaiVibe } from '@/state/settings';
 const v=(id:string,group:string,strength:number,enabled:boolean):NaiVibe=>({id,name:id,dataPath:`/files/${id}`,thumbnailPath:'',modelKeys:['v4-5full'],hasImage:true,fingerprint:id,strength,enabled,group});
@@ -52,5 +52,30 @@ describe('Vibe pool resource identity',()=>{
   const a={image:'image-a',thumbnail:'',encodings:{v3:{encoding:'same-encoding',infoExtracted:0.5}}};
   const b={image:'image-b',thumbnail:'',encodings:{v3:{encoding:'same-encoding',infoExtracted:0.5}}};
   expect(vibePoolFingerprint(a)).not.toBe(vibePoolFingerprint(b));
+ });
+});
+
+describe('active Vibe pool group resolution',()=>{
+ it('uses only enabled refs from the selected group and keeps per-ref settings',()=>{
+  const resources=[v('shared','',.6,true),v('other','',.6,true)].map(({strength:_s,enabled:_e,group:_g,...item})=>item);
+  const nai={
+   vibes:[v('legacy','',.5,true)],
+   vibePool:resources,
+   vibeGroups:[
+    {id:'g1',name:'one',refs:[{poolId:'shared',strength:.37,enabled:true,informationExtracted:.88},{poolId:'other',strength:.9,enabled:false}]},
+    {id:'g2',name:'two',refs:[{poolId:'shared',strength:.92,enabled:true,informationExtracted:.23}]},
+   ],
+   activeVibeGroupId:'g1',
+  } as unknown as import('@/state/settings').NaiSettings;
+  expect(getNaiVibesForGeneration(nai)).toMatchObject([
+   {id:'shared',strength:.37,enabled:true,informationExtracted:.88},
+   {id:'other',strength:.9,enabled:false},
+  ]);
+  nai.activeVibeGroupId='g2';
+  expect(getNaiVibesForGeneration(nai)[0]).toMatchObject({id:'shared',strength:.92,informationExtracted:.23});
+ });
+ it('falls back to the legacy library when no pool group is selected',()=>{
+  const legacy=[v('legacy','',.5,true)];
+  expect(getNaiVibesForGeneration({vibes:legacy,vibePool:[],vibeGroups:[],activeVibeGroupId:''} as unknown as import('@/state/settings').NaiSettings)).toBe(legacy);
  });
 });

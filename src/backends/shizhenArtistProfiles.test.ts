@@ -272,3 +272,25 @@ describe('explicit combo selection', () => {
     expect(source.shizhenArtistProfiles.global.egg.comboId).toBe('default');
   });
 });
+
+describe('artist combo references independent Vibe pool groups',()=>{
+ it('selects a pool group by stable ID without mutating native selection',()=>{
+  const source={
+   activeArtistId:'native-artist',
+   vibes:[{id:'legacy',enabled:true,strength:0.4,group:''}],
+   vibePool:[{id:'pool-a',name:'A',dataPath:'idb:a',thumbnailPath:'',modelKeys:['v5'],hasImage:false,fingerprint:'a'}],
+   vibeGroups:[{id:'group-rain',name:'雨夜',refs:[{poolId:'pool-a',strength:0.83,enabled:true,informationExtracted:0.91}]}],
+   activeVibeGroupId:'',
+   portraitSize:'832x1216',landscapeSize:'1216x832',
+   shizhenArtistProfiles:{
+    ...profiles,
+    combos:[{id:'pool-combo',name:'池组合',artistId:'',vibeId:'',vibeGroup:'group-rain',updatedAt:1}],
+    global:{...profiles.global,body:{comboId:'pool-combo',size:''}},
+   },
+  } as unknown as import('@/state/settings').NaiSettings;
+  const result=applyArtistProfileToNai(source,'','body');
+  expect(result.nai.activeVibeGroupId).toBe('group-rain');
+  expect(result.nai.vibes).toBe(source.vibes);
+  expect(source.activeVibeGroupId).toBe('');
+ });
+});
