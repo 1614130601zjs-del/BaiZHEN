@@ -29,12 +29,17 @@ import { generateComfyImage, randomSeed, type ComfyImageResult } from '@/backend
 import { generateNaiImage, naiRandomSeed, naiSupportsCharacterPrompts } from '@/backends/nai';
 import { effectiveOrientation, parseSize, pickSize, type Orientation } from '@/backends/size';
 import { acquireNaiSlot } from '@/floor/genQueue';
+import { applyArtistProfileToNai } from '@/backends/shizhenArtistProfiles';
 import type { GenerationMeta } from '@/generationMeta';
 import { activeComfyPreset, activeNaiEndpoint, activeOrientationLock, effectiveComfyConn, effectiveNai, settings, type BackendId } from '@/state/settings';
 
 /** 一次生成的输入。与协议层 ImageInsertion 同形,但不含正文位置信息。 */
 export interface GenerateInput {
   renderProfile?: RenderProfile;
+  /** 拾帧式预设目标；默认正文。 */
+  artistTarget?: 'body' | 'statusBar' | 'egg';
+  /** 当前角色卡的稳定身份键；空值时只使用通用预设。 */
+  characterKey?: string;
   /** 正向 danbooru 短 tag。 */
   prompt: string;
   /** 自然语言部分(可空)。 */
@@ -210,8 +215,14 @@ export async function generateImage(
     let result: ComfyImageResult;
     let meta: GenerationMeta;
     if (isNai) {
+      const renderedNai = input.renderProfile ? applyRenderProfile(snapshot.nai, input.renderProfile) : snapshot.nai;
+      const profiledNai = applyArtistProfileToNai(
+        renderedNai,
+        input.characterKey ?? '',
+        input.artistTarget ?? 'body',
+      ).nai;
       const output = await generateNaiImage(
-        input.renderProfile ? applyRenderProfile(snapshot.nai, input.renderProfile) : snapshot.nai,
+        profiledNai,
         // characters 原样透传:不支持的模型由 buildNaiParameters 自己滤掉(同一口径
         // naiSupportsCharacterPrompts),在这儿再滤一遍只会多一处会漂的判据
         { prompt: input.prompt, nl: input.nl ?? '', characters, seed: input.seed, size },

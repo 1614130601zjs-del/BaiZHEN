@@ -3,6 +3,7 @@ import {
   makeCharacterBindingKey,
   mapShizhenComboReferences,
   mapShizhenTarget,
+  applyArtistProfileToNai,
   removeArtistCombo,
   resolveArtistTarget,
 } from '@/backends/shizhenArtistProfiles';
@@ -75,5 +76,42 @@ describe('Shizhen artist profile mapping', () => {
     expect(next.combos.map(item => item.id)).toEqual(['combo-b']);
     expect(next.global.body.comboId).toBe('');
     expect(next.bindings[0].body.comboId).toBe('combo-b');
+  });
+});
+
+
+describe('request-local artist profile application', () => {
+  it('只在本次请求应用组合，不修改原生画师串和 Vibe 开关', () => {
+    const native = {
+      activeArtistId: 'native-artist',
+      artistPresets: [{ id: 'combo-artist', name: 'Combo', prompt: 'artist:combo', quality: '', negative: '' }],
+      vibes: [
+        { id: 'native-vibe', enabled: true, strength: 0.5 },
+        { id: 'combo-vibe', enabled: false, strength: 0.7 },
+      ],
+      portraitSize: '832x1216',
+      landscapeSize: '1216x832',
+      shizhenArtistProfiles: {
+        ...profiles,
+        global: { ...profiles.global, body: { comboId: 'combo-a', size: '1024x1024' } },
+        combos: [{ id: 'combo-a', name: 'A', artistId: 'combo-artist', vibeId: 'combo-vibe', updatedAt: 1 }],
+      },
+    } as unknown as import('@/state/settings').NaiSettings;
+
+    const result = applyArtistProfileToNai(native, '', 'body');
+    expect(result.applied).toBe(true);
+    expect(result.nai.activeArtistId).toBe('combo-artist');
+    expect(result.nai.vibes.map(vibe => vibe.enabled)).toEqual([false, true]);
+    expect(result.nai.portraitSize).toBe('1024x1024');
+    expect(native.activeArtistId).toBe('native-artist');
+    expect(native.vibes.map(vibe => vibe.enabled)).toEqual([true, false]);
+    expect(native.portraitSize).toBe('832x1216');
+  });
+
+  it('未选择拾帧组合时完全沿用原生配置', () => {
+    const native = { activeArtistId: 'native', vibes: [], shizhenArtistProfiles: profiles } as unknown as import('@/state/settings').NaiSettings;
+    const result = applyArtistProfileToNai(native, 'unknown', 'body');
+    expect(result.applied).toBe(false);
+    expect(result.nai).toBe(native);
   });
 });

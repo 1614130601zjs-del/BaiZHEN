@@ -9,6 +9,7 @@ import { historyEntries, latestStaleEntry, promptHash, readStore, saveImageResul
 import { isTagPlanning } from '@/floor/tagPlanState';
 import { beginImage, failImage, finishImage, safeHistory } from '@/state/history';
 import { getContext } from '@/st/context';
+import { makeCharacterBindingKey } from '@/backends/shizhenArtistProfiles';
 import { isSameMessage } from '@/st/messageEdit';
 import { parseImageTagContent, parseImageTags } from '@/st/imageTagRegex';
 
@@ -26,7 +27,11 @@ export async function generateSlot(job: SlotJob): Promise<void> {
   if(phase==='queued'||phase==='generating'||isTagPlanning(key)||!job.prompt.trim())return;
   const snapshot=captureGenerationSnapshot();if(!snapshot.status.configured)return;
   // Clone at dispatch: a later UI edit must not mutate a queued request.
+  const host = ctx as unknown as { characters?: Array<{ name?: string; avatar?: string }>; characterId?: number };
+  const currentCharacter = host.characters?.[Number(host.characterId)];
   const input={...job,characters:job.characters?.map(character=>({...character})),seed:decideSeed(snapshot.backend),
+    characterKey: job.characterKey || makeCharacterBindingKey(currentCharacter?.avatar, currentCharacter?.name, host.characterId),
+    artistTarget: job.artistTarget ?? 'body',
     renderProfile:job.renderProfile??inferRenderProfile(job.prompt)};
   const {signal,token}=beginGen(key,hash,snapshot.backend==='nai'?'queued':'generating');
   const owns=()=>{const current=getContext(),live=current?.chat[job.messageId];return !signal.aborted&&isCurrentGen(key,token)&&current?.getCurrentChatId()===job.chatId&&!!live&&isSameMessage(live,message)&&(live.swipe_id??0)===job.swipeId&&parseImageTags(live.mes)[job.seq]===job.tag;};

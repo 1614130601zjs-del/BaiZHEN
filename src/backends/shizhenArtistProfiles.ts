@@ -4,6 +4,7 @@ import type {
   NaiArtistProfileSettings,
   NaiArtistTargetConfig,
   NaiVibe,
+  NaiSettings,
 } from '@/state/settings';
 
 /** Resolve a Shizhen combo's index-based references exactly once into stable BaiZHEN IDs. */
@@ -94,4 +95,33 @@ export function removeArtistCombo(
 /** Build the ID lookup inputs from the current independent libraries. */
 export function currentVibeIds(vibes: readonly NaiVibe[]): string[] {
   return vibes.map(vibe => vibe.id);
+}
+
+
+/**
+ * Apply one Shizhen-style profile to a request-local NAI snapshot.
+ * Never mutates global settings: native artist/Vibe selections remain untouched.
+ */
+export function applyArtistProfileToNai(
+  nai: NaiSettings,
+  characterKey: string,
+  target: 'body' | 'statusBar' | 'egg' = 'body',
+): { nai: NaiSettings; applied: boolean; size: string } {
+  const selected = resolveArtistTarget(nai.shizhenArtistProfiles, characterKey, target);
+  if (!selected.comboId) return { nai, applied: false, size: '' };
+  const combo = nai.shizhenArtistProfiles.combos.find(item => item.id === selected.comboId);
+  if (!combo) return { nai, applied: false, size: '' };
+
+  const next: NaiSettings = {
+    ...nai,
+    activeArtistId: combo.artistId,
+    // A selected combo owns the Vibe choice for this request, including an explicit "none".
+    vibes: nai.vibes.map(vibe => ({ ...vibe, enabled: !!combo.vibeId && vibe.id === combo.vibeId })),
+  };
+  const size = /^\\d+\\s*[x×]\\s*\\d+$/i.test(selected.size) ? selected.size : '';
+  if (size) {
+    next.portraitSize = size;
+    next.landscapeSize = size;
+  }
+  return { nai: next, applied: true, size };
 }
