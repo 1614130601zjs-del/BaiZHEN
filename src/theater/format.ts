@@ -70,3 +70,11 @@ export function parseTheaterOutput(raw: string): ParsedTheaterOutput {
     eggBlocks,
   };
 }
+
+/** Keep rerolls attached to the original chat, including records saved before sourceChatId existed. */
+export function resolveTheaterSourceChatId(
+  snapshot: { sourceChatId?: string; chatId?: string } | undefined,
+  currentChatId: string,
+): string {
+  return snapshot?.sourceChatId || snapshot?.chatId || currentChatId;
+}

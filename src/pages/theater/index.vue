@@ -9,7 +9,7 @@ import { getContext, type STMessage } from '@/st/context';
 import { makeCharacterBindingKey } from '@/backends/shizhenArtistProfiles';
 import { settings } from '@/state/settings';
 import { getWorldbookModeProfile } from '@/modes/worldbookMode';
-import { parseTheaterOutput, type ParsedTheaterOutput } from '@/theater/format';
+import { parseTheaterOutput, resolveTheaterSourceChatId, type ParsedTheaterOutput } from '@/theater/format';
 
 interface TheaterRecord extends ParsedTheaterOutput {
   id: string;
@@ -106,7 +106,7 @@ async function buildGenerationMessages(userInput: string, modeValue: 'scene' | '
     { role: 'user', content: (modeValue === 'plot' ? '剧情词：' : '画面词：') + userInput },
   ];
 }
-async function createRecord(userInput: string, parsed: ParsedTheaterOutput, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', comboIdValue = '', sourceSnapshot?: Pick<TheaterRecord, 'chatSnapshot' | 'characterName' | 'characterKey' | 'sourceChatId'>): Promise<TheaterRecord> {
+async function createRecord(userInput: string, parsed: ParsedTheaterOutput, modeValue: 'scene' | 'plot', styleValue: 'egg' | 'comic' | 'comic2' | 'comic4', comboIdValue = '', sourceSnapshot?: Pick<TheaterRecord, 'chatSnapshot' | 'characterName' | 'characterKey' | 'sourceChatId' | 'chatId'>): Promise<TheaterRecord> {
   const context = getContext();
   if (!context) throw new Error('酒馆上下文尚未就绪');
   const snapshot = captureGenerationSnapshot();
@@ -137,7 +137,8 @@ async function createRecord(userInput: string, parsed: ParsedTheaterOutput, mode
     comboId: comboIdValue,
     imagePath,
     createdAt: Date.now(),
-    chatId: sourceSnapshot?.sourceChatId ?? context.getCurrentChatId() ?? '',
+    chatId: resolveTheaterSourceChatId(sourceSnapshot, context.getCurrentChatId() ?? ''),
+    sourceChatId: resolveTheaterSourceChatId(sourceSnapshot, context.getCurrentChatId() ?? ''),
     chatSnapshot: sourceSnapshot?.chatSnapshot ?? historyMessages(),
     characterName,
     characterKey,

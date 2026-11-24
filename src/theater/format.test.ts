@@ -40,3 +40,13 @@ describe('parseTheaterOutput', () => {
     expect(result.extraImages).toBe(1);
   });
 });
+
+
+describe('resolveTheaterSourceChatId', () => {
+  it('prefers the explicit source id and preserves the original record id for legacy records', async () => {
+    const { resolveTheaterSourceChatId } = await import('./format');
+    expect(resolveTheaterSourceChatId({ sourceChatId: 'source-a', chatId: 'record-a' }, 'current-b')).toBe('source-a');
+    expect(resolveTheaterSourceChatId({ chatId: 'legacy-a' }, 'current-b')).toBe('legacy-a');
+    expect(resolveTheaterSourceChatId(undefined, 'current-b')).toBe('current-b');
+  });
+});
