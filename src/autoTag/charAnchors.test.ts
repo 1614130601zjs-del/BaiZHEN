@@ -77,9 +77,10 @@ describe('formatEntryForPrompt / buildLibraryText', () => {
 describe('work-library identity fallback in character refs', () => {
   it('adds the canonical work tag when a character has no manually assigned fandom', () => {
     const previous = [...libraries.works];
-    libraries.works.splice(0, libraries.works.length, {
-      id: 'test-work', name: '小雪|雪乃', canonical: 'snow_girl (winter_story)', work: 'winter_story',
-    });
+    libraries.works.splice(0, libraries.works.length,
+      { id: 'test-work', name: '小雪|雪乃', canonical: 'snow_girl (winter_story)', work: 'winter_story' },
+      { id: 'cloud-work', name: '克劳德|Cloud', canonical: 'cloud_strife (final fantasy vii)', work: 'final fantasy vii' },
+    );
     try {
       const result = applyCharRefs('@小雪, smiling', [entry('小雪', { sex: '1girl' })]);
       const aliasResult = applyCharRefs('@Cloud, smiling', [entry('克劳德|Cloud', { sex: '1boy' })]);
