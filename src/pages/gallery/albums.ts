@@ -64,7 +64,7 @@ export function saveGalleryAlbums(state: GalleryAlbumsState, storage?: Pick<Stor
   }
 }
 
-export function createGalleryAlbum(state: GalleryAlbumsState, name: string, now = Date.now(), id = `album-${now}-${Math.random().toString(36).slice(2, 7)}): GalleryAlbumsState {
+export function createGalleryAlbum(state: GalleryAlbumsState, name: string, now = Date.now(), id = `album-${now}-${Math.random().toString(36).slice(2, 7)}`): GalleryAlbumsState {
   const clean = name.trim();
   if (!clean || state.albums.some(album => album.name.toLocaleLowerCase() === clean.toLocaleLowerCase())) return state;
   return { version: 1, albums: [...state.albums, { id, name: clean, imageKeys: [], createdAt: now, updatedAt: now }] };
