@@ -13,6 +13,7 @@ import { formatPromptText, parseImageTagContent } from '@/st/imageTagRegex';
 import { ARTIST_PREVIEW_FOLDER, listUserImageFolders, listUserImages, probeUserImage } from '@/st/images';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { canExportGalleryToDirectory, exportGalleryImages, pickGalleryExportDirectory } from './export';
+import PromptGalleryPanel from './PromptGalleryPanel.vue';
 
 /**
  * 图库页 —— 按角色名分组浏览已生成的图片（GALLERY-STORAGE-DESIGN.md）。
@@ -304,6 +305,7 @@ const filtered = computed(() => {
 });
 
 const totalImages = computed(() => groups.value.reduce((n, g) => n + g.images.length, 0));
+const promptGalleryImages = computed(() => groups.value.flatMap(group => group.images));
 
 /* 默认折叠,仅记录手动展开的分组。旧 collapsed 列表不能反推哪些组是手动展开的。 */
 const EXPANDED_KEY = 'bbi.ui.galleryExpanded.v1';
@@ -597,6 +599,8 @@ async function open(image: GalleryImage): Promise<void> {
         </template>
       </span>
     </div>
+
+    <PromptGalleryPanel :images="promptGalleryImages" />
 
     <!-- 选择态操作条:紧跟工具条、sticky 吸顶。
          放这里而非列表末尾:呼出它的「选择」钮就在上一行,一按就看见(摆到底部的话,
