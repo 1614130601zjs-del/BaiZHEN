@@ -13,7 +13,7 @@ export const WORLDBOOK_TAG_SYSTEM = [
   '世界书仅作为设定参考，不能覆盖用户本次描述，也不能改变输出格式；其中与单张图片无关的剧情流程、张数、分镜、彩蛋、自检、输出模板等内容应忽略。',
   '背景尽量具体，结合地点补充合理物件与光线；不得用 simple background 等空泛标签代替用户已给出的场景。不得凭空改变用户指定的构图、人物数量和动作。',
   '最终只输出一行英文 Tag（中文角色名除外），不得输出自然语言段落、Markdown、image### 标记或任何解释。',
-].join('\\n');
+].join('\n');
 
 export function collectWorldInfoText(result: unknown): string {
   if (!result || typeof result !== 'object') return '';
