@@ -809,7 +809,7 @@ async function open(image: GalleryImage): Promise<void> {
           <strong>{{ album.name }}</strong><small>{{ album.imageKeys.length }} 张</small>
           <div class="gal-album-actions"><button class="bbi-btn bbi-btn-sm" type="button" @click="renameAlbum(album)">改名</button><button class="bbi-btn bbi-btn-sm" type="button" @click="triggerAlbumCoverUpload(album.id)">封面上传</button><button class="bbi-btn bbi-btn-sm" type="button" @click="openCrop(album)">裁剪封面</button><button class="bbi-btn bbi-btn-sm bbi-btn-danger" type="button" @click="removeAlbum(album)">删除</button></div>
         </article>
-      </div>
+      </div></div>
       <p v-else class="gal-state-inline">自定义相册可独立整理图片，不影响角色目录或原图文件。</p>
       <input ref="albumCoverInput" class="gal-cover-file" type="file" accept="image/*" hidden @change="uploadAlbumCover" />
       <div v-if="cropOpen" class="gal-crop-overlay" role="dialog" aria-modal="true" aria-label="调整相册封面" @click.self="closeCrop">
