@@ -55,7 +55,7 @@ export function removeFromPromptGallery(record: PromptGalleryRecord, promptId: s
 export interface PromptGalleryLibraryEntry { id: string; promptEn?: string; prompt?: string }
 function normalizeGalleryPrompt(value: string): string {
   return String(value || '').replace(/<[^>]*>/g, ' ').replace(/\b(?:bbi_image|image|prompt)\b/gi, ' ')
-    .replace(/[\\s,，、/／|;；·]+/gu, ' ').trim().toLowerCase();
+    .replace(/[\s,，、/／|;；·]+/gu, ' ').trim().toLowerCase();
 }
 /** Exact normalized matching only; avoid automatically linking near-matching prompts. */
 export function matchPromptGalleryEntry(
