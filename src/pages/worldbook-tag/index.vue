@@ -98,6 +98,13 @@ function applyToPrompt() {
     <div v-if="useWorldInfo && worldNames.length" class="wb-exclusions">
       <span class="bbi-field-label">排除不参与转换的世界书</span>
       <label v-for="name in worldNames" :key="name" class="wb-toggle"><input v-model="excludedWorlds" type="checkbox" :value="name" />{{ name }}</label>
+      <div v-if="worldEntries.length" class="wb-entry-exclusions">
+        <span class="bbi-field-label">单条目排除</span>
+        <label v-for="entry in worldEntries" :key="entry.key" class="wb-toggle">
+          <input v-model="excludedEntries" type="checkbox" :value="entry.key" />
+          <span>{{ entry.world }} · {{ entry.comment }}</span>
+        </label>
+      </div>
     </div>
     <div class="wb-actions">
       <button class="bbi-btn bbi-btn-primary" type="button" :disabled="!canConvert" @click="convert"><Icon name="prompt" />{{ loading ? '转换中…' : '转换为 Tag' }}</button>
@@ -118,5 +125,5 @@ function applyToPrompt() {
 <style scoped>
 .wb-info{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0;color:var(--bbi-ink-soft);font-size:12px}
 .wb-toggle{display:flex;gap:8px;align-items:center;margin:12px 0;color:var(--bbi-ink)}
-.wb-exclusions{display:grid;gap:6px;margin:12px 0;padding:12px;border:1px solid var(--bbi-line);border-radius:10px}\n.wb-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.wb-exclusions{display:grid;gap:6px;margin:12px 0;padding:12px;border:1px solid var(--bbi-line);border-radius:10px}.wb-entry-exclusions{display:grid;gap:4px;margin-top:8px;padding-top:8px;border-top:1px solid var(--bbi-line);max-height:220px;overflow:auto}\n.wb-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
 </style>
