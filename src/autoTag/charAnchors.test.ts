@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { libraries } from '@/state/libraries';
 
 import {
   applyCharRefs,
@@ -70,6 +71,21 @@ describe('formatEntryForPrompt / buildLibraryText', () => {
     expect(text).toContain('[locked] are global and immutable');
     // 无锁定名时头部保持原样(不带锁定说明)
     expect(buildLibraryText([entry('小雪', { sex: '1girl' })])).not.toContain('immutable');
+  });
+});
+
+describe('work-library identity fallback in character refs', () => {
+  it('adds the canonical work tag when a character has no manually assigned fandom', () => {
+    const previous = [...libraries.works];
+    libraries.works.splice(0, libraries.works.length, {
+      id: 'test-work', name: '小雪|雪乃', canonical: 'snow_girl (winter_story)', work: 'winter_story',
+    });
+    try {
+      const result = applyCharRefs('@小雪, smiling', [entry('小雪', { sex: '1girl' })]);
+      expect(result.text).toBe('snow_girl (winter_story), 1girl, smiling');
+    } finally {
+      libraries.works.splice(0, libraries.works.length, ...previous);
+    }
   });
 });
 

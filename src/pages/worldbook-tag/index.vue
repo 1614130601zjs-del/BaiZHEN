@@ -4,7 +4,7 @@ import BbiTextarea from '@/components/BbiTextarea.vue';
 import Icon from '@/components/Icon.vue';
 import { requestCompletion, requestViaMainApi } from '@/api/client';
 import { getTagGenChannel } from '@/state/settings';
-import { fetchTriggeredWorldInfo, fetchScopedWorldNames, buildWorldbookTagMessages, cleanWorldbookTagOutput } from '@/autoTag/worldbookTag';
+import { fetchTriggeredWorldInfo, fetchScopedWorldNames, buildWorldbookTagMessages, buildRoleReferenceText, cleanWorldbookTagOutput } from '@/autoTag/worldbookTag';\nimport { charTagLib, hydrateCharTags } from '@/state/charTags';
 import { getContext } from '@/st/context';
 
 const description = ref('');
@@ -21,7 +21,7 @@ const canConvert = computed(() => !!description.value.trim() && !loading.value);
 
 onMounted(async () => {
   const ctx = getContext();
-  worldNames.value = await fetchScopedWorldNames();
+  hydrateCharTags();\n  worldNames.value = await fetchScopedWorldNames();
   if (!worldNames.value.length) worldNames.value = ctx?.getWorldInfoNames?.() ?? [];
   if (!ctx?.loadWorldInfo) return;
   const loaded = await Promise.allSettled(worldNames.value.map(async world => {
@@ -47,7 +47,7 @@ async function convert() {
     const ctx = getContext();
     let worldInfo = '';
     if (useWorldInfo.value) worldInfo = await fetchTriggeredWorldInfo(description.value, excludedWorlds.value, excludedEntries.value, value => ctx?.substituteParams?.(value) ?? value);
-    const messages = buildWorldbookTagMessages(description.value, worldInfo);
+    const roles = buildRoleReferenceText(description.value, charTagLib.entries.map(entry => ({\n      name: entry.name,\n      fandom: entry.fields.fandom,\n      raw: entry.raw,\n    })));\n    const references = [worldInfo, roles].filter(Boolean).join('\\n\\n');\n    const messages = buildWorldbookTagMessages(description.value, references);
     const channel = getTagGenChannel();
     const raw = channel
       ? await requestCompletion(channel, messages, { source: '中文转 Tag' })
@@ -56,10 +56,10 @@ async function convert() {
     if (!cleaned) throw new Error('模型没有返回有效 Tag');
     result.value = cleaned;
     status.value = `${channel ? `已使用指派渠道：${channel.name || channel.model}` : '已跟随主 API'}；` + (worldInfo
-      ? '已参考本次描述实际触发的世界书内容。'
+      ? `已参考本次描述实际触发的世界书内容${roles ? '，并匹配角色库名单' : ''}。`
       : useWorldInfo.value
-        ? '本轮没有取得可用的世界书内容。'
-        : '未使用世界书。');
+        ? `本轮没有取得可用的世界书内容${roles ? '，但已匹配角色库名单' : ''}。`
+        : `未使用世界书${roles ? '，已匹配角色库名单' : ''}。`);
   } catch (error) {
     status.value = '转换失败：' + (error instanceof Error ? error.message : String(error));
   } finally {

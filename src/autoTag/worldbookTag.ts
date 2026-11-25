@@ -62,7 +62,7 @@ export function cleanWorldbookTagOutput(value: string): string {
     .trim();
 }
 
-export interface ActivatedWorldInfoEntry {
+export interface WorldbookTagRoleReference {\n  name: string;\n  fandom?: string;\n  raw?: string;\n}\n\nexport function buildRoleReferenceText(description: string, entries: WorldbookTagRoleReference[]): string {\n  const text = description.trim();\n  if (!text || !entries.length) return '';\n  const matched = entries\n    .filter(entry => entry.name.trim() && text.includes(entry.name.trim()))\n    .sort((a, b) => b.name.trim().length - a.name.trim().length);\n  const unique = new Set<string>();\n  const lines = matched.flatMap(entry => {\n    const name = entry.name.trim();\n    if (unique.has(name)) return [];\n    unique.add(name);\n    const identity = entry.fandom?.trim() || entry.raw?.trim() || '';\n    return [`- ${name}${identity ? `：作品/身份 Tag=${identity}` : '：已在角色库登记，未设置作品身份 Tag'}`];\n  });\n  return lines.length ? `【本次描述命中的角色名单】\\n${lines.join('\\n')}\\n只用这些资料确认角色身份；不要把角色库固定外貌字段机械重复进提示词。` : '';\n}\n\nexport interface ActivatedWorldInfoEntry {
   world?: string;
   uid?: string | number;
   comment?: string;

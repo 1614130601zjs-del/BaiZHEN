@@ -220,7 +220,12 @@ function joinEntryTag(entry: CharTagEntry): string {
   if (entry.raw.trim() && CHAR_TAG_FIELDS.every(f => !(entry.fields[f] ?? '').trim())) {
     return entry.raw.trim();
   }
-  return CHAR_TAG_FIELDS.map(f => (entry.fields[f] ?? '').trim())
+  const fields = { ...entry.fields };
+  if (!fields.fandom?.trim()) {
+    initLibraries();
+    fields.fandom = findWorkEntry(libraries.works, entry.name)?.canonical ?? '';
+  }
+  return CHAR_TAG_FIELDS.map(f => (fields[f] ?? '').trim())
     .filter(Boolean)
     .join(', ');
 }
