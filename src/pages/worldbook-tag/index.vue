@@ -61,7 +61,7 @@ async function convert() {
       raw: entry.raw,
     }));
     const resolvedWorldInfo = replaceRoleRosterTokens(worldInfo, rosterEntries);
-    const references = [resolvedWorldInfo, roles].filter(Boolean).join('\\n\\n');
+    const references = [resolvedWorldInfo, roles].filter(Boolean).join('\n\n');
     const messages = buildWorldbookTagMessages(description.value, references);
     const channel = getTagGenChannel();
     const raw = channel
