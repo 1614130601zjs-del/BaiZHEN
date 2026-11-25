@@ -4,6 +4,7 @@ import Icon from '@/components/Icon.vue';
 import { initLibraries, libraries } from '@/state/libraries';
 import { getContext } from '@/st/context';
 import { sidecarPathFor } from '@/floor/storage';
+import { mapLimit } from '@/pool';
 import {
   imageInPromptGallery, matchPromptGalleryEntry, updatePromptGalleryMembership,
   type PromptGalleryMembershipStore,
@@ -39,25 +40,29 @@ function toggleImage(image: GalleryImage) {
 }
 async function autoCollect() {
   if (!selectedPromptId.value || scanning.value) return;
+  const targetId = selectedPromptId.value;
   scanning.value = true;
   scanStatus.value = '正在匹配图库侧写…';
   let added = 0, missed = 0;
   try {
-    for (const image of props.images) {
+    await mapLimit(props.images, 5, async image => {
       const sidecar = sidecarPathFor(image.key);
-      if (!sidecar) { missed++; continue; }
+      if (!sidecar) { missed++; return; }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
       try {
-        const response = await fetch(sidecar);
-        if (!response.ok) { missed++; continue; }
+        const response = await fetch(sidecar, { signal: controller.signal });
+        if (!response.ok) { missed++; return; }
         const meta = await response.json() as { prompt?: unknown };
-        if (typeof meta.prompt !== 'string') { missed++; continue; }
+        if (typeof meta.prompt !== 'string') { missed++; return; }
         const matched = matchPromptGalleryEntry(meta.prompt, promptEntries.value);
-        if (matched?.id === selectedPromptId.value && !imageInPromptGallery(membership.value, image.key, selectedPromptId.value)) {
-          membership.value = updatePromptGalleryMembership(membership.value, image.key, selectedPromptId.value, true);
+        if (matched?.id === targetId && !imageInPromptGallery(membership.value, image.key, targetId)) {
+          membership.value = updatePromptGalleryMembership(membership.value, image.key, targetId, true);
           added++;
         }
       } catch { missed++; }
-    }
+      finally { clearTimeout(timeout); }
+    });
     persist();
     scanStatus.value = `自动归集完成：新增 ${added} 张；${missed} 张没有可用侧写。仅精确匹配。`;
   } finally { scanning.value = false; }
