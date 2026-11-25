@@ -36,3 +36,24 @@ describe('prompt gallery automatic matching', () => {
   expect(matchPromptGalleryEntry('blue hair smiling', [{id:'a',promptEn:'blue hair smiling with flowers'}])).toBeNull();
  });
 });
+
+import { imageInPromptGallery, updatePromptGalleryMembership } from '@/pages/gallery/promptGallery';
+describe('prompt gallery membership map', () => {
+ it('stores multiple galleries for one image without duplicates',()=>{
+  const a=updatePromptGalleryMembership({},'path/image.png','p1',true);
+  const b=updatePromptGalleryMembership(a,'path/image.png','p2',true);
+  const c=updatePromptGalleryMembership(b,'path/image.png','p1',true);
+  expect(c['path/image.png']).toEqual(['p1','p2']);
+  expect(imageInPromptGallery(c,'path/image.png','p2')).toBe(true);
+ });
+ it('removes only selected gallery and deletes empty keys',()=>{
+  const a={key:['p1','p2']};
+  const b=updatePromptGalleryMembership(a,'key','p1',false);
+  expect(b.key).toEqual(['p2']);
+  expect(updatePromptGalleryMembership(b,'key','p2',false)).toEqual({});
+ });
+ it('ignores empty path and prompt IDs',()=>{
+  expect(updatePromptGalleryMembership({},'','p1',true)).toEqual({});
+  expect(updatePromptGalleryMembership({},'x','',true)).toEqual({});
+ });
+});

@@ -66,3 +66,25 @@ export function matchPromptGalleryEntry(
   if (!target) return null;
   return entries.find(entry => normalizeGalleryPrompt(entry.promptEn || entry.prompt || '') === target) || null;
 }
+
+export type PromptGalleryMembershipStore = Record<string, string[]>;
+export function updatePromptGalleryMembership(
+  store: PromptGalleryMembershipStore,
+  imageKey: string,
+  promptId: string,
+  include: boolean,
+): PromptGalleryMembershipStore {
+  const key = String(imageKey || '').trim(), id = String(promptId || '').trim();
+  if (!key || !id) return store;
+  const next = { ...store };
+  const ids = [...(next[key] || [])];
+  if (include && !ids.includes(id)) ids.push(id);
+  if (!include) {
+    const filtered = ids.filter(value => value !== id);
+    if (filtered.length) next[key] = filtered; else delete next[key];
+  } else next[key] = ids;
+  return next;
+}
+export function imageInPromptGallery(store: PromptGalleryMembershipStore, imageKey: string, promptId: string): boolean {
+  return Boolean(imageKey && promptId && store[imageKey]?.includes(promptId));
+}
