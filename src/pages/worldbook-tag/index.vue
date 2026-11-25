@@ -125,5 +125,6 @@ function applyToPrompt() {
 <style scoped>
 .wb-info{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0;color:var(--bbi-ink-soft);font-size:12px}
 .wb-toggle{display:flex;gap:8px;align-items:center;margin:12px 0;color:var(--bbi-ink)}
-.wb-exclusions{display:grid;gap:6px;margin:12px 0;padding:12px;border:1px solid var(--bbi-line);border-radius:10px}.wb-entry-exclusions{display:grid;gap:4px;margin-top:8px;padding-top:8px;border-top:1px solid var(--bbi-line);max-height:220px;overflow:auto}\n.wb-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.wb-exclusions{display:grid;gap:6px;margin:12px 0;padding:12px;border:1px solid var(--bbi-line);border-radius:10px}.wb-entry-exclusions{display:grid;gap:4px;margin-top:8px;padding-top:8px;border-top:1px solid var(--bbi-line);max-height:220px;overflow:auto}
+.wb-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
 </style>
