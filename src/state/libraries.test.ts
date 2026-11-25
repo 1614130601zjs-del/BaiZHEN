@@ -47,5 +47,7 @@ describe('work library compatibility', () => {
     const entries = [{ id: '1', name: '角色甲|甲别名', canonical: 'alpha (作品A)', work: '作品A' }];
     expect(findWorkEntry(entries, '甲别名')?.canonical).toBe('alpha (作品A)');
     expect(findWorkEntry(entries, 'alpha')?.name).toBe('角色甲|甲别名');
+    expect(findWorkEntry([{ ...entries[0], name: '角色甲／甲别名' }], '甲别名')?.canonical).toBe('alpha (作品A)');
+    expect(findWorkEntry([...entries, { id: '2', name: '甲别名', canonical: 'beta (作品B)', work: '作品B' }], '甲别名')).toBeUndefined();
   });
 });

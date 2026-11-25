@@ -160,14 +160,18 @@ export function importWorkEntries(existing: WorkLibraryEntry[], incoming: Array<
 export function findWorkEntry(entries: WorkLibraryEntry[], name: string): WorkLibraryEntry | undefined {
   const needle = normalizeWorkName(name);
   if (!needle) return undefined;
-  for (const entry of entries) {
-    const aliases = entry.name.split('|').map(value => normalizeWorkName(value)).filter(Boolean);
+  const matches = entries.filter(entry => {
+    const aliases = entry.name.split(/[|｜/／;；]/).map(value => normalizeWorkName(value)).filter(Boolean);
     const bare = normalizeWorkName(entry.canonical.replace(/\([^()]*\)\s*$/, ''));
     if (bare) aliases.push(bare);
-    if (aliases.includes(needle)) return entry;
-  }
-  return undefined;
+    return aliases.includes(needle);
+  });
+  // Ambiguous localized aliases must not silently assign a character to the wrong fandom.
+  if (!matches.length) return undefined;
+  const canonicals = new Set(matches.map(entry => normalizeWorkName(entry.canonical)));
+  return canonicals.size === 1 ? matches[0] : undefined;
 }
+
 export const libraries = store;
 
 export function initLibraries(): void {
