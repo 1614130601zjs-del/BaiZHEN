@@ -44,6 +44,97 @@ const emit = defineEmits<{ close: []; delete: [] }>();
 /** 适应屏幕 ↔ 原始尺寸。 */
 const zoomed = ref(false);
 
+/** Jelly 互动：默认关闭，避免影响原有缩放与移动端长按保存。 */
+const jellyEnabled = ref(false);
+const jellyDragEnabled = ref(true);
+const jellySettingsOpen = ref(false);
+const jellyTransform = ref({ x: 0, y: 0, sx: 1, sy: 1, rotate: 0 });
+let jellyVelocity = { x: 0, y: 0, sx: 0, sy: 0, rotate: 0 };
+let jellyFrame = 0;
+let jellyPointer: { id: number; x: number; y: number; time: number; moved: boolean } | null = null;
+
+function stopJellyFrame(): void {
+  if (jellyFrame) cancelAnimationFrame(jellyFrame);
+  jellyFrame = 0;
+}
+
+function animateJelly(): void {
+  stopJellyFrame();
+  const tick = () => {
+    const t = jellyTransform.value;
+    const v = jellyVelocity;
+    const targets = { x: 0, y: 0, sx: 1, sy: 1, rotate: 0 };
+    let moving = false;
+    for (const key of Object.keys(targets) as (keyof typeof targets)[]) {
+      v[key] += (targets[key] - t[key]) * 0.16;
+      v[key] *= 0.8;
+      t[key] += v[key];
+      if (Math.abs(v[key]) > 0.001 || Math.abs(targets[key] - t[key]) > 0.001) moving = true;
+    }
+    if (moving) jellyFrame = requestAnimationFrame(tick);
+    else {
+      jellyFrame = 0;
+      jellyTransform.value = { ...targets };
+      jellyVelocity = { x: 0, y: 0, sx: 0, sy: 0, rotate: 0 };
+    }
+  };
+  jellyFrame = requestAnimationFrame(tick);
+}
+
+function jellyPress(power = 1): void {
+  stopJellyFrame();
+  const t = jellyTransform.value;
+  t.sx = 1 + 0.11 * power;
+  t.sy = 1 - 0.14 * power;
+  jellyVelocity.sx = 0;
+  jellyVelocity.sy = 0;
+  animateJelly();
+}
+
+function onJellyPointerDown(event: PointerEvent): void {
+  if (!jellyEnabled.value || zoomed.value || (event.pointerType === 'mouse' && event.button !== 0)) return;
+  jellyPointer = { id: event.pointerId, x: event.clientX, y: event.clientY, time: Date.now(), moved: false };
+  try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch { /* capture may be unavailable */ }
+  // 仅在用户主动开启 Jelly 时接管手势；关闭时仍保留浏览器长按保存。
+  event.preventDefault();
+  stopJellyFrame();
+}
+
+function onJellyPointerMove(event: PointerEvent): void {
+  const p = jellyPointer;
+  if (!p || p.id !== event.pointerId || !jellyEnabled.value || !jellyDragEnabled.value) return;
+  const dx = event.clientX - p.x;
+  const dy = event.clientY - p.y;
+  if (!p.moved && Math.hypot(dx, dy) < 6) return;
+  p.moved = true;
+  const damp = (n: number) => Math.sign(n) * Math.pow(Math.abs(n), 0.82) * 0.55;
+  const img = event.currentTarget as HTMLImageElement;
+  const w = Math.max(1, img.clientWidth), h = Math.max(1, img.clientHeight);
+  const ax = Math.abs(dx) / w, ay = Math.abs(dy) / h;
+  jellyTransform.value = {
+    x: damp(dx), y: damp(dy),
+    sx: (1 + Math.min(0.38, ax * 0.9)) * (1 - Math.min(0.38, ay * 0.9) * 0.45),
+    sy: (1 + Math.min(0.38, ay * 0.9)) * (1 - Math.min(0.38, ax * 0.9) * 0.45),
+    rotate: Math.max(-6, Math.min(6, dx / w * 5)),
+  };
+}
+
+function onJellyPointerUp(event: PointerEvent): void {
+  const p = jellyPointer;
+  if (!p || p.id !== event.pointerId) return;
+  jellyPointer = null;
+  try { (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId); } catch { /* already released */ }
+  suppressClick = true;
+  if (!p.moved && Date.now() - p.time < 450) jellyPress();
+  else if (p.moved) {
+    jellyVelocity.sx -= (jellyTransform.value.sx - 1) * 0.35;
+    jellyVelocity.sy -= (jellyTransform.value.sy - 1) * 0.35;
+    jellyVelocity.x -= jellyTransform.value.x * 0.12;
+    jellyVelocity.y -= jellyTransform.value.y * 0.12;
+  }
+  animateJelly();
+}
+
 /** tags/提示词面板默认收起,点顶部按钮才展开。 */
 const showInfo = ref(false);
 
@@ -125,6 +216,8 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown, true);
+  stopJellyFrame();
+  jellyPointer = null;
 });
 
 async function copyPrompt(): Promise<void> {
@@ -148,6 +241,16 @@ const promptText = computed(() => (props.prompt ?? '').trim());
       <div class="bbi-lightbox__bar" @click.stop>
         <button class="bbi-lb-btn" type="button" title="保存图片" @click="save">
           <Icon name="download" :size="18" />
+        </button>
+        <button
+          class="bbi-lb-btn"
+          :class="{ 'bbi-lb-btn--on': jellyEnabled || jellySettingsOpen }"
+          type="button"
+          title="Jelly 图片互动设置"
+          :aria-expanded="jellySettingsOpen"
+          @click="jellySettingsOpen = !jellySettingsOpen"
+        >
+          <Icon name="activity" :size="18" />
         </button>
         <button
           v-if="promptText"
@@ -183,6 +286,12 @@ const promptText = computed(() => (props.prompt ?? '').trim());
         </button>
       </div>
 
+      <div v-if="jellySettingsOpen" class="bbi-lightbox__jelly" @click.stop>
+        <label><input v-model="jellyEnabled" type="checkbox" /> 启用果冻互动</label>
+        <label><input v-model="jellyDragEnabled" type="checkbox" :disabled="!jellyEnabled" /> 拖动拉伸</label>
+        <p>开启后，点按会产生回弹，拖动图片会产生橡皮筋形变。关闭后恢复原有缩放与长按保存行为。</p>
+      </div>
+
       <!-- 图片容器:zoomed 时滚动(触屏)/ 鼠标拖拽查看原图 -->
       <div
         ref="stage"
@@ -195,11 +304,15 @@ const promptText = computed(() => (props.prompt ?? '').trim());
           :src="src"
           alt="生图结果"
           :data-zoomed="zoomed ? '1' : ''"
+          :style="jellyEnabled && !zoomed ? { transform: `translate3d(${jellyTransform.x}px, ${jellyTransform.y}px, 0) rotate(${jellyTransform.rotate}deg) scale(${jellyTransform.sx}, ${jellyTransform.sy})` } : undefined"
           @click.stop="onImageClick"
-          @pointerdown="onPointerDown"
-          @pointermove="onPointerMove"
-          @pointerup="onPointerUp"
-          @pointercancel="onPointerUp"
+          @pointerdown="onJellyPointerDown"
+          @pointermove="onJellyPointerMove"
+          @pointerup="onJellyPointerUp"
+          @pointercancel="onJellyPointerUp"
+          @pointerdown.capture="onPointerDown"
+          @pointermove.capture="onPointerMove"
+          @pointerup.capture="onPointerUp"
           @dragstart="onDragStart"
         />
       </div>
@@ -328,6 +441,34 @@ const promptText = computed(() => (props.prompt ?? '').trim());
 .bbi-lightbox__stage[data-zoomed='1']::-webkit-scrollbar-thumb {
   background: oklch(1 0 0 / 0.25);
   border-radius: 3px;
+}
+
+.bbi-lightbox__jelly {
+  position: absolute;
+  top: 58px;
+  right: 16px;
+  z-index: 3;
+  display: grid;
+  gap: 9px;
+  width: min(280px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid oklch(1 0 0 / 0.2);
+  border-radius: 12px;
+  background: oklch(0.16 0 0 / 0.92);
+  color: oklch(1 0 0 / 0.92);
+  font-size: 12px;
+  box-shadow: 0 8px 28px oklch(0 0 0 / 0.35);
+}
+.bbi-lightbox__jelly label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bbi-lightbox__jelly input { accent-color: var(--bbi-accent); }
+.bbi-lightbox__jelly p {
+  margin: 0;
+  color: oklch(1 0 0 / 0.68);
+  line-height: 1.5;
 }
 
 .bbi-lightbox__prompt {
