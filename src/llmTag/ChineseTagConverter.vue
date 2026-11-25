@@ -7,6 +7,7 @@ import { convertChineseToTags, type PresetBorrowEntry, type TagWorldbookEntry } 
 import { charTagLib, buildEntryTag } from '@/state/charTags';
 import { settings } from '@/state/settings';
 import { getContext } from '@/st/context';
+import { copyText } from '@/st/clipboard';
 
 const emit = defineEmits<{ (e:'close'):void; (e:'converted', value:string):void }>();
 const open = ref(false);
@@ -89,6 +90,7 @@ async function convert():Promise<void> {
   finally { busy.value = false; }
 }
 function apply():void { if (result.value) emit('converted',result.value); }
+function copyResult():void { if (result.value) void copyText(result.value, '已复制'); }
 onMounted(()=>{ void loadSources(); requestAnimationFrame(()=>{open.value=true;}); });
 </script>
 
@@ -140,7 +142,7 @@ onMounted(()=>{ void loadSources(); requestAnimationFrame(()=>{open.value=true;}
       </details>
       <div v-if="roster" class="bbi-field-hint">已载入 {{ charTagLib.entries.length }} 条角色外貌资料，将作为名单优先依据。</div>
       <div class="bbi-modal-field">
-        <div class="bbi-tag-result-head"><span class="bbi-modal-label">转换结果</span><button class="bbi-btn bbi-btn-sm" type="button" :disabled="!result" @click="navigator.clipboard?.writeText(result)">复制</button></div>
+        <div class="bbi-tag-result-head"><span class="bbi-modal-label">转换结果</span><button class="bbi-btn bbi-btn-sm" type="button" :disabled="!result" @click="copyResult">复制</button></div>
         <BbiTextarea v-model="result" :rows="4" :max-rows="12" mono placeholder="转换结果会显示在这里，也可以手动微调。" />
       </div>
       <p v-if="error" class="bbi-editor-error">{{ error }}</p>

@@ -46,7 +46,7 @@ export async function fetchActivatedTagWorldbook(description: string, options: P
   const active = result?.allActivatedEntries; if (!active) return [];
   const rows = active instanceof Map ? [...active.values()] : [...active];
   const substitute = getContext()?.substituteParams;
-  const expanded = rows.map(entry => { let content = String(entry.content ?? ''); try { if (substitute) content = substitute(content); } catch { /* optional macro expansion */ } return { ...entry, content }; });
+  const expanded: TagWorldbookEntry[] = rows.map(entry => { let content = String(entry.content ?? ''); try { if (substitute) content = substitute(content); } catch { /* optional macro expansion */ } const uid = typeof entry.uid === 'number' || typeof entry.uid === 'string' ? entry.uid : undefined; return { ...entry, uid, content }; });
   return filterWorldbookEntries(expanded, options.excludedWorlds, options.excludedEntries);
 }
 export function selectBorrowedPresetText(entries: PresetBorrowEntry[] = [], selectedIds: string[] = [], substitute: (content:string)=>string = value=>value): string {
