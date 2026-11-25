@@ -6,6 +6,7 @@ import type { Orientation } from '@/backends/size';
 import BbiTextarea from '@/components/BbiTextarea.vue';
 import Icon from '@/components/Icon.vue';
 import ModalMask from '@/components/ModalMask.vue';
+import ChineseTagConverter from '@/llmTag/ChineseTagConverter.vue';
 import { activeOrientationLock } from '@/state/settings';
 import { containsTagMarkup, type ImageTagContent } from '@/st/imageTagRegex';
 
@@ -66,6 +67,8 @@ const emit = defineEmits<{
  * 与设置页那些「open 从 false 翻上来」的弹窗表现一致。
  */
 const open = ref(false);
+const chineseTagOpen = ref(false);
+function applyChineseTags(value: string): void { tag.value = value; chineseTagOpen.value = false; }
 
 const tag = ref(props.content.tag);
 const nl = ref(props.content.nl);
@@ -249,6 +252,9 @@ onBeforeUnmount(() => {
       <!-- AI 重写:手改与 AI 改是同一件事的两种手段,故聚在同一个弹窗里。
            跑完直接落盘并出图(见 promptEditor.ts),结果回填到下面的输入框。 -->
       <div class="bbi-rewrite-row">
+        <button class="bbi-btn bbi-btn-sm" type="button" :disabled="busy || rewriting" @click="chineseTagOpen = true">
+          <Icon name="sparkles" /> 中文转 Tag
+        </button>
         <button
           v-if="!rewriting"
           class="bbi-btn bbi-btn-sm"
@@ -416,6 +422,7 @@ onBeforeUnmount(() => {
       </footer>
     </div>
   </ModalMask>
+  <ChineseTagConverter v-if="chineseTagOpen" @close="chineseTagOpen = false" @converted="applyChineseTags" />
 </template>
 
 <style scoped>
