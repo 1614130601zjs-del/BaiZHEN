@@ -151,7 +151,7 @@ async function uploadOrbIcon(event: Event): Promise<void> {
     if (!response.ok) throw new Error(`上传失败（HTTP ${response.status}）`);
     const result = await response.json() as { path?: string };
     if (!result.path) throw new Error('服务器没有返回图片路径');
-    ui.orbImage = '/' + result.path.replace(/^\\/+/, '').split('/').map(encodeURIComponent).join('/');
+    ui.orbImage = '/' + result.path.replace(/^\/+/, '').split('/').map(encodeURIComponent).join('/');
     orbUploadStatus.value = '图标已上传并应用。';
   } catch (error) {
     orbUploadStatus.value = error instanceof Error ? error.message : String(error);
