@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { comicReasoningKey, comicReasoningCapability, type ComicReasoning } from '@/api/comicReasoning';
 import { getTagGenChannel } from '@/state/settings';
+import { switchNaiModelParams } from '@/backends/naiModelParams';
 import { planPrefixGroups } from '@/backends/chatu8Vibe';
 import {
   buildNaiv4vibe,
@@ -437,7 +438,7 @@ const modelSel = computed<string>({
   get: () => settings.nai.model,
   set: v => {
     const hit = NAI_MODELS.find(m => m.value === v);
-    if (hit) settings.nai.model = hit.value;
+    if (hit && hit.value !== settings.nai.model) Object.assign(settings.nai, switchNaiModelParams(settings.nai, hit.value));
   },
 });
 
@@ -1426,6 +1427,7 @@ async function removeVibe(vibe: NaiVibe) {
           <label class="bbi-switch-row">
             <span class="bbi-field-label">画面多样性（Variety Boost）</span>
             <input v-model="settings.nai.varietyBoost" type="checkbox" class="bbi-checkbox" aria-describedby="nai-variety-boost-hint" />
+            <span class="bbi-check-state">{{ settings.nai.varietyBoost ? '✓ 已开启' : '已关闭' }}</span>
           </label>
           <p id="nai-variety-boost-hint" class="bbi-field-hint">
             开启后，模型在生成后半程才加强提示词引导。用同一提示词多次出图时，构图可以更多样。
@@ -1544,6 +1546,7 @@ async function removeVibe(vibe: NaiVibe) {
           <label class="bbi-switch-row vibe-normalize">
             <span class="bbi-field-label">强度归一化</span>
             <input v-model="settings.nai.normalizeRefStrength" type="checkbox" class="bbi-checkbox" :disabled="!vibesSupported" />
+            <span class="bbi-check-state">{{ settings.nai.normalizeRefStrength ? '✓ 已开启' : '已关闭' }}</span>
           </label>
           <input ref="vibeFileInput" type="file" accept="image/*" hidden @change="onVibeFileChange" />
           <input ref="vibeImportInput" type="file" accept=".naiv4vibe,.json,.zip,.naiv4vibebundle,application/json,application/zip" hidden @change="onVibeImportChange" />

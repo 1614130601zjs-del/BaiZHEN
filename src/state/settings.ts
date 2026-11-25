@@ -298,6 +298,10 @@ export interface NaiVibeFileCleanup {
   thumbnailPath: string;
 }
 
+export interface NaiModelParamSnapshot {
+  steps: number; scale: number; sampler: string; noiseSchedule: string; cfgRescale: number;
+}
+
 export interface NaiSettings extends BackendConn {
   /**
    * 接入点列表。**不变式:恒非空,且必含内置官方那条**(normalize 缺则补回列表首位)。
@@ -317,6 +321,8 @@ export interface NaiSettings extends BackendConn {
    */
   key: string;
   model: NaiModel;
+  /** 每个模型独立记忆的生成参数。 */
+  modelParams: Record<string, NaiModelParamSnapshot>;
   /** 负面提示词覆盖值;留空 = 按模型取官方负面词(见 nai.ts naiDefaultUndesired)。 */
   undesiredContent: string;
   sampler: string;
@@ -1620,6 +1626,7 @@ function naiDefaults(): NaiSettings {
     activeEndpointId: OFFICIAL_NAI_ENDPOINT_ID,
     key: '',
     model: 'nai-diffusion-5-full',
+    modelParams: {},
     undesiredContent: '',
     sampler: 'k_euler',
     steps: 28,
@@ -2283,7 +2290,14 @@ function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
     // 存量字段:出图已不读它(走 effectiveNai),原样留着只为回滚时配置不丢
     key: typeof o.key === 'string' ? o.key : def.key,
     model,
-    // 覆盖值:空串是有意义的存储值(=跟随模型官方词),故不能用 `&& o.x` 那种把 '' 吞掉的守卫
+    modelParams: Object.fromEntries(Object.entries((o.modelParams && typeof o.modelParams === 'object' ? o.modelParams : {}) as Record<string, Partial<NaiModelParamSnapshot>>).filter(([key, value]) => NAI_MODEL_VALUES.has(key) && value && typeof value === 'object').map(([key, value]) => [key, {
+      steps: Math.round(clampNumber(value.steps, def.steps, 1, 50)),
+      scale: clampNumber(value.scale, def.scale, 0, 35),
+      sampler: typeof value.sampler === 'string' && value.sampler ? value.sampler : def.sampler,
+      noiseSchedule: typeof value.noiseSchedule === 'string' && value.noiseSchedule ? value.noiseSchedule : def.noiseSchedule,
+      cfgRescale: clampNumber(value.cfgRescale, def.cfgRescale, 0, 1),
+    }])) as Record<string, NaiModelParamSnapshot>,
+    // 覆盖值是有意义的存储值(=跟随模型官方词),故不能用 `&& o.x` 那种把 '' 吞掉的守卫
     undesiredContent: foldLegacyNegative(o, model, def.undesiredContent),
     sampler: typeof o.sampler === 'string' && o.sampler ? o.sampler : def.sampler,
     steps: Math.round(clampNumber(o.steps, def.steps, 1, 50)),
