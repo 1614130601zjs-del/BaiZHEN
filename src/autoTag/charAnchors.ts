@@ -224,7 +224,7 @@ function joinEntryTag(entry: CharTagEntry): string {
   const fields = { ...entry.fields };
   if (!fields.fandom?.trim()) {
     initLibraries();
-    fields.fandom = findWorkEntry(libraries.works, entry.name)?.canonical ?? '';
+    fields.fandom = entry.name.split(/[|｜/／;；]/).map(name => name.trim()).filter(Boolean)\n      .map(name => findWorkEntry(libraries.works, name)?.canonical)\n      .find(Boolean) ?? '';
   }
   return CHAR_TAG_FIELDS.map(f => (fields[f] ?? '').trim())
     .filter(Boolean)
