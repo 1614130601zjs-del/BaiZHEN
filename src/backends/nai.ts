@@ -526,8 +526,8 @@ export function buildNaiParameters(nai: NaiSettings, values: NaiGenerateValues):
     steps: medium ? NAI_MEDIUM_STEPS : nai.steps,
     n_samples: 1,
     // 提示词已由本地固定默认拼好；协议字段保持官方前端口径。
-    ucPreset: nai.ucPreset,
-    qualityToggle: nai.qualityToggle,
+    ucPreset: nai.ucPreset ?? 3,
+    qualityToggle: nai.qualityToggle ?? true,
     dynamic_thresholding: false,
     controlnet_strength: 1,
     legacy: false,

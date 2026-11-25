@@ -13,7 +13,7 @@ export function switchNaiModelParams(current: ModelParams, nextModel: NaiModel):
   const saved = { ...(current.modelParams ?? {}), [current.model]: {
     steps: current.steps, scale: current.scale, sampler: current.sampler,
     noiseSchedule: current.noiseSchedule, cfgRescale: current.cfgRescale,
-    qualityToggle: current.qualityToggle, ucPreset: current.ucPreset,
+    qualityToggle: current.qualityToggle ?? true, ucPreset: current.ucPreset ?? 3,
   } };
   const next = saved[nextModel] ?? defaultNaiModelParams(nextModel);
   return { model: nextModel, modelParams: saved, ...next };

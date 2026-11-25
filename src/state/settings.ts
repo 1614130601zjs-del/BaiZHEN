@@ -334,9 +334,9 @@ export interface NaiSettings extends BackendConn {
   /** 噪声表(karras/native/exponential/polyexponential)。 */
   noiseSchedule: string;
   /** NAI 官方质量标签开关。 */
-  qualityToggle: boolean;
+  qualityToggle?: boolean;
   /** Undesired Content 预设（0–4）。 */
-  ucPreset: number;
+  ucPreset?: number;
   /** 固定种子;0 = 每次随机。 */
   seed: number;
   /** Variety Boost(skip_cfg_above_sigma,按尺寸与模型自动算 magic 值)。 */
