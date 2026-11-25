@@ -106,7 +106,7 @@ function applyToPrompt() {
   <section class="bbi-page">
     <div class="bbi-page-head"><h2 class="bbi-title bbi-title-sub">中文转 Tag</h2></div>
     <hr class="bbi-rule" />
-    <p class="bbi-field-hint">将中文画面描述转换为 Danbooru 风格生图 Tag。默认只读取本次描述实际触发的世界书条目；世界书中可用 {{柏宝绘角色列表}} 或 {{拾帧角色列表}} 插入当前角色名单，不会把整本世界书无差别塞进请求。</p>
+    <p class="bbi-field-hint">将中文画面描述转换为 Danbooru 风格生图 Tag。默认只读取本次描述实际触发的世界书条目；世界书中可用 <code v-pre>{{柏宝绘角色列表}}</code> 或 <code v-pre>{{拾帧角色列表}}</code> 插入当前角色名单，不会把整本世界书无差别塞进请求。</p>
     <div class="wb-info">
       <span>当前可见世界书：{{ worldNames.length }} 本</span>
       <span v-if="!hasWorldInfoApi">当前酒馆未提供世界书扫描接口</span>
