@@ -13,12 +13,28 @@ const loading = ref(false);
 const useWorldInfo = ref(true);
 const worldNames = ref<string[]>([]);
 const excludedWorlds = ref<string[]>([]);
+const excludedEntries = ref<string[]>([]);
+const worldEntries = ref<Array<{ key: string; world: string; uid: string; comment: string }>>([]);
 const hasWorldInfoApi = computed(() => typeof getContext()?.getWorldInfoPrompt === 'function');
 const canConvert = computed(() => !!description.value.trim() && !loading.value);
 
-onMounted(() => {
+onMounted(async () => {
   const ctx = getContext();
   worldNames.value = ctx?.getWorldInfoNames?.() ?? [];
+  if (!ctx?.loadWorldInfo) return;
+  const loaded = await Promise.allSettled(worldNames.value.map(async world => {
+    const data = await ctx.loadWorldInfo?.(world);
+    const entries = data?.entries;
+    if (!entries || typeof entries !== 'object') return [];
+    return Object.entries(entries as Record<string, unknown>).flatMap(([uid, raw]) => {
+      if (!raw || typeof raw !== 'object') return [];
+      const entry = raw as { uid?: string | number; comment?: string; disable?: boolean };
+      if (entry.disable) return [];
+      const id = String(entry.uid ?? uid);
+      return [{ key: world + '::' + id, world, uid: id, comment: String(entry.comment || ('条目 ' + id)) }];
+    });
+  }));
+  worldEntries.value = loaded.flatMap(item => item.status === 'fulfilled' ? item.value : []);
 });
 
 async function convert() {
@@ -28,7 +44,7 @@ async function convert() {
   try {
     const ctx = getContext();
     let worldInfo = '';
-    if (useWorldInfo.value) worldInfo = await fetchTriggeredWorldInfo(description.value, excludedWorlds.value, [], value => ctx?.substituteParams?.(value) ?? value);
+    if (useWorldInfo.value) worldInfo = await fetchTriggeredWorldInfo(description.value, excludedWorlds.value, excludedEntries.value, value => ctx?.substituteParams?.(value) ?? value);
     const messages = buildWorldbookTagMessages(description.value, worldInfo);
     const raw = await requestViaMainApi(messages, { source: '世界书转 Tag' });
     const cleaned = cleanWorldbookTagOutput(raw);
