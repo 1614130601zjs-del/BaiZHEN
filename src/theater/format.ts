@@ -19,6 +19,7 @@ export interface ParsedTheaterOutput {
   prompt: string;
   extraImages: number;
   eggBlocks: TheaterEggBlock[];
+  panelTexts: string[];
 }
 
 export function normalizeTheaterPrompt(value: unknown): string {
@@ -26,12 +27,14 @@ export function normalizeTheaterPrompt(value: unknown): string {
 }
 
 /** Parse Shizhen's plain-text theater protocol; malformed trailing rooms are retained. */
-export function parseTheaterOutput(raw: string): ParsedTheaterOutput {
+export function parseTheaterOutput(raw: string, panelCount = 1): ParsedTheaterOutput {
   const text = String(raw ?? '');
   const titleMatch = text.match(/title###([\s\S]*?)###/);
   const images = [...text.matchAll(/image###([\s\S]*?)###/g)]
     .map(match => normalizeTheaterPrompt(match[1]))
     .filter(Boolean);
+  const panelMatch = text.match(/paneltext###([\s\S]*?)###/i);
+  const panelTexts = panelMatch ? panelMatch[1].split('|').slice(0, Math.max(1, panelCount)).map(piece => String(piece ?? '').replace(/^\s*Panel\s*\d+\s*[:：]\s*/i, '').trim()) : [];
   const eggBlocks: TheaterEggBlock[] = [];
   const marker = /eggroom###([\s\S]*?)###|eggmsg###([\s\S]*?)###|eggend###/g;
   let room: TheaterRoom | null = null;
@@ -68,6 +71,7 @@ export function parseTheaterOutput(raw: string): ParsedTheaterOutput {
     prompt: images[0] ?? '',
     extraImages: Math.max(0, images.length - 1),
     eggBlocks,
+    panelTexts,
   };
 }
 

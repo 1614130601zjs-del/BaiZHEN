@@ -34,6 +34,11 @@ describe('parseTheaterOutput', () => {
     expect(result.eggBlocks[1].messages[0].text).toBe('未闭合房间');
   });
 
+  it('parses per-panel dialogue and preserves blank panels', () => {
+    const result = parseTheaterOutput('image###comic###\\npaneltext###Panel 1: 你好|Panel 2: ###', 2);
+    expect(result.panelTexts).toEqual(['你好', '']);
+  });
+
   it('counts additional images but only selects the first', () => {
     const result = parseTheaterOutput('image###first### image###second###');
     expect(result.prompt).toBe('first');

@@ -10,6 +10,7 @@ import { makeCharacterBindingKey } from '@/backends/shizhenArtistProfiles';
 import { settings } from '@/state/settings';
 import { buildGenerationModeSystem, captureGenerationMode, getGenerationModeWorldNames, type GenerationModeSnapshot } from '@/modes/dispatcher';
 import { parseTheaterOutput, resolveTheaterSourceChatId, type ParsedTheaterOutput } from '@/theater/format';
+import ComicBubbleEditor, { type ComicBubble } from '@/theater/ComicBubbleEditor.vue';
 
 interface TheaterRecord extends ParsedTheaterOutput {
   id: string;
@@ -18,6 +19,7 @@ interface TheaterRecord extends ParsedTheaterOutput {
   style: 'egg' | 'comic' | 'comic2' | 'comic4';
   comboId?: string;
   imagePath: string;
+  bubbles?: ComicBubble[];
   createdAt: number;
   chatId: string;
   /** 生成该张图片时的聊天上下文快照，切换聊天后仍可回看来源。 */
@@ -89,6 +91,7 @@ async function buildGenerationMessages(userInput: string, modeValue: 'scene' | '
     '严格输出纯文本标记，不要 Markdown 代码块。格式：',
     'title###标题###',
     'image###英文 Danbooru 风格正向提示词###',
+    ...(styleValue !== 'egg' ? ['paneltext###逐格台词，使用 Panel 1: 台词|Panel 2: 台词 格式；无台词留空###'] : []),
     'eggroom###聊天室名称|人数|群主|解说员|解说员吐槽###',
     'eggmsg###left 或 right|说话人|对话内容###（可以多条）',
     'eggend###',
@@ -138,6 +141,7 @@ async function createRecord(userInput: string, parsed: ParsedTheaterOutput, mode
       style: styleValue,
       comboId: comboIdValue,
       imagePath,
+      bubbles: styleValue !== 'egg' ? parsed.panelTexts.filter(text => text.trim()).map((text, index) => ({ id: 'bubble_' + id + '_' + index, shape: 'speech' as const, x: 8 + (index % 2) * 46, y: 6 + Math.floor(index / 2) * 30 + (index % 2) * 10, w: 40, h: 22, text })) : [],
       createdAt: Date.now(),
       chatId: resolveTheaterSourceChatId(sourceSnapshot, context.getCurrentChatId() ?? ''),
       sourceChatId: resolveTheaterSourceChatId(sourceSnapshot, context.getCurrentChatId() ?? ''),
@@ -180,7 +184,8 @@ async function generateTheater(): Promise<void> {
     status.value = '正在生成小剧场文本…';
     const raw = await context.generateRaw({ prompt: messages, responseLength: 4096 });
     rawOutput.value = raw;
-    const parsed = parseTheaterOutput(raw);
+    const panelCount = styleValue === 'comic4' ? 4 : styleValue === 'comic2' ? 2 : 1;
+    const parsed = parseTheaterOutput(raw, panelCount);
     if (!parsed.prompt) throw new Error('模型输出中没有找到 image###…### 画面提示词');
     if (!parsed.eggBlocks.length) throw new Error('模型输出中没有找到 eggroom###…eggend### 聊天室内容');
     status.value = '正在通过柏宝绘后端生成图片…';
