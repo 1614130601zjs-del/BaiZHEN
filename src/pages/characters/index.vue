@@ -189,7 +189,7 @@ const draftIsRaw = computed(
 const previewTag = computed(() => {
   const d = draft.value;
   if (!d) return '';
-  return buildEntryTag({ fields: d.fields, raw: d.raw });
+  return buildEntryTag({ name: d.name, fields: d.fields, raw: d.raw });
 });
 
 /** 正在编辑的本聊天条目的实时历史(回滚后随之刷新);全局条目不记历史。 */
