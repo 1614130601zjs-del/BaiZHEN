@@ -62,6 +62,12 @@ export function cleanWorldbookTagOutput(value: string): string {
     .trim();
 }
 
+export interface WorldbookTagRoleReference {
+  name: string;
+  fandom?: string;
+  raw?: string;
+}
+
 export function buildRoleRosterText(entries: WorldbookTagRoleReference[]): string {
   const seen = new Set<string>();
   const lines = entries.flatMap(entry => {
@@ -77,7 +83,7 @@ export function buildRoleRosterText(entries: WorldbookTagRoleReference[]): strin
       : `- ${primary}${identity ? `；作品/身份 Tag：${identity}` : ''}`];
   });
   return lines.length
-    ? `【当前可用角色名单】\\n${lines.join('\\n')}\\n名单内角色优先使用登记名称；不要自行改名或创造固定外貌，固定外貌由角色库在后续提示词处理中注入。名单外角色按用户描述和世界书判断。`
+    ? `【当前可用角色名单】\n${lines.join('\n')}\n名单内角色优先使用登记名称；不要自行改名或创造固定外貌，固定外貌由角色库在后续提示词处理中注入。名单外角色按用户描述和世界书判断。`
     : '（当前角色库没有可用的角色名单）';
 }
 
@@ -87,41 +93,10 @@ export function replaceRoleRosterTokens(
 ): string {
   const roster = buildRoleRosterText(entries);
   return text
-    .replace(/\\{\\{(?:柏宝绘|拾帧)角色列表\\}\\}/g, roster)
-    .replace(/\\{\\{(?:柏宝绘|拾帧)角色名单\\}\\}/g, roster);
+    .replace(/\{\{(?:柏宝绘|拾帧)角色列表\}\}/g, roster)
+    .replace(/\{\{(?:柏宝绘|拾帧)角色名单\}\}/g, roster);
 }
 
-export interface WorldbookTagRoleReference {\n  name: string;\n  fandom?: string;\n  raw?: string;\n}\n\nexport function buildRoleReferenceText(description: string, entries: WorldbookTagRoleReference[]): string {\n  const text = description.trim();\n  if (!text || !entries.length) return '';\n  const matched = entries\n    .filter(entry => entry.name.trim() && text.includes(entry.name.trim()))\n    .sort((a, b) => b.name.trim().length - a.name.trim().length);\n  const unique = new Set<string>();\n  const lines = matched.flatMap(entry => {\n    const name = entry.name.trim();\n    if (unique.has(name)) return [];\n    unique.add(name);\n    const identity = entry.fandom?.trim() || entry.raw?.trim() || '';\n    return [`- ${name}${identity ? `：作品/身份 Tag=${identity}` : '：已在角色库登记，未设置作品身份 Tag'}`];\n  });\n  return lines.length ? `【本次描述命中的角色名单】\\n${lines.join('\\n')}\\n只用这些资料确认角色身份；不要把角色库固定外貌字段机械重复进提示词。` : '';\n}\n\nexport interface ActivatedWorldInfoEntry {
-  world?: string;
-  uid?: string | number;
-  comment?: string;
-  content?: string;
-}
-export function collectActivatedWorldInfo(
-  activated: Iterable<ActivatedWorldInfoEntry>,
-  substitute: (value: string) => string = value => value,
-  excludedWorlds: string[] = [],
-  excludedEntryKeys: string[] = [],
-): string {
-  const excludedBooks = new Set(excludedWorlds);
-  const excludedEntries = new Set(excludedEntryKeys);
-  const seen = new Set<string>();
-  const chunks: string[] = [];
-  const autoSkip = /彩蛋|自检|末尾提醒|小标题|使用说明|^主体|名字外貌|画面与格式|镜头可见性|视线规则|^tag头$|^tag尾$/;
-  for (const entry of activated) {
-    if (!entry) continue;
-    const world = String(entry.world || '').trim();
-    const uid = entry.uid == null ? '' : String(entry.uid);
-    if (world && excludedBooks.has(world)) continue;
-    if (world && uid && excludedEntries.has(world + '::' + uid)) continue;
-    if (autoSkip.test(String(entry.comment || ''))) continue;
-    let content = substitute(String(entry.content || '')).replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\\r/g, '\n').trim();
-    const cutAt = content.search(/(?:^|\n)#{1,3}\s*输出格式/);
-    if (cutAt >= 0) content = content.slice(0, cutAt).trim();
-    if (content && !seen.has(content)) { seen.add(content); chunks.push(content); }
-  }
-  return chunks.join('\n\n').trim();
-}
 export async function fetchScopedWorldNames(): Promise<string[]> {
   const ctx = (await import('@/st/context')).getContext();
   const names = new Set<string>();

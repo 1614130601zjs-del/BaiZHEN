@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
 import {
-  buildWorldbookTagMessages,\n  buildRoleRosterText,\n  replaceRoleRosterTokens,
+  buildWorldbookTagMessages,
+  buildRoleRosterText,
+  replaceRoleRosterTokens,
   cleanWorldbookTagOutput,
   collectWorldInfoText,
   collectActivatedWorldInfo,
