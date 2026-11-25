@@ -60,6 +60,36 @@ function normalizePrompt(value: unknown, index: number): PromptLibraryEntry | nu
     updatedAt: typeof item.updatedAt === 'number' && Number.isFinite(item.updatedAt) ? item.updatedAt : Date.now(),
   };
 }
+
+export function parsePromptLibraryJson(text: string): Array<Omit<PromptLibraryEntry, 'id' | 'createdAt' | 'updatedAt'>> {
+  let data: unknown;
+  try { data = JSON.parse(text); } catch { throw new Error('不是有效的 JSON'); }
+  const rows = Array.isArray(data) ? data : data && typeof data === 'object' && Array.isArray((data as { entries?: unknown }).entries) ? (data as { entries: unknown[] }).entries : null;
+  if (!rows) throw new Error('JSON 里没找到 entries 数组');
+  return rows.flatMap(value => {
+    const item = normalizePrompt(value, 0);
+    return item ? [{ name: item.name, category: item.category, promptEn: item.promptEn, promptZh: item.promptZh, source: item.source, sourceNote: item.sourceNote, imagePath: item.imagePath }] : [];
+  });
+}
+export function importPromptEntries(existing: PromptLibraryEntry[], incoming: Array<Omit<PromptLibraryEntry, 'id' | 'createdAt' | 'updatedAt'>>): { entries: PromptLibraryEntry[]; added: number; skipped: number } {
+  const entries = [...existing];
+  const keyOf = (item: Pick<PromptLibraryEntry, 'name' | 'category' | 'promptEn'>) => [item.name, item.category, item.promptEn].map(normalizeWorkName).join('@@');
+  const seen = new Set(entries.map(keyOf));
+  let added = 0, skipped = 0;
+  for (const item of incoming) {
+    const name = cleanString(item.name), promptEn = cleanString(item.promptEn);
+    if (!name || !promptEn) { skipped++; continue; }
+    const normalized = { name, promptEn, category: cleanString(item.category) || DEFAULT_CATEGORY, promptZh: cleanString(item.promptZh), source: item.source === 'other' ? 'other' as const : 'original' as const, sourceNote: cleanString(item.sourceNote), imagePath: cleanString(item.imagePath) };
+    const key = keyOf(normalized);
+    if (seen.has(key)) { skipped++; continue; }
+    seen.add(key);
+    const now = Date.now();
+    entries.unshift({ id: makeId('prompt'), ...normalized, createdAt: now, updatedAt: now });
+    added++;
+  }
+  return { entries, added, skipped };
+}
+
 export function normalizeWorkEntries(raw: unknown): WorkLibraryEntry[] {
   if (!Array.isArray(raw)) return [];
   const out: WorkLibraryEntry[] = [];
@@ -168,6 +198,12 @@ export function persistLibraries(): void {
 export function newPromptEntry(): PromptLibraryEntry {
   const now = Date.now();
   return { id: makeId('prompt'), name: '', category: DEFAULT_CATEGORY, promptEn: '', promptZh: '', source: 'original', sourceNote: '', imagePath: '', createdAt: now, updatedAt: now };
+}
+export function importPrompts(incoming: Array<Omit<PromptLibraryEntry, 'id' | 'createdAt' | 'updatedAt'>>): { added: number; skipped: number } {
+  const result = importPromptEntries(store.prompts, incoming);
+  store.prompts = result.entries;
+  persistLibraries();
+  return { added: result.added, skipped: result.skipped };
 }
 export function upsertPromptEntry(entry: PromptLibraryEntry): void {
   const normalized = normalizePrompt(entry, store.prompts.length);

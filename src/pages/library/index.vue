@@ -7,10 +7,10 @@ import { getContext } from '@/st/context';
 import { deleteUserImage, uploadUserImage } from '@/st/images';
 import { makeJpegThumbnail, readFileAsDataUrl } from '@/st/imageFile';
 import {
-  importWorks, initLibraries, libraries, newPromptEntry,
+  importWorks, importPrompts, initLibraries, libraries, newPromptEntry,
   removePromptEntries, removeWorkEntry, renameWorkDisplayName,
   upsertPromptEntry, upsertWorkEntry, parseWorkLibraryJson, parseWorkLibraryText,
-  type PromptLibraryEntry, type WorkLibraryEntry,
+  parsePromptLibraryJson, type PromptLibraryEntry, type WorkLibraryEntry,
 } from '@/state/libraries';
 
 type Tab = 'prompts' | 'works';
@@ -24,6 +24,7 @@ const editingWork = ref<WorkLibraryEntry | null>(null);
 const previewData = ref('');
 const imageInput = ref<HTMLInputElement | null>(null);
 const workFile = ref<HTMLInputElement | null>(null);
+const promptFile = ref<HTMLInputElement | null>(null);
 const importText = ref('');
 const importStatus = ref('');
 const selectedPromptIds = ref(new Set<string>());
@@ -114,6 +115,26 @@ function togglePrompt(id: string) {
   if (next.has(id)) next.delete(id); else next.add(id);
   selectedPromptIds.value = next;
 }
+async function importPromptFile(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  try {
+    const entries = parsePromptLibraryJson(await file.text());
+    const result = importPrompts(entries);
+    importStatus.value = '提示词导入完成：新增 ' + result.added + ' 条，跳过重复或无效 ' + result.skipped + ' 条。';
+  } catch (error) {
+    importStatus.value = '提示词导入失败：' + (error instanceof Error ? error.message : String(error));
+  }
+}
+function exportPrompts() {
+  const data = JSON.stringify({ schemaVersion: 1, entries: libraries.prompts }, null, 2);
+  const url = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = '柏宝绘-提示词库.json'; a.click();
+  URL.revokeObjectURL(url);
+}
 function startWork(item?: WorkLibraryEntry) {
   editingWork.value = item ? { ...item } : { id: '', name: '', canonical: '', work: '' };
 }
@@ -185,8 +206,12 @@ function copyText(text: string) {
         <input v-model="promptSearch" class="bbi-input" type="search" placeholder="搜索名称、提示词或 Tag…" />
         <select v-model="promptFilter" class="bbi-input"><option value="">全部分类</option><option v-for="category in categories" :key="category" :value="category">{{ category }}</option></select>
         <button class="bbi-btn bbi-btn-primary" type="button" @click="editPrompt()"><Icon name="plus" /> 添加提示词</button>
+        <button class="bbi-btn" type="button" @click="promptFile?.click()">导入 JSON</button>
+        <button class="bbi-btn" type="button" :disabled="!libraries.prompts.length" @click="exportPrompts">导出 JSON</button>
+        <input ref="promptFile" type="file" accept=".json,application/json" hidden @change="importPromptFile" />
         <button class="bbi-btn" type="button" @click="bulkMode = !bulkMode; selectedPromptIds = new Set()">{{ bulkMode ? '退出选择' : '批量管理' }}</button>
       </div>
+      <p v-if="importStatus" class="bbi-field-hint" role="status">{{ importStatus }}</p>
       <div v-if="bulkMode" class="lib-bulk">
         <span>已选 {{ selectedPromptIds.size }} 条</span>
         <button class="bbi-btn bbi-btn-danger bbi-btn-sm" type="button" :disabled="!selectedPromptIds.size" @click="deleteSelectedPrompts">删除所选</button>
