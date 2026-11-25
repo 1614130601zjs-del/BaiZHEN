@@ -299,7 +299,7 @@ export interface NaiVibeFileCleanup {
 }
 
 export interface NaiModelParamSnapshot {
-  steps: number; scale: number; sampler: string; noiseSchedule: string; cfgRescale: number;
+  steps: number; scale: number; sampler: string; noiseSchedule: string; cfgRescale: number; qualityToggle: boolean; ucPreset: number;
 }
 
 export interface NaiSettings extends BackendConn {
@@ -333,6 +333,10 @@ export interface NaiSettings extends BackendConn {
   cfgRescale: number;
   /** 噪声表(karras/native/exponential/polyexponential)。 */
   noiseSchedule: string;
+  /** NAI 官方质量标签开关。 */
+  qualityToggle: boolean;
+  /** Undesired Content 预设（0–4）。 */
+  ucPreset: number;
   /** 固定种子;0 = 每次随机。 */
   seed: number;
   /** Variety Boost(skip_cfg_above_sigma,按尺寸与模型自动算 magic 值)。 */
@@ -1633,6 +1637,8 @@ function naiDefaults(): NaiSettings {
     scale: 5.5,
     cfgRescale: 0,
     noiseSchedule: 'karras',
+    qualityToggle: true,
+    ucPreset: 3,
     seed: 0,
     varietyBoost: true,
     normalizeRefStrength: true,
@@ -2296,6 +2302,8 @@ function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
       sampler: typeof value.sampler === 'string' && value.sampler ? value.sampler : def.sampler,
       noiseSchedule: typeof value.noiseSchedule === 'string' && value.noiseSchedule ? value.noiseSchedule : def.noiseSchedule,
       cfgRescale: clampNumber(value.cfgRescale, def.cfgRescale, 0, 1),
+      qualityToggle: typeof value.qualityToggle === 'boolean' ? value.qualityToggle : true,
+      ucPreset: Math.round(clampNumber(value.ucPreset, 3, 0, 4)),
     }])) as Record<string, NaiModelParamSnapshot>,
     // 覆盖值是有意义的存储值(=跟随模型官方词),故不能用 `&& o.x` 那种把 '' 吞掉的守卫
     undesiredContent: foldLegacyNegative(o, model, def.undesiredContent),
@@ -2305,6 +2313,8 @@ function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
     cfgRescale: clampNumber(o.cfgRescale, def.cfgRescale, 0, 1),
     noiseSchedule:
       typeof o.noiseSchedule === 'string' && o.noiseSchedule ? o.noiseSchedule : def.noiseSchedule,
+    qualityToggle: typeof o.qualityToggle === 'boolean' ? o.qualityToggle : def.qualityToggle,
+    ucPreset: Math.round(clampNumber(o.ucPreset, def.ucPreset, 0, 4)),
     seed: Math.round(clampNumber(o.seed, def.seed, 0, 4294967295)),
     varietyBoost: typeof o.varietyBoost === 'boolean' ? o.varietyBoost : def.varietyBoost,
     normalizeRefStrength:

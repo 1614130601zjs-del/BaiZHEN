@@ -1379,7 +1379,18 @@ async function removeVibe(vibe: NaiVibe) {
           </div>
         </div>
 
-        <p class="bbi-field-hint">采样器和噪声表会改变画面的生成方式。同样的提示词和种子，换一项也可能得到不同的图。选自己已经调好的组合即可。</p>
+        <label class="bbi-switch-row">
+          <span class="bbi-field-label">NAI 官方质量标签（Quality Toggle）</span>
+          <input v-model="settings.nai.qualityToggle" type="checkbox" class="bbi-checkbox" />
+          <span class="bbi-check-state">{{ settings.nai.qualityToggle ? '✓ 已开启' : '已关闭' }}</span>
+        </label>
+        <div class="bbi-field">
+          <span class="bbi-field-label">Undesired Content 预设</span>
+          <select class="bbi-input" v-model.number="settings.nai.ucPreset">
+            <option :value="0">Heavy</option><option :value="1">Light</option><option :value="2">Furry</option><option :value="3">Human</option><option :value="4">None</option>
+          </select>
+        </div>
+        <p class="bbi-field-hint">采样器和噪声表会改变画面的生成方式。同样的提示词和种子，换一项也可能得到不同的图。质量开关与 UC 预设会随模型分别记忆。</p>
         <p v-if="isNaiMedium(settings.nai.model)" class="bbi-field-hint">V5 Medium 固定用 14 步、Euler Ancestral、Rescale 0 和内置负面词。下方的自定义值会在切回支持它们的模型时生效。</p>
         <div class="be-row be-row--nums">
           <div class="bbi-field">
