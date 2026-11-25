@@ -2,7 +2,8 @@
 import { computed, onMounted, ref } from 'vue';
 import BbiTextarea from '@/components/BbiTextarea.vue';
 import Icon from '@/components/Icon.vue';
-import { requestViaMainApi } from '@/api/client';
+import { requestCompletion, requestViaMainApi } from '@/api/client';
+import { getTagGenChannel } from '@/state/settings';
 import { fetchTriggeredWorldInfo, fetchScopedWorldNames, buildWorldbookTagMessages, cleanWorldbookTagOutput } from '@/autoTag/worldbookTag';
 import { getContext } from '@/st/context';
 
@@ -47,15 +48,18 @@ async function convert() {
     let worldInfo = '';
     if (useWorldInfo.value) worldInfo = await fetchTriggeredWorldInfo(description.value, excludedWorlds.value, excludedEntries.value, value => ctx?.substituteParams?.(value) ?? value);
     const messages = buildWorldbookTagMessages(description.value, worldInfo);
-    const raw = await requestViaMainApi(messages, { source: '世界书转 Tag' });
+    const channel = getTagGenChannel();
+    const raw = channel
+      ? await requestCompletion(channel, messages, { source: '中文转 Tag' })
+      : await requestViaMainApi(messages, { source: '中文转 Tag' });
     const cleaned = cleanWorldbookTagOutput(raw);
     if (!cleaned) throw new Error('模型没有返回有效 Tag');
     result.value = cleaned;
-    status.value = worldInfo
-      ? '转换完成，已参考本次描述实际触发的世界书内容。'
+    status.value = `${channel ? `已使用指派渠道：${channel.name || channel.model}` : '已跟随主 API'}；` + (worldInfo
+      ? '已参考本次描述实际触发的世界书内容。'
       : useWorldInfo.value
-        ? '转换完成；本轮没有取得可用的世界书内容。'
-        : '转换完成，未使用世界书。';
+        ? '本轮没有取得可用的世界书内容。'
+        : '未使用世界书。');
   } catch (error) {
     status.value = '转换失败：' + (error instanceof Error ? error.message : String(error));
   } finally {
