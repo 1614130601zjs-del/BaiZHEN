@@ -1,6 +1,7 @@
 import {
   buildWorldbookTagMessages,
-  buildRoleRosterText,\n  buildRoleReferenceText,
+  buildRoleRosterText,
+  buildRoleReferenceText,
   replaceRoleRosterTokens,
   cleanWorldbookTagOutput,
   collectWorldInfoText,
