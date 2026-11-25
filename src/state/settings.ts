@@ -1510,6 +1510,22 @@ export interface AutoTagPrompts {
   naiV5Thinking: string;
 }
 
+export type GenericWordGender = 'female' | 'male' | 'any';
+export interface GenericWordSet {
+  id: string;
+  name: string;
+  gender: GenericWordGender;
+  text: string;
+  negative: string;
+}
+export interface GenericWordsSettings {
+  on: boolean;
+  anyOn: boolean;
+  position: 'front' | 'back';
+  sets: GenericWordSet[];
+  pick: { female?: string; male?: string; any?: string };
+}
+
 export interface ImageSettings {
   /** 插件总开关。 */
   enabled: boolean;
@@ -1527,6 +1543,8 @@ export interface ImageSettings {
   assignments: { tagGen: string };
   /** 自动判断并向正文插入生图 tag。 */
   autoTag: AutoTagSettings;
+  /** 拾帧式通用词自动注入；默认关闭，不改变旧用户出图。 */
+  genericWords: GenericWordsSettings;
   /** 排除设置(镜像共享存储;真身在 extensionSettings['baibai_exclude_settings'])。 */
   excludes: ExcludesSettings;
   /** 落盘存储行为(新图格式)。 */
@@ -1702,6 +1720,7 @@ function defaults(): ImageSettings {
     nai: naiDefaults(),
     channels: [],
     assignments: { tagGen: '' },
+    genericWords: { on: false, anyOn: true, position: 'back', sets: [], pick: {} },
     autoTag: {
       enabled: true,
       contextMessages: 2,
@@ -2509,6 +2528,34 @@ function normalize(raw: unknown): ImageSettings {
       };
     })(),
   };
+  const rg = (r.genericWords ?? {}) as Partial<GenericWordsSettings>;
+  const rawSets = Array.isArray(rg.sets) ? rg.sets : [];
+  const genericSets = rawSets.slice(0, 300).flatMap((item, index) => {
+    if (!item || typeof item !== 'object') return [];
+    const value = item as Partial<GenericWordSet>;
+    const gender = value.gender === 'female' || value.gender === 'male' || value.gender === 'any' ? value.gender : null;
+    const text = typeof value.text === 'string' ? value.text.trim() : '';
+    if (!gender || !text) return [];
+    return [{
+      id: typeof value.id === 'string' && value.id.trim() ? value.id : `generic_${index}`,
+      name: typeof value.name === 'string' && value.name.trim() ? value.name.trim().slice(0, 80) : '未命名',
+      gender,
+      text: text.slice(0, 12000),
+      negative: typeof value.negative === 'string' ? value.negative.trim().slice(0, 12000) : '',
+    }];
+  });
+  const gp = rg.pick && typeof rg.pick === 'object' ? rg.pick : {};
+  const validPick = (kind: GenericWordGender): string | undefined => {
+    const id = gp[kind];
+    return typeof id === 'string' && (id === 'none' || genericSets.some(item => item.gender === kind && item.id === id)) ? id : undefined;
+  };
+  merged.genericWords = {
+    on: typeof rg.on === 'boolean' ? rg.on : d.genericWords.on,
+    anyOn: typeof rg.anyOn === 'boolean' ? rg.anyOn : d.genericWords.anyOn,
+    position: rg.position === 'front' ? 'front' : 'back',
+    sets: genericSets,
+    pick: { female: validPick('female'), male: validPick('male'), any: validPick('any') },
+  };
   merged.excludes = normalizeExcludes(r.excludes);
   // 存储行为:嵌套对象逐字段兜底(老数据无 storage 键 → 默认关)
   const rs = (r.storage ?? {}) as Partial<StoragePrefs>;
@@ -2542,6 +2589,7 @@ function applyInto(target: ImageSettings, src: ImageSettings): void {
   target.channels = src.channels;
   target.assignments = src.assignments;
   target.autoTag = src.autoTag;
+  target.genericWords = src.genericWords;
   target.excludes = src.excludes;
   target.storage = src.storage;
 }

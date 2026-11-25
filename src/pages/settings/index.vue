@@ -582,6 +582,23 @@ async function confirmUpdate() {
     toastr?.error?.(`更新失败:${error instanceof Error ? error.message : String(error)}`, '柏宝绘');
   }
 }
+
+const genericGenderOptions = [
+  { value: 'any', label: '通用画面' },
+  { value: 'female', label: '女性' },
+  { value: 'male', label: '男性' },
+] as const;
+function addGenericWordSet() {
+  const id = `generic_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  settings.genericWords.sets.push({ id, name: '新词组', gender: 'any', text: '', negative: '' });
+  settings.genericWords.pick.any = id;
+}
+function removeGenericWordSet(id: string) {
+  settings.genericWords.sets = settings.genericWords.sets.filter(item => item.id !== id);
+  for (const kind of ['female', 'male', 'any'] as const) {
+    if (settings.genericWords.pick[kind] === id) delete settings.genericWords.pick[kind];
+  }
+}
 </script>
 
 <template>
@@ -729,6 +746,44 @@ async function confirmUpdate() {
             <p class="bbi-field-hint">留空用默认画笔图标。</p>
           </div>
         </Collapsible>
+      </Collapsible>
+
+      <Collapsible title="通用词自动注入" :open="false">
+        <label class="bbi-switch-row">
+          <span class="bbi-field-label">启用通用词自动注入</span>
+          <input v-model="settings.genericWords.on" type="checkbox" class="bbi-checkbox" />
+        </label>
+        <p class="bbi-field-hint">按提示词中的人物性别或角色条目识别，自动添加女性、男性或通用画面词组，并合并对应负面词。彩蛋任务不注入。默认关闭。</p>
+        <label class="bbi-switch-row">
+          <span class="bbi-field-label">通用画面词常驻</span>
+          <input v-model="settings.genericWords.anyOn" type="checkbox" class="bbi-checkbox" />
+        </label>
+        <div class="bbi-select-row">
+          <span class="bbi-field-label">正向词插入位置</span>
+          <BbiSelect v-model="settings.genericWords.position" :options="[{value:'front',label:'放在最前'},{value:'back',label:'放在最后'}]" aria-label="通用词插入位置" />
+        </div>
+        <div v-for="kind in genericGenderOptions" :key="kind.value" class="bbi-field">
+          <div class="bbi-field-head"><span class="bbi-field-label">{{ kind.label }}词组</span></div>
+          <BbiSelect
+            :model-value="settings.genericWords.pick[kind.value] || 'none'"
+            :options="[{value:'none',label:'不使用'}, ...settings.genericWords.sets.filter(item => item.gender === kind.value).map(item => ({value:item.id,label:item.name}))]"
+            :aria-label="kind.label + '词组'"
+            @update:model-value="value => settings.genericWords.pick[kind.value] = value"
+          />
+        </div>
+        <div v-for="item in settings.genericWords.sets" :key="item.id" class="bbi-field">
+          <div class="bbi-field-head"><span class="bbi-field-label">{{ item.name || '未命名词组' }}</span><button class="bbi-btn bbi-btn-sm" type="button" @click="removeGenericWordSet(item.id)">删除</button></div>
+          <input v-model="item.name" class="bbi-input" type="text" placeholder="词组名称" />
+          <div class="bbi-select-row">
+            <span class="bbi-field-label">分类</span>
+            <BbiSelect v-model="item.gender" :options="genericGenderOptions.map(option => ({value:option.value,label:option.label}))" aria-label="词组分类" />
+          </div>
+          <label class="bbi-field-label">正面词</label>
+          <textarea v-model="item.text" class="bbi-input" rows="3" placeholder="例如：slim waist, best quality"></textarea>
+          <label class="bbi-field-label">负面词</label>
+          <textarea v-model="item.negative" class="bbi-input" rows="2" placeholder="例如：extra fingers, bad anatomy"></textarea>
+        </div>
+        <button class="bbi-btn bbi-btn-primary bbi-btn-sm" type="button" @click="addGenericWordSet">添加词组</button>
       </Collapsible>
 
       <!-- 副 API:生成画图 tag 用的模型渠道(与柏宝书共享渠道列表) -->

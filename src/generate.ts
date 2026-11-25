@@ -30,6 +30,7 @@ import { generateNaiImage, naiRandomSeed, naiSupportsCharacterPrompts, type NaiI
 import { effectiveOrientation, parseSize, pickSize, type Orientation } from '@/backends/size';
 import { acquireNaiSlot } from '@/floor/genQueue';
 import { applyArtistProfileToNai } from '@/backends/shizhenArtistProfiles';
+import { applyGenericWords } from '@/backends/genericWords';
 import type { GenerationMeta } from '@/generationMeta';
 import { activeComfyPreset, activeNaiEndpoint, activeOrientationLock, effectiveComfyConn, effectiveNai, settings, type BackendId } from '@/state/settings';
 
@@ -206,6 +207,7 @@ export async function generateImage(
 
   const isNai = status.backend === 'nai';
   if (input.imageEdit && !isNai) throw new Error('图生图与局部重绘目前仅支持 NAI 后端');
+  input = applyGenericWords(input, settings.genericWords);
   const characters = input.characters ?? [];
   // 支持与否由后端说了算:ComfyUI 恒不支持;NAI 看模型是否 4.5/V5
   const charactersApplied = characters.length > 0 && status.supportsCharacters;
