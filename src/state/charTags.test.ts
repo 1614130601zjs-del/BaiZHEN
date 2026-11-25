@@ -248,7 +248,8 @@ describe('Shizhen work library tag fallback', () => {
     libraries.works = [{ id: 'work-test', name: '阿黛尔|Adele', canonical: 'adele (series alpha)', work: '作品甲' }];
     try {
       const fields = { ...emptyCharFields(), sex: '1girl' };
-      expect(buildEntryTag({ name: 'Adele', fields, raw: '' })).toBe('adele (series alpha), 1girl');\n      expect(buildEntryTag({ name: '阿黛尔|Adele', fields, raw: '' })).toBe('adele (series alpha), 1girl');
+      expect(buildEntryTag({ name: 'Adele', fields, raw: '' })).toBe('adele (series alpha), 1girl');
+      expect(buildEntryTag({ name: '阿黛尔|Adele', fields, raw: '' })).toBe('adele (series alpha), 1girl');
       expect(buildEntryTag({ name: 'Adele', fields: { ...fields, fandom: 'manual (tag)' }, raw: '' })).toBe('manual (tag), 1girl');
       expect(buildEntryTag({ name: '陌生角色', fields, raw: '' })).toBe('1girl');
     } finally {

@@ -166,7 +166,9 @@ export function buildEntryTag(entry: Pick<CharTagEntry, 'fields' | 'raw'> & { na
   // 用户手工填写始终优先，词库缺失或尚未加载时不改变旧行为。
   if (!fields.fandom?.trim() && entry.name) {
     initLibraries();
-    fields.fandom = entry.name.split(/[|｜/／;；]/).map(name => name.trim()).filter(Boolean)\n      .map(name => findWorkEntry(libraries.works, name)?.canonical)\n      .find(Boolean) ?? '';
+    fields.fandom = entry.name.split(/[|｜/／;；]/).map(name => name.trim()).filter(Boolean)
+      .map(name => findWorkEntry(libraries.works, name)?.canonical)
+      .find(Boolean) ?? '';
   }
   return CHAR_TAG_FIELDS.map(field => (fields[field] ?? '').trim())
     .filter(Boolean)
