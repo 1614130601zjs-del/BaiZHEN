@@ -122,6 +122,41 @@ async function setOrbShake(event: Event): Promise<void> {
   ui.orbShake = enabled;
 }
 
+
+const orbIconFile = ref<HTMLInputElement | null>(null);
+const orbUploadStatus = ref('');
+async function uploadOrbIcon(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { orbUploadStatus.value = '请选择图片文件。'; return; }
+  if (file.size > 10 * 1024 * 1024) { orbUploadStatus.value = '图片不能超过 10MB。'; return; }
+  try {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('读取图片失败'));
+      reader.readAsDataURL(file);
+    });
+    const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+    const context = getContext();
+    if (!context) throw new Error('酒馆上下文不可用');
+    const ext = ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/avif': 'avif' } as Record<string, string>)[file.type] || 'img';
+    const response = await fetch('/api/files/upload', {
+      method: 'POST',
+      headers: context.getRequestHeaders(),
+      body: JSON.stringify({ name: `bbi_orb_${Date.now().toString(36)}.${ext}`, data: base64 }),
+    });
+    if (!response.ok) throw new Error(`上传失败（HTTP ${response.status}）`);
+    const result = await response.json() as { path?: string };
+    if (!result.path) throw new Error('服务器没有返回图片路径');
+    ui.orbImage = '/' + result.path.replace(/^\\/+/, '').split('/').map(encodeURIComponent).join('/');
+    orbUploadStatus.value = '图标已上传并应用。';
+  } catch (error) {
+    orbUploadStatus.value = error instanceof Error ? error.message : String(error);
+  }
+}
 /* —— 渠道:列表只读展示,编辑/新建都在弹窗里进行,避免一长列表平铺误触。
    渠道列表与柏宝书共享(见 state/settings.ts 的共享存储),任一端改动自动同步。 —— */
 // editingId:正在编辑的「已有渠道」id;新建时为 null。仅用于「完成」时定位写回目标。
