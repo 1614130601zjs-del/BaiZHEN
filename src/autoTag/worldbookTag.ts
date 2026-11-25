@@ -97,7 +97,7 @@ export async function fetchTriggeredWorldInfo(
 ): Promise<string> {
   try {
     // @ts-expect-error SillyTavern exposes this runtime module; it is not part of the extension package.
-    const worldInfoModule = await import('/scripts/world-info.js');
+    const worldInfoModule = await import(/* @vite-ignore */ '/scripts/world-info.js');
     const checkWorldInfo = worldInfoModule?.checkWorldInfo;
     if (typeof checkWorldInfo !== 'function') return '';
     const result = await checkWorldInfo([description.trim()], 1_000_000_000, true);
