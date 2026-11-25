@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import BbiTextarea from '@/components/BbiTextarea.vue';
 import Icon from '@/components/Icon.vue';
 import { requestViaMainApi } from '@/api/client';
-import { collectWorldInfoText, buildWorldbookTagMessages, cleanWorldbookTagOutput } from '@/autoTag/worldbookTag';
+import { fetchTriggeredWorldInfo, buildWorldbookTagMessages, cleanWorldbookTagOutput } from '@/autoTag/worldbookTag';
 import { getContext } from '@/st/context';
 
 const description = ref('');
@@ -12,6 +12,7 @@ const status = ref('');
 const loading = ref(false);
 const useWorldInfo = ref(true);
 const worldNames = ref<string[]>([]);
+const excludedWorlds = ref<string[]>([]);
 const hasWorldInfoApi = computed(() => typeof getContext()?.getWorldInfoPrompt === 'function');
 const canConvert = computed(() => !!description.value.trim() && !loading.value);
 
@@ -27,15 +28,7 @@ async function convert() {
   try {
     const ctx = getContext();
     let worldInfo = '';
-    if (useWorldInfo.value && ctx?.getWorldInfoPrompt) {
-      try {
-        const activated = await ctx.getWorldInfoPrompt([description.value.trim()], 1_000_000_000, true);
-        worldInfo = collectWorldInfoText(activated);
-      } catch (error) {
-        status.value = '世界书读取失败，将仅使用输入描述继续转换…';
-        console.warn('[柏宝绘] 世界书转 Tag：读取世界书失败', error);
-      }
-    }
+    if (useWorldInfo.value) worldInfo = await fetchTriggeredWorldInfo(description.value, excludedWorlds.value);
     const messages = buildWorldbookTagMessages(description.value, worldInfo);
     const raw = await requestViaMainApi(messages, { source: '世界书转 Tag' });
     const cleaned = cleanWorldbookTagOutput(raw);
@@ -85,7 +78,11 @@ function applyToPrompt() {
       <span class="bbi-field-label">中文画面描述</span>
       <BbiTextarea v-model="description" :rows="7" placeholder="例如：雨夜的街道上，一名穿黑色风衣的女孩撑着透明雨伞，霓虹灯倒映在积水中……" />
     </label>
-    <label class="wb-toggle"><input v-model="useWorldInfo" type="checkbox" />参考本次描述触发的世界书（推荐）</label>
+    <label class="wb-toggle"><input v-model="useWorldInfo" type="checkbox" />参考本次描述实际触发的世界书（按拾帧规则扫描）</label>
+    <div v-if="useWorldInfo && worldNames.length" class="wb-exclusions">
+      <span class="bbi-field-label">排除不参与转换的世界书</span>
+      <label v-for="name in worldNames" :key="name" class="wb-toggle"><input v-model="excludedWorlds" type="checkbox" :value="name" />{{ name }}</label>
+    </div>
     <div class="wb-actions">
       <button class="bbi-btn bbi-btn-primary" type="button" :disabled="!canConvert" @click="convert"><Icon name="prompt" />{{ loading ? '转换中…' : '转换为 Tag' }}</button>
       <button class="bbi-btn" type="button" :disabled="!description.trim()" @click="description = ''; result = ''; status = ''">清空描述</button>
@@ -105,5 +102,5 @@ function applyToPrompt() {
 <style scoped>
 .wb-info{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0;color:var(--bbi-ink-soft);font-size:12px}
 .wb-toggle{display:flex;gap:8px;align-items:center;margin:12px 0;color:var(--bbi-ink)}
-.wb-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.wb-exclusions{display:grid;gap:6px;margin:12px 0;padding:12px;border:1px solid var(--bbi-line);border-radius:10px}\n.wb-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
 </style>

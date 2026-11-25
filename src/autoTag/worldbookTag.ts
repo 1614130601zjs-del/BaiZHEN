@@ -57,3 +57,58 @@ export function cleanWorldbookTagOutput(value: string): string {
     .replace(/(?:,\s*){2,}/g, ', ')
     .trim();
 }
+
+export interface ActivatedWorldInfoEntry {
+  world?: string;
+  uid?: string | number;
+  comment?: string;
+  content?: string;
+}
+export function collectActivatedWorldInfo(
+  activated: Iterable<ActivatedWorldInfoEntry>,
+  substitute: (value: string) => string = value => value,
+  excludedWorlds: string[] = [],
+  excludedEntryKeys: string[] = [],
+): string {
+  const excludedBooks = new Set(excludedWorlds);
+  const excludedEntries = new Set(excludedEntryKeys);
+  const seen = new Set<string>();
+  const chunks: string[] = [];
+  const autoSkip = /彩蛋|自检|末尾提醒|小标题|使用说明|^主体|名字外貌|画面与格式|镜头可见性|视线规则|^tag头$|^tag尾$/;
+  for (const entry of activated) {
+    if (!entry) continue;
+    const world = String(entry.world || '').trim();
+    const uid = entry.uid == null ? '' : String(entry.uid);
+    if (world && excludedBooks.has(world)) continue;
+    if (world && uid && excludedEntries.has(world + '::' + uid)) continue;
+    if (autoSkip.test(String(entry.comment || ''))) continue;
+    let content = substitute(String(entry.content || '')).trim();
+    const cutAt = content.search(/(^|\n)#{1,3}\s*输出格式/);
+    if (cutAt >= 0) content = content.slice(0, cutAt).trim();
+    if (content && !seen.has(content)) { seen.add(content); chunks.push(content); }
+  }
+  return chunks.join('\n\n').trim();
+}
+export async function fetchTriggeredWorldInfo(
+  description: string,
+  excludedWorlds: string[] = [],
+  excludedEntryKeys: string[] = [],
+): Promise<string> {
+  try {
+    // @ts-expect-error SillyTavern exposes this runtime module; it is not part of the extension package.
+    const worldInfoModule = await import('/scripts/world-info.js');
+    const checkWorldInfo = worldInfoModule?.checkWorldInfo;
+    if (typeof checkWorldInfo !== 'function') return '';
+    const result = await checkWorldInfo([description.trim()], 1_000_000_000, true);
+    const activated = result?.allActivatedEntries;
+    if (!activated) return '';
+    const entries: ActivatedWorldInfoEntry[] = activated instanceof Map
+      ? [...activated.values()]
+      : Array.isArray(activated) ? activated : [];
+    const context = (window as unknown as { SillyTavern?: { getContext?: () => { substituteParams?: (value: string) => string } } }).SillyTavern?.getContext?.();
+    return collectActivatedWorldInfo(entries, value => context?.substituteParams?.(value) ?? value, excludedWorlds, excludedEntryKeys);
+  } catch (error) {
+    console.warn('[柏宝绘] 世界书触发扫描失败，将不附加世界书参考', error);
+    return '';
+  }
+}

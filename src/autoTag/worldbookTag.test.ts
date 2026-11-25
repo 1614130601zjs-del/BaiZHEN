@@ -3,6 +3,7 @@ import {
   buildWorldbookTagMessages,
   cleanWorldbookTagOutput,
   collectWorldInfoText,
+  collectActivatedWorldInfo,
 } from '@/autoTag/worldbookTag';
 
 describe('worldbook to tag conversion', () => {
@@ -14,6 +15,17 @@ describe('worldbook to tag conversion', () => {
       anBefore: ['author note'],
       worldInfoDepth: [{ entries: ['depth entry'] }],
     })).toBe('before\n\nafter\n\nauthor note\n\ndepth entry');
+  });
+
+  it('filters triggered entries using Shizhen-compatible exclusions and skips unrelated sections', () => {
+    const text = collectActivatedWorldInfo([
+      { world: '设定A', uid: 1, comment: '角色设定', content: '角色设定正文' },
+      { world: '设定A', uid: 2, comment: '彩蛋规则', content: '不应出现' },
+      { world: '设定B', uid: 3, comment: '服装', content: '服装正文\\n### 输出格式\\nimage###' },
+      { world: '设定C', uid: 4, comment: '补充', content: '排除整本' },
+      { world: '设定A', uid: 5, comment: '补充', content: '排除单条' },
+    ], value => value, ['设定C'], ['设定A::5']);
+    expect(text).toBe('角色设定正文\\n\\n服装正文');
   });
 
   it('builds an isolated conversion request and treats world info as reference', () => {
