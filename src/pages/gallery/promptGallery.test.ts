@@ -26,3 +26,13 @@ describe('prompt gallery helpers', () => {
     expect(() => assignPromptGallery({}, ' ')).toThrow('提示词图集 ID 不能为空');
   });
 });
+
+import { matchPromptGalleryEntry } from '@/pages/gallery/promptGallery';
+describe('prompt gallery automatic matching', () => {
+ it('matches exact prompt text after wrapper and whitespace normalization', () => {
+  expect(matchPromptGalleryEntry('<bbi_image>blue hair, smiling</bbi_image>', [{id:'a',promptEn:'blue hair smiling'}])?.id).toBe('a');
+ });
+ it('does not match partial or similar prompt strings', () => {
+  expect(matchPromptGalleryEntry('blue hair smiling', [{id:'a',promptEn:'blue hair smiling with flowers'}])).toBeNull();
+ });
+});

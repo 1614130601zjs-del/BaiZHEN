@@ -51,3 +51,18 @@ export function removeFromPromptGallery(record: PromptGalleryRecord, promptId: s
   if (moveToCache) next.collection = 'cache';
   return next;
 }
+
+export interface PromptGalleryLibraryEntry { id: string; promptEn?: string; prompt?: string }
+function normalizeGalleryPrompt(value: string): string {
+  return String(value || '').replace(/<[^>]*>/g, ' ').replace(/\\b(?:bbi_image|image|prompt)\\b/gi, ' ')
+    .replace(/[\\s,，、/／|;；·]+/gu, ' ').trim().toLowerCase();
+}
+/** Exact normalized matching only; avoid automatically linking near-matching prompts. */
+export function matchPromptGalleryEntry(
+  promptText: string,
+  entries: PromptGalleryLibraryEntry[],
+): PromptGalleryLibraryEntry | null {
+  const target = normalizeGalleryPrompt(promptText);
+  if (!target) return null;
+  return entries.find(entry => normalizeGalleryPrompt(entry.promptEn || entry.prompt || '') === target) || null;
+}
