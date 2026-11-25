@@ -22,7 +22,8 @@ const canConvert = computed(() => !!description.value.trim() && !loading.value);
 
 onMounted(async () => {
   const ctx = getContext();
-  hydrateCharTags();\n  worldNames.value = await fetchScopedWorldNames();
+  hydrateCharTags();
+  worldNames.value = await fetchScopedWorldNames();
   if (!worldNames.value.length) worldNames.value = ctx?.getWorldInfoNames?.() ?? [];
   if (!ctx?.loadWorldInfo) return;
   const loaded = await Promise.allSettled(worldNames.value.map(async world => {
