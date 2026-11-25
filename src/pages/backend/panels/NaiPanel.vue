@@ -1423,16 +1423,14 @@ async function removeVibe(vibe: NaiVibe) {
         </div>
         <p class="bbi-field-hint">步数是生成图像的迭代次数。Scale 控制模型跟随提示词的强度，Rescale 可缓和较高引导值带来的失真。种子设为 0 时每次随机，填固定值便于对比改动。</p>
 
-        <template v-if="varietyBoostSupported">
-          <label class="bbi-switch-row">
-            <span class="bbi-field-label">画面多样性（Variety Boost）</span>
-            <input v-model="settings.nai.varietyBoost" type="checkbox" class="bbi-checkbox" aria-describedby="nai-variety-boost-hint" />
-            <span class="bbi-check-state">{{ settings.nai.varietyBoost ? '✓ 已开启' : '已关闭' }}</span>
-          </label>
-          <p id="nai-variety-boost-hint" class="bbi-field-hint">
-            开启后，模型在生成后半程才加强提示词引导。用同一提示词多次出图时，构图可以更多样。
-          </p>
-        </template>
+        <label class="bbi-switch-row">
+          <span class="bbi-field-label">画面多样性（Variety+）</span>
+          <input v-model="settings.nai.varietyBoost" type="checkbox" class="bbi-checkbox" :disabled="!varietyBoostSupported" aria-describedby="nai-variety-boost-hint" />
+          <span class="bbi-check-state">{{ varietyBoostSupported ? (settings.nai.varietyBoost ? '✓ 已开启' : '已关闭') : '当前模型不支持' }}</span>
+        </label>
+        <p id="nai-variety-boost-hint" class="bbi-field-hint" :class="{ 'is-muted': !varietyBoostSupported }">
+          {{ varietyBoostSupported ? '开启后，模型在生成前段先自由发挥构图，后段再加强提示词引导。数值会按模型版本和画面尺寸自动计算。' : 'NAI V5 不支持 Variety+，切换到 V3、V4 或 V4.5 后可使用。' }}
+        </p>
 
         <label class="bbi-switch-row">
           <span class="bbi-field-label">漫画页模式（仅 V5）</span>
@@ -2222,6 +2220,9 @@ async function removeVibe(vibe: NaiVibe) {
 .vibe-normalize {
   margin-left: auto;
 }
+.bbi-check-state { font-size: 11px; color: var(--bbi-ink-muted); white-space: nowrap; }
+.bbi-check-state.is-on { color: var(--bbi-accent); }
+.is-muted { opacity: .5; }
 .vibe-item {
   display: flex;
   gap: 10px;
