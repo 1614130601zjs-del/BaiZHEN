@@ -84,7 +84,7 @@ describe('work-library identity fallback in character refs', () => {
       const result = applyCharRefs('@小雪, smiling', [entry('小雪', { sex: '1girl' })]);
       const aliasResult = applyCharRefs('@Cloud, smiling', [entry('克劳德|Cloud', { sex: '1boy' })]);
       expect(result.text).toBe('snow_girl (winter_story), 1girl, smiling');
-      expect(aliasResult.text).toBe('snow_girl (winter_story), 1boy, smiling');
+      expect(aliasResult.text).toBe('cloud_strife (final fantasy vii), 1boy, smiling');
     } finally {
       libraries.works.splice(0, libraries.works.length, ...previous);
     }
