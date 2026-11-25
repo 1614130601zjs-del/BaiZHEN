@@ -124,7 +124,6 @@ function onJellyPointerUp(event: PointerEvent): void {
   if (!p || p.id !== event.pointerId) return;
   jellyPointer = null;
   try { (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId); } catch { /* already released */ }
-  suppressClick = true;
   if (!p.moved && Date.now() - p.time < 450) jellyPress();
   else if (p.moved) {
     jellyVelocity.sx -= (jellyTransform.value.sx - 1) * 0.35;
@@ -146,6 +145,7 @@ let suppressClick = false;
 
 /** 点击切换缩放;放大时把点击点滚到视口中央(点哪看哪)。 */
 async function onImageClick(event: MouseEvent): Promise<void> {
+  if (jellyEnabled.value && !zoomed.value) return;
   if (suppressClick) {
     suppressClick = false;
     return;
