@@ -28,7 +28,7 @@ async function convert() {
   try {
     const ctx = getContext();
     let worldInfo = '';
-    if (useWorldInfo.value) worldInfo = await fetchTriggeredWorldInfo(description.value, excludedWorlds.value);
+    if (useWorldInfo.value) worldInfo = await fetchTriggeredWorldInfo(description.value, excludedWorlds.value, [], value => ctx?.substituteParams?.(value) ?? value);
     const messages = buildWorldbookTagMessages(description.value, worldInfo);
     const raw = await requestViaMainApi(messages, { source: '世界书转 Tag' });
     const cleaned = cleanWorldbookTagOutput(raw);

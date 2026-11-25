@@ -93,6 +93,7 @@ export async function fetchTriggeredWorldInfo(
   description: string,
   excludedWorlds: string[] = [],
   excludedEntryKeys: string[] = [],
+  substitute: (value: string) => string = value => value,
 ): Promise<string> {
   try {
     // @ts-expect-error SillyTavern exposes this runtime module; it is not part of the extension package.
@@ -105,8 +106,7 @@ export async function fetchTriggeredWorldInfo(
     const entries: ActivatedWorldInfoEntry[] = activated instanceof Map
       ? [...activated.values()]
       : Array.isArray(activated) ? activated : [];
-    const context = (window as unknown as { SillyTavern?: { getContext?: () => { substituteParams?: (value: string) => string } } }).SillyTavern?.getContext?.();
-    return collectActivatedWorldInfo(entries, value => context?.substituteParams?.(value) ?? value, excludedWorlds, excludedEntryKeys);
+    return collectActivatedWorldInfo(entries, substitute, excludedWorlds, excludedEntryKeys);
   } catch (error) {
     console.warn('[柏宝绘] 世界书触发扫描失败，将不附加世界书参考', error);
     return '';
