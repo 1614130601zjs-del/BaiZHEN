@@ -25,7 +25,7 @@ describe('worldbook to tag conversion', () => {
       { world: '设定C', uid: 4, comment: '补充', content: '排除整本' },
       { world: '设定A', uid: 5, comment: '补充', content: '排除单条' },
     ], value => value, ['设定C'], ['设定A::5']);
-    expect(text).toBe('角色设定正文\\n\\n服装正文');
+    expect(text).toBe('角色设定正文\n\n服装正文');
   });
 
   it('builds an isolated conversion request and treats world info as reference', () => {

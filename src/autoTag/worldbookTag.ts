@@ -82,8 +82,8 @@ export function collectActivatedWorldInfo(
     if (world && excludedBooks.has(world)) continue;
     if (world && uid && excludedEntries.has(world + '::' + uid)) continue;
     if (autoSkip.test(String(entry.comment || ''))) continue;
-    let content = substitute(String(entry.content || '')).trim();
-    const cutAt = content.search(/(^|\n)#{1,3}\s*输出格式/);
+    let content = substitute(String(entry.content || '')).replace(/\\\\r?\\\\n/g, '\n').trim();
+    const cutAt = content.search(/(?:^|\n)#{1,3}\s*输出格式/);
     if (cutAt >= 0) content = content.slice(0, cutAt).trim();
     if (content && !seen.has(content)) { seen.add(content); chunks.push(content); }
   }
