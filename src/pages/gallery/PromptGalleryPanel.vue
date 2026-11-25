@@ -16,6 +16,8 @@ const open = ref(false);
 const selectedPromptId = ref('');
 const membership = ref<PromptGalleryMembershipStore>({});
 const scanning = ref(false);
+const showOnlyLinked = ref(true);
+const visibleImages = computed(() => showOnlyLinked.value ? galleryImages.value : props.images);
 const scanStatus = ref('');
 const promptEntries = computed(() => libraries.prompts);
 const selectedPrompt = computed(() => promptEntries.value.find(item => item.id === selectedPromptId.value));
@@ -84,15 +86,16 @@ async function autoCollect() {
         <button class="bbi-btn bbi-btn-sm" type="button" :disabled="!selectedPromptId || scanning || !props.images.length" @click="autoCollect"><Icon name="refresh" />{{ scanning ? '匹配中…' : '自动精确归集' }}</button>
       </div>
       <p v-if="selectedPrompt" class="pg-description">{{ selectedPrompt.promptEn }}</p>
+      <button v-if="selectedPromptId" class="bbi-btn bbi-btn-sm pg-filter" type="button" @click="showOnlyLinked = !showOnlyLinked">{{ showOnlyLinked ? '显示全部可添加图片' : '只显示已收录' }}</button>
       <p v-if="scanStatus" class="pg-status" role="status">{{ scanStatus }}</p>
       <div v-if="selectedPromptId" class="pg-grid">
-        <button v-for="image in props.images" :key="image.key" class="pg-thumb" type="button" :class="{ linked: imageInPromptGallery(membership, image.key, selectedPromptId) }" :title="imageInPromptGallery(membership, image.key, selectedPromptId) ? '点击移出图集' : '点击加入图集'" @click="toggleImage(image)">
+        <button v-for="image in visibleImages" :key="image.key" class="pg-thumb" type="button" :class="{ linked: imageInPromptGallery(membership, image.key, selectedPromptId) }" :title="imageInPromptGallery(membership, image.key, selectedPromptId) ? '点击移出图集' : '点击加入图集'" @click="toggleImage(image)">
           <img :src="image.src" loading="lazy" />
           <span>{{ imageInPromptGallery(membership, image.key, selectedPromptId) ? '已收录 · 点击移出' : '点击加入' }}</span>
         </button>
       </div>
       <p v-else class="pg-empty">先选择素材库中的一条提示词，下面可手动加入/移出图片。</p>
-      <p v-if="selectedPromptId" class="pg-count">当前图集 {{ galleryImages.length }} 张 · 当前角色图库共 {{ props.images.length }} 张</p>
+      <p v-if="selectedPromptId" class="pg-count">当前图集 {{ galleryImages.length }} 张 · {{ showOnlyLinked ? "已收录视图" : "全部图片视图" }}</p>
     </section>
   </div>
 </template>
@@ -102,7 +105,7 @@ async function autoCollect() {
 .pg-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px}
 .pg-hint,.pg-description,.pg-status,.pg-empty,.pg-count{font-size:12px;color:var(--bbi-ink-soft);margin:5px 0}
 .pg-body{padding:10px;border-top:1px solid var(--bbi-line)}
-.pg-controls{display:flex;gap:8px;flex-wrap:wrap}.pg-controls select{flex:1;min-width:180px}
+.pg-controls{display:flex;gap:8px;flex-wrap:wrap}.pg-controls select{flex:1;min-width:180px}.pg-filter{margin:7px 0}
 .pg-description{white-space:pre-wrap;overflow-wrap:anywhere}
 .pg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:7px;margin-top:9px}
 .pg-thumb{position:relative;padding:0;border:1px solid var(--bbi-line);border-radius:var(--bbi-radius-sm);overflow:hidden;background:var(--bbi-surface-2);cursor:pointer}
