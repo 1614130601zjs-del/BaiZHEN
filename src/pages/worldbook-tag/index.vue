@@ -47,7 +47,16 @@ async function convert() {
     const ctx = getContext();
     let worldInfo = '';
     if (useWorldInfo.value) worldInfo = await fetchTriggeredWorldInfo(description.value, excludedWorlds.value, excludedEntries.value, value => ctx?.substituteParams?.(value) ?? value);
-    const roles = buildRoleReferenceText(description.value, charTagLib.entries.map(entry => ({\n      name: entry.name,\n      fandom: entry.fields.fandom,\n      raw: entry.raw,\n    })));\n    const references = [worldInfo, roles].filter(Boolean).join('\\n\\n');\n    const messages = buildWorldbookTagMessages(description.value, references);
+    const roles = buildRoleReferenceText(
+      description.value,
+      charTagLib.entries.map(entry => ({
+        name: entry.name,
+        fandom: entry.fields.fandom,
+        raw: entry.raw,
+      })),
+    );
+    const references = [worldInfo, roles].filter(Boolean).join('\n\n');
+    const messages = buildWorldbookTagMessages(description.value, references);
     const channel = getTagGenChannel();
     const raw = channel
       ? await requestCompletion(channel, messages, { source: '中文转 Tag' })
