@@ -253,12 +253,18 @@ export function applyCharRefs(
   entries: CharTagEntry[],
   mode: 'tag' | 'nl' = 'tag',
 ): { text: string; unknown: string[] } {
-  const byName = new Map(entries.map(e => [e.name, e]));
+  const byName = new Map<string, CharTagEntry>();
+  for (const entry of entries) {
+    for (const alias of entry.name.split(/[|｜/／;；]/).map(name => name.trim()).filter(Boolean)) {
+      const key = alias.toLocaleLowerCase();
+      if (!byName.has(key)) byName.set(key, entry);
+    }
+  }
   const unknown: string[] = [];
   const seen = new Set<string>();
   const replaced = text.replace(REF_PATTERN, (full, name: string) => {
     if (REF_RESERVED.has(name)) return full; // 漫画页分段标记,原样保留
-    const entry = byName.get(name);
+    const entry = byName.get(name.trim().toLocaleLowerCase());
     if (entry) {
       if (mode === 'nl' && entry.nl.trim()) return entry.nl.trim();
       return joinEntryTag(entry);
