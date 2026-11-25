@@ -16,7 +16,7 @@ describe('applyGenericWords', () => {
   it('applies a single gender and common group to the base prompt', () => {
     const result = applyGenericWords({ prompt: '1girl' }, config());
     expect(result.prompt).toBe('1girl, slim waist, masterpiece');
-    expect(result.negative).toBe('bad anatomy, low quality');
+    expect(result.negative).toBe('low quality, bad anatomy');
   });
   it('adds gender words to each character for mixed-gender scenes', () => {
     const result = applyGenericWords({ prompt: '2people', characters: [
