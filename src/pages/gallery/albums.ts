@@ -36,8 +36,8 @@ export function normalizeGalleryAlbums(value: unknown): GalleryAlbumsState {
       imageKeys,
       ...(typeof record.coverKey === 'string' && record.coverKey ? { coverKey: record.coverKey } : {}),
       ...(typeof record.coverData === 'string' && record.coverData.startsWith('data:image/') ? { coverData: record.coverData } : {}),
-      createdAt: Number.isFinite(record.createdAt) ? Number(record.createdAt) : 0,
-      updatedAt: Number.isFinite(record.updatedAt) ? Number(record.updatedAt) : 0,
+      createdAt: typeof record.createdAt === 'number' && Number.isFinite(record.createdAt) ? record.createdAt : 0,
+      updatedAt: typeof record.updatedAt === 'number' && Number.isFinite(record.updatedAt) ? record.updatedAt : 0,
     });
   }
   return { version: 1, albums };
