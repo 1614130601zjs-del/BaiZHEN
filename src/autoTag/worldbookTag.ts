@@ -1,5 +1,7 @@
 import type { ChatMsg } from '@/api/client';
 
+const runtimeWorldInfoPath = '/scripts/world-info.js';
+
 export const WORLDBOOK_TAG_SYSTEM = [
   '你是中文画面描述到 Danbooru 风格生图 Tag 的转换器。',
   '只输出一行 tag，不要解释、标题、代码块或引号。Tag 使用英文逗号加空格分隔；英文小写，多词短语用空格，不要下划线。',
@@ -100,7 +102,7 @@ export async function fetchScopedWorldNames(): Promise<string[]> {
   } catch { /* character binding is optional */ }
   try {
     // @ts-expect-error SillyTavern runtime module, intentionally resolved by the host at runtime.
-    const module = await import(/* @vite-ignore */ '/scripts/world-info.js');
+    const module = await import(/* @vite-ignore */ runtimeWorldInfoPath);
     const globalSelect = module?.world_info?.globalSelect;
     if (Array.isArray(globalSelect)) {
       for (const name of globalSelect) if (typeof name === 'string' && name.trim()) names.add(name.trim());
