@@ -121,6 +121,46 @@ export function replaceRoleRosterTokens(
     .replace(/\{\{(?:柏宝绘|拾帧)角色名单\}\}/g, roster);
 }
 
+export interface ActivatedWorldInfoEntry {
+  world?: string;
+  uid?: string | number;
+  comment?: string;
+  content?: string;
+}
+
+export function collectActivatedWorldInfo(
+  activated: Iterable<ActivatedWorldInfoEntry>,
+  substitute: (value: string) => string = value => value,
+  excludedWorlds: string[] = [],
+  excludedEntryKeys: string[] = [],
+): string {
+  const excludedBooks = new Set(excludedWorlds);
+  const excludedEntries = new Set(excludedEntryKeys);
+  const seen = new Set<string>();
+  const chunks: string[] = [];
+  const autoSkip = /彩蛋|自检|末尾提醒|小标题|使用说明|^主体|名字外貌|画面与格式|镜头可见性|视线规则|^tag头$|^tag尾$/;
+  for (const entry of activated) {
+    if (!entry) continue;
+    const world = String(entry.world || '').trim();
+    const uid = entry.uid == null ? '' : String(entry.uid);
+    if (world && excludedBooks.has(world)) continue;
+    if (world && uid && excludedEntries.has(world + '::' + uid)) continue;
+    if (autoSkip.test(String(entry.comment || ''))) continue;
+    let body = substitute(String(entry.content || ''))
+      .replace(/\\r\\n/g, '\n')
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '\n')
+      .trim();
+    const cutAt = body.search(/(?:^|\n)#{1,3}\s*输出格式/);
+    if (cutAt >= 0) body = body.slice(0, cutAt).trim();
+    if (body && !seen.has(body)) {
+      seen.add(body);
+      chunks.push(body);
+    }
+  }
+  return chunks.join('\n\n').trim();
+}
+
 export async function fetchScopedWorldNames(): Promise<string[]> {
   const ctx = (await import('@/st/context')).getContext();
   const names = new Set<string>();
