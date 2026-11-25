@@ -14,6 +14,7 @@ import { ARTIST_PREVIEW_FOLDER, listUserImageFolders, listUserImages, probeUserI
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { canExportGalleryToDirectory, exportGalleryImages, pickGalleryExportDirectory } from './export';
 import PromptGalleryPanel from './PromptGalleryPanel.vue';
+import { assignImagesToGalleryAlbum, createGalleryAlbum, deleteGalleryAlbum, loadGalleryAlbums, removeImagesFromGalleryAlbum, renameGalleryAlbum, saveGalleryAlbums, setGalleryAlbumCover, type GalleryAlbum } from './albums';
 
 /**
  * 图库页 —— 按角色名分组浏览已生成的图片（GALLERY-STORAGE-DESIGN.md）。
@@ -71,6 +72,70 @@ const error = ref('');
 /** 部分目录读取失败的条数:整页不失败,但要如实说明少了几组。 */
 const partialFailed = ref(0);
 const query = ref('');
+const galleryAlbums = ref(loadGalleryAlbums());
+const activeAlbumId = ref('');
+const albumImages = computed(() => {
+  const album = galleryAlbums.value.albums.find(item => item.id === activeAlbumId.value);
+  if (!album) return [];
+  const byKey = new Map(groups.value.flatMap(group => group.images.map(image => [image.key, image] as const)));
+  return album.imageKeys.map(key => byKey.get(key)).filter((image): image is GalleryImage => Boolean(image));
+});
+function albumCoverSrc(album: GalleryAlbum): string {
+  if (album.coverData) return album.coverData;
+  const all = groups.value.flatMap(group => group.images);
+  const cover = album.coverKey ? all.find(image => image.key === album.coverKey) : undefined;
+  return cover?.src || album.imageKeys.map(key => all.find(image => image.key === key)?.src).find(Boolean) || '';
+}
+function persistAlbums(next: ReturnType<typeof loadGalleryAlbums>): void {
+  galleryAlbums.value = next;
+  if (!saveGalleryAlbums(next)) toastr.warning('相册组织数据未能保存到本地存储。', '柏宝绘');
+}
+function createAlbum(): void {
+  const name = window.prompt('新建相册名称')?.trim();
+  if (!name) return;
+  const next = createGalleryAlbum(galleryAlbums.value, name);
+  if (next === galleryAlbums.value) { toastr.info('相册名称为空或已存在。', '柏宝绘'); return; }
+  persistAlbums(next);
+}
+function renameAlbum(album: GalleryAlbum): void {
+  const name = window.prompt('修改相册名称', album.name)?.trim();
+  if (!name || name === album.name) return;
+  const next = renameGalleryAlbum(galleryAlbums.value, album.id, name);
+  if (next === galleryAlbums.value) { toastr.info('相册名称为空或已存在。', '柏宝绘'); return; }
+  persistAlbums(next);
+}
+async function removeAlbum(album: GalleryAlbum): Promise<void> {
+  const ok = await confirmDialog({ title: '删除相册', text: '删除「' + album.name + '」相册？图片文件不会删除，只会解除相册归属。', confirmText: '删除', tone: 'danger' });
+  if (!ok) return;
+  persistAlbums(deleteGalleryAlbum(galleryAlbums.value, album.id));
+  if (activeAlbumId.value === album.id) activeAlbumId.value = '';
+}
+function moveSelectedToAlbum(albumId: string): void {
+  const keys = [...selected.value];
+  if (!keys.length || !albumId) return;
+  let next = galleryAlbums.value;
+  for (const album of next.albums) next = removeImagesFromGalleryAlbum(next, album.id, keys);
+  next = assignImagesToGalleryAlbum(next, albumId, keys);
+  persistAlbums(next);
+  selected.value = new Set();
+  selecting.value = false;
+  toastr.success('已移动 ' + keys.length + ' 张图片到相册。', '柏宝绘');
+}
+function removeSelectedFromAlbum(): void {
+  if (!activeAlbumId.value || !selected.value.size) return;
+  persistAlbums(removeImagesFromGalleryAlbum(galleryAlbums.value, activeAlbumId.value, [...selected.value]));
+  selected.value = new Set();
+  selecting.value = false;
+}
+function setSelectedAsAlbumCover(album: GalleryAlbum): void {
+  const key = [...selected.value][0];
+  if (!key) return;
+  persistAlbums(setGalleryAlbumCover(galleryAlbums.value, album.id, key));
+  selected.value = new Set();
+  selecting.value = false;
+  toastr.success('相册封面已设置。', '柏宝绘');
+}
+
 
 /**
  * 静态路由 /user/images/* 服务端做 decodeURIComponent(users.js createRouteHandler),
@@ -602,6 +667,35 @@ async function open(image: GalleryImage): Promise<void> {
 
     <PromptGalleryPanel :images="promptGalleryImages" />
 
+    <section class="gal-album-manager" aria-label="自定义相册管理">
+      <div class="gal-album-heading"><strong>自定义相册</strong><span>{{ galleryAlbums.albums.length }} 个</span><button class="bbi-btn bbi-btn-sm" type="button" @click="createAlbum">＋ 新建</button></div>
+      <div v-if="activeAlbumId" class="gal-album-openbar">
+        <button class="bbi-btn bbi-btn-sm" type="button" @click="activeAlbumId = ''; selected = new Set(); selecting = false">← 返回相册列表</button>
+        <strong>{{ galleryAlbums.albums.find(item => item.id === activeAlbumId)?.name }}</strong><span>{{ albumImages.length }} 张</span>
+      </div>
+      <div v-else-if="galleryAlbums.albums.length" class="gal-album-shelf">
+        <article v-for="album in galleryAlbums.albums" :key="album.id" class="gal-album-card">
+          <button class="gal-album-cover" type="button" @click="activeAlbumId = album.id; query = '';" :title="'打开' + album.name">
+            <img v-if="albumCoverSrc(album)" :src="albumCoverSrc(album)" alt="">
+            <span v-else class="gal-album-cover-empty">ALBUM</span>
+          </button>
+          <strong>{{ album.name }}</strong><small>{{ album.imageKeys.length }} 张</small>
+          <div class="gal-album-actions"><button class="bbi-btn bbi-btn-sm" type="button" @click="renameAlbum(album)">改名</button><button class="bbi-btn bbi-btn-sm bbi-btn-danger" type="button" @click="removeAlbum(album)">删除</button></div>
+        </article>
+      </div>
+      <p v-else class="gal-state-inline">自定义相册可独立整理图片，不影响角色目录或原图文件。</p>
+      <div v-if="activeAlbumId" class="gal-album-images">
+        <p v-if="!albumImages.length" class="gal-state-inline">此相册为空，或图片文件已不存在。</p>
+        <ul v-else class="gal-grid">
+          <li v-for="image in albumImages" :key="image.key" class="gal-cell">
+            <button class="gal-thumb" :class="{ 'is-selectable': selecting, 'is-selected': selecting && selected.has(image.key) }" type="button" :disabled="exporting" @click="onThumbClick(image)">
+              <img class="gal-img" :src="image.src" :alt="image.file" loading="lazy"><span v-if="selecting" class="gal-check"><Icon v-if="selected.has(image.key)" name="check" :size="13" /></span>
+            </button>
+          </li>
+        </ul>
+      </div>
+    </section>
+
     <!-- 选择态操作条:紧跟工具条、sticky 吸顶。
          放这里而非列表末尾:呼出它的「选择」钮就在上一行,一按就看见(摆到底部的话,
          角色多时按下去屏幕上什么都不动,像没生效);吸顶又保证往下翻多久都还在。 -->
@@ -636,6 +730,13 @@ async function open(image: GalleryImage): Promise<void> {
         <Icon name="trash" />
         {{ deleting ? '删除中…' : '删除' }}
       </button>
+      <label class="gal-album-move">移动至相册
+        <select class="bbi-input" :value="''" @change="moveSelectedToAlbum(($event.target as HTMLSelectElement).value); ($event.target as HTMLSelectElement).value = ''" :disabled="!selectedCount || exporting">
+          <option value="">选择目标…</option><option v-for="album in galleryAlbums.albums" :key="album.id" :value="album.id">{{ album.name }}</option>
+        </select>
+      </label>
+      <button v-if="activeAlbumId" class="bbi-btn bbi-btn-sm" type="button" :disabled="!selectedCount || exporting" @click="removeSelectedFromAlbum">从本相册移除</button>
+      <button v-if="activeAlbumId && selectedCount === 1" class="bbi-btn bbi-btn-sm" type="button" :disabled="exporting" @click="setSelectedAsAlbumCover(galleryAlbums.albums.find(item => item.id === activeAlbumId)!)">设为封面</button>
       <p v-if="exportStatus || !directoryExportAvailable" class="gal-export-status" role="status">
         {{ exportStatus || '当前客户端无法选择导出目录，可在大图中单张保存。' }}
       </p>
@@ -751,6 +852,23 @@ async function open(image: GalleryImage): Promise<void> {
 </template>
 
 <style scoped>
+.gal-album-manager{margin:12px 0 16px;padding:12px;border:1px solid var(--bbi-border);border-radius:var(--bbi-radius-md);background:var(--bbi-surface)}
+.gal-album-heading,.gal-album-openbar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.gal-album-heading span,.gal-album-openbar span{font-size:12px;color:var(--bbi-ink-muted)}
+.gal-album-heading button{margin-left:auto}
+.gal-album-shelf{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.gal-album-card{display:flex;min-width:0;flex-direction:column;align-items:center;gap:5px;padding:8px;border:1px solid var(--bbi-border);border-radius:10px;background:var(--bbi-surface-2)}
+.gal-album-card strong{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.gal-album-card small{color:var(--bbi-ink-muted);font-size:11px}
+.gal-album-cover{width:100%;aspect-ratio:1;border:0;border-radius:7px;overflow:hidden;padding:0;background:var(--bbi-surface);cursor:pointer}
+.gal-album-cover img{width:100%;height:100%;object-fit:cover}
+.gal-album-cover-empty{display:grid;width:100%;height:100%;place-items:center;color:var(--bbi-ink-muted);font-size:12px}
+.gal-album-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
+.gal-album-images{margin-top:10px}
+.gal-album-move{display:flex;align-items:center;gap:6px;font-size:12px}
+.gal-album-move select{max-width:170px}
+@media(max-width:480px){.gal-album-shelf{grid-template-columns:repeat(2,minmax(0,1fr))}.gal-album-move{width:100%}}
+
 /* —— 题首右侧刷新 —— */
 .gal-icon-btn {
   flex: 0 0 auto;
