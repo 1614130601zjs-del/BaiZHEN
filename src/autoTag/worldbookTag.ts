@@ -89,6 +89,26 @@ export function collectActivatedWorldInfo(
   }
   return chunks.join('\n\n').trim();
 }
+export async function fetchScopedWorldNames(): Promise<string[]> {
+  const ctx = (await import('@/st/context')).getContext();
+  const names = new Set<string>();
+  try {
+    const characterId = ctx?.characterId;
+    const card = characterId == null ? undefined : ctx?.characters?.[Number(characterId)];
+    const characterWorld = card?.data?.extensions?.world;
+    if (typeof characterWorld === 'string' && characterWorld.trim()) names.add(characterWorld.trim());
+  } catch { /* character binding is optional */ }
+  try {
+    // @ts-expect-error SillyTavern runtime module, intentionally resolved by the host at runtime.
+    const module = await import(/* @vite-ignore */ '/scripts/world-info.js');
+    const globalSelect = module?.world_info?.globalSelect;
+    if (Array.isArray(globalSelect)) {
+      for (const name of globalSelect) if (typeof name === 'string' && name.trim()) names.add(name.trim());
+    }
+  } catch { /* older host versions may not expose the runtime module */ }
+  return [...names];
+}
+
 export async function fetchTriggeredWorldInfo(
   description: string,
   excludedWorlds: string[] = [],
@@ -103,9 +123,12 @@ export async function fetchTriggeredWorldInfo(
     const result = await checkWorldInfo([description.trim()], 1_000_000_000, true);
     const activated = result?.allActivatedEntries;
     if (!activated) return '';
-    const entries: ActivatedWorldInfoEntry[] = activated instanceof Map
-      ? [...activated.values()]
-      : Array.isArray(activated) ? activated : [];
+    let entries: ActivatedWorldInfoEntry[] = [];
+    if (activated instanceof Map) entries = [...activated.values()] as ActivatedWorldInfoEntry[];
+    else if (Array.isArray(activated)) entries = activated as ActivatedWorldInfoEntry[];
+    else if (typeof activated?.[Symbol.iterator] === 'function') {
+      entries = [...activated] as ActivatedWorldInfoEntry[];
+    }
     return collectActivatedWorldInfo(entries, substitute, excludedWorlds, excludedEntryKeys);
   } catch (error) {
     console.warn('[柏宝绘] 世界书触发扫描失败，将不附加世界书参考', error);

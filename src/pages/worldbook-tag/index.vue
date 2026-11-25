@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import BbiTextarea from '@/components/BbiTextarea.vue';
 import Icon from '@/components/Icon.vue';
 import { requestViaMainApi } from '@/api/client';
-import { fetchTriggeredWorldInfo, buildWorldbookTagMessages, cleanWorldbookTagOutput } from '@/autoTag/worldbookTag';
+import { fetchTriggeredWorldInfo, fetchScopedWorldNames, buildWorldbookTagMessages, cleanWorldbookTagOutput } from '@/autoTag/worldbookTag';
 import { getContext } from '@/st/context';
 
 const description = ref('');
@@ -20,7 +20,8 @@ const canConvert = computed(() => !!description.value.trim() && !loading.value);
 
 onMounted(async () => {
   const ctx = getContext();
-  worldNames.value = ctx?.getWorldInfoNames?.() ?? [];
+  worldNames.value = await fetchScopedWorldNames();
+  if (!worldNames.value.length) worldNames.value = ctx?.getWorldInfoNames?.() ?? [];
   if (!ctx?.loadWorldInfo) return;
   const loaded = await Promise.allSettled(worldNames.value.map(async world => {
     const data = await ctx.loadWorldInfo?.(world);
