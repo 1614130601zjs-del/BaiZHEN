@@ -302,7 +302,10 @@ async function removeRecord(record: TheaterRecord): Promise<void> {
       <details v-if="rawOutput"><summary>查看模型原始输出</summary><pre>{{ rawOutput }}</pre></details>
     </section>
     <section v-if="current" class="result">
-      <div class="artwork"><img :src="current.imagePath" alt="小剧场插画"></div>
+      <div class="artwork">
+        <ComicBubbleEditor v-if="current.style !== 'egg'" v-model="current.bubbles" :image-src="current.imagePath" :panel-texts="current.panelTexts" />
+        <img v-else :src="current.imagePath" alt="小剧场插画">
+      </div>
       <div class="result-body">
         <h3>{{ current.title || '未命名小剧场' }}</h3>
         <p class="source-meta">来源角色：{{ current.characterName || '未知角色' }} · 来源聊天：{{ current.chatId || current.sourceChatId || '未知聊天' }}</p>
