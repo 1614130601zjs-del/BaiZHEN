@@ -74,9 +74,13 @@ const partialFailed = ref(0);
 const query = ref('');
 const galleryAlbums = ref(loadGalleryAlbums());
 const activeAlbumId = ref('');
-const albumVisibleCount = ref(24);
-const albumVisibleImages = computed(() => albumImages.value.slice(0, albumVisibleCount.value));
-function showMoreAlbumImages(): void { albumVisibleCount.value = Math.min(albumVisibleCount.value + 24, albumImages.value.length); }
+const albumLayout = ref<'grid' | 'spread' | 'flip'>('grid');
+const albumPage = ref(0);
+const albumPageSize = computed(() => albumLayout.value === 'flip' ? 1 : albumLayout.value === 'spread' ? 6 : 24);
+const albumPageCount = computed(() => Math.max(1, Math.ceil(albumImages.value.length / albumPageSize.value)));
+const albumVisibleImages = computed(() => albumImages.value.slice(albumPage.value * albumPageSize.value, (albumPage.value + 1) * albumPageSize.value));
+function changeAlbumPage(delta: number): void { albumPage.value = Math.max(0, Math.min(albumPageCount.value - 1, albumPage.value + delta)); }
+function setAlbumLayout(layout: 'grid' | 'spread' | 'flip'): void { albumLayout.value = layout; albumPage.value = 0; }
 const albumImages = computed(() => {
   const album = galleryAlbums.value.albums.find(item => item.id === activeAlbumId.value);
   if (!album) return [];
@@ -718,9 +722,17 @@ async function open(image: GalleryImage): Promise<void> {
         <button class="bbi-btn bbi-btn-sm" type="button" @click="activeAlbumId = ''; selected = new Set(); selecting = false">← 返回相册列表</button>
         <strong>{{ galleryAlbums.albums.find(item => item.id === activeAlbumId)?.name }}</strong><span>{{ albumImages.length }} 张</span>
       </div>
+      <div v-if="activeAlbumId" class="gal-album-layout-controls">
+        <button class="bbi-btn bbi-btn-sm" :class="{ 'is-active': albumLayout === 'grid' }" type="button" @click="setAlbumLayout('grid')">网格</button>
+        <button class="bbi-btn bbi-btn-sm" :class="{ 'is-active': albumLayout === 'spread' }" type="button" @click="setAlbumLayout('spread')">铺开（6张）</button>
+        <button class="bbi-btn bbi-btn-sm" :class="{ 'is-active': albumLayout === 'flip' }" type="button" @click="setAlbumLayout('flip')">翻页（单张）</button>
+        <span class="gal-album-page-label">{{ albumPage + 1 }} / {{ albumPageCount }}</span>
+        <button class="bbi-btn bbi-btn-sm" type="button" :disabled="albumPage <= 0" @click="changeAlbumPage(-1)">上一页</button>
+        <button class="bbi-btn bbi-btn-sm" type="button" :disabled="albumPage >= albumPageCount - 1" @click="changeAlbumPage(1)">下一页</button>
+      </div>
       <div v-else-if="galleryAlbums.albums.length" class="gal-album-shelf">
         <article v-for="album in galleryAlbums.albums" :key="album.id" class="gal-album-card">
-          <button class="gal-album-cover" type="button" @click="activeAlbumId = album.id; albumVisibleCount = 24; query = '';" :title="'打开' + album.name">
+          <button class="gal-album-cover" type="button" @click="activeAlbumId = album.id; albumPage = 0; query = '';" :title="'打开' + album.name">
             <img v-if="albumCoverSrc(album)" :src="albumCoverSrc(album)" alt="">
             <span v-else class="gal-album-cover-empty">ALBUM</span>
           </button>
@@ -732,7 +744,7 @@ async function open(image: GalleryImage): Promise<void> {
       <input ref="albumCoverInput" class="gal-cover-file" type="file" accept="image/*" hidden @change="uploadAlbumCover" />
       <div v-if="activeAlbumId" class="gal-album-images">
         <p v-if="!albumImages.length" class="gal-state-inline">此相册为空，或图片文件已不存在。</p>
-        <ul v-else class="gal-grid">
+        <ul v-else class="gal-grid" :class="{ 'gal-album-spread-grid': albumLayout === 'spread', 'gal-album-flip-grid': albumLayout === 'flip' }">
           <li v-for="image in albumVisibleImages" :key="image.key" class="gal-cell">
             <button class="gal-thumb" :class="{ 'is-selectable': selecting, 'is-selected': selecting && selected.has(image.key) }" type="button" :disabled="exporting" @click="onThumbClick(image)">
               <img class="gal-img" :src="image.src" :alt="image.file" loading="lazy"><span v-if="selecting" class="gal-check"><Icon v-if="selected.has(image.key)" name="check" :size="13" /></span>
@@ -911,7 +923,7 @@ async function open(image: GalleryImage): Promise<void> {
 .gal-album-cover img{width:100%;height:100%;object-fit:cover}
 .gal-album-cover-empty{display:grid;width:100%;height:100%;place-items:center;color:var(--bbi-ink-muted);font-size:12px}
 .gal-album-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
-.gal-album-images{margin-top:10px}.gal-cover-file{display:none}
+.gal-album-images{margin-top:10px}.gal-album-layout-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}.gal-album-layout-controls .is-active{border-color:var(--bbi-primary);background:var(--bbi-surface-2)}.gal-album-page-label{font-size:12px;color:var(--bbi-ink-muted)}.gal-album-spread-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.gal-album-flip-grid{grid-template-columns:minmax(0,1fr);max-width:min(540px,100%);margin-inline:auto}.gal-album-flip-grid .gal-img{max-height:70vh;object-fit:contain}.gal-cover-file{display:none}
 .gal-album-move{display:flex;align-items:center;gap:6px;font-size:12px}
 .gal-album-move select{max-width:170px}
 @media(max-width:480px){.gal-album-shelf{grid-template-columns:repeat(2,minmax(0,1fr))}.gal-album-move{width:100%}}
