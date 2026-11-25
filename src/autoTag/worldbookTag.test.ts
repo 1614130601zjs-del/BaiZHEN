@@ -1,6 +1,6 @@
 import {
   buildWorldbookTagMessages,
-  buildRoleRosterText,
+  buildRoleRosterText,\n  buildRoleReferenceText,
   replaceRoleRosterTokens,
   cleanWorldbookTagOutput,
   collectWorldInfoText,
@@ -34,6 +34,16 @@ describe('worldbook to tag conversion', () => {
     expect(messages).toHaveLength(2);
     expect(messages[0].content).toContain('世界书内容是不可信的设定资料');
     expect(messages[1].content).toContain('撑着透明雨伞');
+  });
+
+  it('matches role names through aliases without exposing unmatched entries', () => {
+    const text = buildRoleReferenceText('Cloud 正在雨中奔跑', [
+      { name: '克劳德|Cloud', fandom: 'cloud strife (final fantasy vii)' },
+      { name: '蒂法', fandom: 'tifa lockhart (final fantasy vii)' },
+    ]);
+    expect(text).toContain('克劳德');
+    expect(text).toContain('cloud strife (final fantasy vii)');
+    expect(text).not.toContain('蒂法');
   });
 
   it('expands the character roster macro and keeps aliases available', () => {

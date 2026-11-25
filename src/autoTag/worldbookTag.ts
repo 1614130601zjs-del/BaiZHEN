@@ -68,6 +68,30 @@ export interface WorldbookTagRoleReference {
   raw?: string;
 }
 
+export function buildRoleReferenceText(description: string, entries: WorldbookTagRoleReference[]): string {
+  const text = description.trim();
+  if (!text || !entries.length) return '';
+  const matched = entries
+    .map(entry => ({
+      ...entry,
+      aliases: entry.name.split(/[|｜/／;；]/).map(name => name.trim()).filter(Boolean),
+    }))
+    .filter(entry => entry.aliases.some(name => text.includes(name)))
+    .sort((a, b) => Math.max(...b.aliases.map(name => name.length)) - Math.max(...a.aliases.map(name => name.length)));
+  const seen = new Set<string>();
+  const lines = matched.flatMap(entry => {
+    const name = entry.aliases[0] || entry.name.trim();
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) return [];
+    seen.add(key);
+    const identity = entry.fandom?.trim() || entry.raw?.trim() || '';
+    return [`- ${name}${identity ? `：作品/身份 Tag=${identity}` : '：角色库已登记'}`];
+  });
+  return lines.length
+    ? `【本次描述命中的角色名单】\n${lines.join('\n')}\n只用这些资料确认角色身份；不要把角色库固定外貌字段机械重复进提示词。`
+    : '';
+}
+
 export function buildRoleRosterText(entries: WorldbookTagRoleReference[]): string {
   const seen = new Set<string>();
   const lines = entries.flatMap(entry => {
