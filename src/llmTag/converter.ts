@@ -28,15 +28,18 @@ export function shouldSkipWorldbookEntry(entry: TagWorldbookEntry): boolean {
 }
 export function filterWorldbookEntries(entries: TagWorldbookEntry[], excludedWorlds: string[] = [], excludedEntries: string[] = []): TagWorldbookEntry[] {
   const worlds = new Set(excludedWorlds), keys = new Set(excludedEntries), seen = new Set<string>();
-  return entries.filter(entry => {
+  const result: TagWorldbookEntry[] = [];
+  for (const entry of entries) {
     const world = String(entry.world ?? '').trim(), uid = entry.uid == null ? '' : String(entry.uid);
-    if ((world && worlds.has(world)) || (world && uid && keys.has(`${world}::${uid}`)) || shouldSkipWorldbookEntry(entry)) return false;
+    if ((world && worlds.has(world)) || (world && uid && keys.has(`${world}::${uid}`)) || shouldSkipWorldbookEntry(entry)) continue;
     let content = String(entry.content ?? '').trim();
     const cut = content.search(/(^|\n)#{1,3}\s*输出格式/);
     if (cut >= 0) content = content.slice(0, cut).trim();
-    if (!content || seen.has(content)) return false;
-    seen.add(content); return true;
-  });
+    if (!content || seen.has(content)) continue;
+    seen.add(content);
+    result.push({ ...entry, content });
+  }
+  return result;
 }
 export async function fetchActivatedTagWorldbook(description: string, options: Pick<ChineseTagOptions,'excludedWorlds'|'excludedEntries'|'signal'> = {}): Promise<TagWorldbookEntry[]> {
   if (options.signal?.aborted) throw new DOMException('Aborted','AbortError');
