@@ -76,8 +76,9 @@ const galleryAlbums = ref(loadGalleryAlbums());
 const albumShelfPage = ref(0);
 const albumShelfPageSize = 9;
 const albumShelfPageCount = computed(() => Math.max(1, Math.ceil(galleryAlbums.value.albums.length / albumShelfPageSize)));
-const visibleShelfAlbums = computed(() => galleryAlbums.value.albums.slice(albumShelfPage.value * albumShelfPageSize, (albumShelfPage.value + 1) * albumShelfPageSize));
-function changeAlbumShelfPage(delta: number): void { albumShelfPage.value = Math.max(0, Math.min(albumShelfPageCount.value - 1, albumShelfPage.value + delta)); }
+const safeAlbumShelfPage = computed(() => Math.max(0, Math.min(albumShelfPageCount.value - 1, albumShelfPage.value)));
+const visibleShelfAlbums = computed(() => galleryAlbums.value.albums.slice(safeAlbumShelfPage.value * albumShelfPageSize, (safeAlbumShelfPage.value + 1) * albumShelfPageSize));
+function changeAlbumShelfPage(delta: number): void { albumShelfPage.value = Math.max(0, Math.min(albumShelfPageCount.value - 1, safeAlbumShelfPage.value + delta)); }
 const activeAlbumId = ref('');
 const albumLayout = ref<'grid' | 'spread' | 'flip'>('grid');
 const albumPage = ref(0);
@@ -800,7 +801,7 @@ async function open(image: GalleryImage): Promise<void> {
         <button class="bbi-btn bbi-btn-sm" type="button" :disabled="albumPage <= 0" @click="changeAlbumPage(-1)">上一页</button>
         <button class="bbi-btn bbi-btn-sm" type="button" :disabled="albumPage >= albumPageCount - 1" @click="changeAlbumPage(1)">下一页</button>
       </div>
-      <div v-else-if="galleryAlbums.albums.length" class="gal-album-shelf-wrap"><div class="gal-album-shelf-pager" v-if="albumShelfPageCount > 1"><button class="bbi-btn bbi-btn-sm" type="button" :disabled="albumShelfPage <= 0" @click="changeAlbumShelfPage(-1)">上一页</button><span class="gal-album-page-label">{{ albumShelfPage + 1 }} / {{ albumShelfPageCount }}</span><button class="bbi-btn bbi-btn-sm" type="button" :disabled="albumShelfPage >= albumShelfPageCount - 1" @click="changeAlbumShelfPage(1)">下一页</button></div><div class="gal-album-shelf">
+      <div v-else-if="galleryAlbums.albums.length" class="gal-album-shelf-wrap"><div class="gal-album-shelf-pager" v-if="albumShelfPageCount > 1"><button class="bbi-btn bbi-btn-sm" type="button" :disabled="safeAlbumShelfPage <= 0" @click="changeAlbumShelfPage(-1)">上一页</button><span class="gal-album-page-label">{{ safeAlbumShelfPage + 1 }} / {{ albumShelfPageCount }}</span><button class="bbi-btn bbi-btn-sm" type="button" :disabled="safeAlbumShelfPage >= albumShelfPageCount - 1" @click="changeAlbumShelfPage(1)">下一页</button></div><div class="gal-album-shelf">
         <article v-for="album in visibleShelfAlbums" :key="album.id" class="gal-album-card">
           <button class="gal-album-cover" type="button" @click="activeAlbumId = album.id; albumPage = 0; query = '';" :title="'打开' + album.name">
             <img v-if="albumCoverSrc(album)" :src="albumCoverSrc(album)" alt="">
