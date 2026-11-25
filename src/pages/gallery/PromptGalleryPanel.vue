@@ -81,18 +81,18 @@ async function autoCollect() {
           <option value="">选择提示词图集…</option>
           <option v-for="entry in promptEntries" :key="entry.id" :value="entry.id">{{ entry.name }} · {{ entry.category }}</option>
         </select>
-        <button class="bbi-btn bbi-btn-sm" type="button" :disabled="!selectedPromptId || scanning || !images.length" @click="autoCollect"><Icon name="refresh" />{{ scanning ? '匹配中…' : '自动精确归集' }}</button>
+        <button class="bbi-btn bbi-btn-sm" type="button" :disabled="!selectedPromptId || scanning || !props.images.length" @click="autoCollect"><Icon name="refresh" />{{ scanning ? '匹配中…' : '自动精确归集' }}</button>
       </div>
       <p v-if="selectedPrompt" class="pg-description">{{ selectedPrompt.promptEn }}</p>
       <p v-if="scanStatus" class="pg-status" role="status">{{ scanStatus }}</p>
       <div v-if="selectedPromptId" class="pg-grid">
-        <button v-for="image in images" :key="image.key" class="pg-thumb" type="button" :class="{ linked: imageInPromptGallery(membership, image.key, selectedPromptId) }" :title="imageInPromptGallery(membership, image.key, selectedPromptId) ? '点击移出图集' : '点击加入图集'" @click="toggleImage(image)">
+        <button v-for="image in props.images" :key="image.key" class="pg-thumb" type="button" :class="{ linked: imageInPromptGallery(membership, image.key, selectedPromptId) }" :title="imageInPromptGallery(membership, image.key, selectedPromptId) ? '点击移出图集' : '点击加入图集'" @click="toggleImage(image)">
           <img :src="image.src" loading="lazy" />
           <span>{{ imageInPromptGallery(membership, image.key, selectedPromptId) ? '已收录 · 点击移出' : '点击加入' }}</span>
         </button>
       </div>
       <p v-else class="pg-empty">先选择素材库中的一条提示词，下面可手动加入/移出图片。</p>
-      <p v-if="selectedPromptId" class="pg-count">当前图集 {{ galleryImages.length }} 张 · 当前角色图库共 {{ images.length }} 张</p>
+      <p v-if="selectedPromptId" class="pg-count">当前图集 {{ galleryImages.length }} 张 · 当前角色图库共 {{ props.images.length }} 张</p>
     </section>
   </div>
 </template>
