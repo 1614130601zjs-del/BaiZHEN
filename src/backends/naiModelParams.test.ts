@@ -7,7 +7,7 @@ describe('NAI per-model parameter memory', () => {
   it('saves current values and applies family defaults on first switch', () => {
     const next = switchNaiModelParams(base, 'nai-diffusion-4-5-full');
     expect(next.model).toBe('nai-diffusion-4-5-full');
-    expect(next.modelParams?.['nai-diffusion-5-full']).toEqual({ steps: 31, scale: 6.2, sampler: 'k_euler', noiseSchedule: 'native', cfgRescale: 0.2 });
+    expect(next.modelParams?.['nai-diffusion-5-full']).toEqual({ steps: 31, scale: 6.2, sampler: 'k_euler', noiseSchedule: 'native', cfgRescale: 0.2, qualityToggle: false, ucPreset: 1 });
     expect(next.scale).toBe(5);
     expect(next.qualityToggle).toBe(true);
     expect(next.ucPreset).toBe(3);
