@@ -47,6 +47,13 @@ const zoomed = ref(false);
 /** Jelly 互动：默认关闭，避免影响原有缩放与移动端长按保存。 */
 const jellyEnabled = ref(false);
 const jellyDragEnabled = ref(true);
+const jellyTapEnabled = ref(true);
+const jellyBurstEnabled = ref(true);
+const jellyShakeEnabled = ref(false);
+const jellyStrength = ref(1);
+const jellyReach = ref(1);
+let jellyMotionHandler: ((event: DeviceMotionEvent) => void) | null = null;
+let jellyBurstTimer: ReturnType<typeof setTimeout> | null = null;
 const jellySettingsOpen = ref(false);
 const jellyTransform = ref({ x: 0, y: 0, sx: 1, sy: 1, rotate: 0 });
 let jellyVelocity = { x: 0, y: 0, sx: 0, sy: 0, rotate: 0 };
@@ -84,15 +91,67 @@ function animateJelly(): void {
 function jellyPress(power = 1): void {
   stopJellyFrame();
   const t = jellyTransform.value;
-  t.sx = 1 + 0.11 * power;
-  t.sy = 1 - 0.14 * power;
+  const force = Math.max(0.2, Math.min(2.2, power * jellyStrength.value));
+  t.sx = 1 + 0.11 * force;
+  t.sy = 1 - 0.14 * force;
   jellyVelocity.sx = 0;
   jellyVelocity.sy = 0;
   animateJelly();
 }
 
+function jellyBurst(): void {
+  if (!jellyEnabled.value || !jellyBurstEnabled.value) return;
+  if (jellyBurstTimer) clearTimeout(jellyBurstTimer);
+  let count = 0;
+  const pulse = () => {
+    jellyPress(count % 2 ? 0.72 : 1.35);
+    count += 1;
+    if (count < 5) jellyBurstTimer = setTimeout(pulse, 115);
+    else jellyBurstTimer = null;
+  };
+  pulse();
+}
+
+function stopJellyMotion(): void {
+  if (jellyMotionHandler) window.removeEventListener('devicemotion', jellyMotionHandler);
+  jellyMotionHandler = null;
+  jellyShakeEnabled.value = false;
+}
+
+async function enableJellyMotion(): Promise<void> {
+  const motion = DeviceMotionEvent as typeof DeviceMotionEvent & {
+    requestPermission?: () => Promise<'granted' | 'denied'>;
+  };
+  if (typeof DeviceMotionEvent === 'undefined') return;
+  if (typeof motion.requestPermission === 'function') {
+    try {
+      if (await motion.requestPermission() !== 'granted') return;
+    } catch {
+      return;
+    }
+  }
+  let last = 0;
+  jellyMotionHandler = (event: DeviceMotionEvent) => {
+    const now = Date.now();
+    if (now - last < 180 || !jellyEnabled.value || !jellyShakeEnabled.value) return;
+    const a = event.acceleration;
+    const g = event.accelerationIncludingGravity;
+    const force = Math.abs(a?.x ?? g?.x ?? 0) + Math.abs(a?.y ?? g?.y ?? 0);
+    if (force < 13) return;
+    last = now;
+    jellyPress(Math.min(1.8, force / 18));
+  };
+  window.addEventListener('devicemotion', jellyMotionHandler);
+  jellyShakeEnabled.value = true;
+}
+
+function toggleJellyShake(): void {
+  if (jellyShakeEnabled.value) stopJellyMotion();
+  else void enableJellyMotion();
+}
+
 function onJellyPointerDown(event: PointerEvent): void {
-  if (!jellyEnabled.value || zoomed.value || (event.pointerType === 'mouse' && event.button !== 0)) return;
+  if (!jellyEnabled.value || zoomed.value || (!jellyTapEnabled.value && !jellyDragEnabled.value && !jellyBurstEnabled.value) || (event.pointerType === 'mouse' && event.button !== 0)) return;
   jellyPointer = { id: event.pointerId, x: event.clientX, y: event.clientY, time: Date.now(), moved: false };
   try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch { /* capture may be unavailable */ }
   // 仅在用户主动开启 Jelly 时接管手势；关闭时仍保留浏览器长按保存。
@@ -112,9 +171,9 @@ function onJellyPointerMove(event: PointerEvent): void {
   const w = Math.max(1, img.clientWidth), h = Math.max(1, img.clientHeight);
   const ax = Math.abs(dx) / w, ay = Math.abs(dy) / h;
   jellyTransform.value = {
-    x: damp(dx), y: damp(dy),
-    sx: (1 + Math.min(0.38, ax * 0.9)) * (1 - Math.min(0.38, ay * 0.9) * 0.45),
-    sy: (1 + Math.min(0.38, ay * 0.9)) * (1 - Math.min(0.38, ax * 0.9) * 0.45),
+    x: damp(dx) * jellyReach.value, y: damp(dy) * jellyReach.value,
+    sx: (1 + Math.min(0.38, ax * 0.9 * jellyStrength.value * jellyReach.value)) * (1 - Math.min(0.38, ay * 0.9) * 0.45),
+    sy: (1 + Math.min(0.38, ay * 0.9 * jellyStrength.value * jellyReach.value)) * (1 - Math.min(0.38, ax * 0.9) * 0.45),
     rotate: Math.max(-6, Math.min(6, dx / w * 5)),
   };
 }
@@ -124,7 +183,10 @@ function onJellyPointerUp(event: PointerEvent): void {
   if (!p || p.id !== event.pointerId) return;
   jellyPointer = null;
   try { (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId); } catch { /* already released */ }
-  if (!p.moved && Date.now() - p.time < 450) jellyPress();
+  if (!p.moved && Date.now() - p.time < 450) {
+    if (jellyBurstEnabled.value) jellyBurst();
+    else if (jellyTapEnabled.value) jellyPress();
+  }
   else if (p.moved) {
     jellyVelocity.sx -= (jellyTransform.value.sx - 1) * 0.35;
     jellyVelocity.sy -= (jellyTransform.value.sy - 1) * 0.35;
@@ -218,6 +280,8 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown, true);
   stopJellyFrame();
   jellyPointer = null;
+  stopJellyMotion();
+  if (jellyBurstTimer) clearTimeout(jellyBurstTimer);
 });
 
 async function copyPrompt(): Promise<void> {
@@ -288,8 +352,13 @@ const promptText = computed(() => (props.prompt ?? '').trim());
 
       <div v-if="jellySettingsOpen" class="bbi-lightbox__jelly" @click.stop>
         <label><input v-model="jellyEnabled" type="checkbox" /> 启用果冻互动</label>
-        <label><input v-model="jellyDragEnabled" type="checkbox" :disabled="!jellyEnabled" /> 拖动拉伸</label>
-        <p>开启后，点按会产生回弹，拖动图片会产生橡皮筋形变。关闭后恢复原有缩放与长按保存行为。</p>
+        <label><input v-model="jellyTapEnabled" type="checkbox" :disabled="!jellyEnabled" /> 点按挤压回弹</label>
+        <label><input v-model="jellyDragEnabled" type="checkbox" :disabled="!jellyEnabled" /> 拖动橡皮筋形变</label>
+        <label><input v-model="jellyBurstEnabled" type="checkbox" :disabled="!jellyEnabled" /> 连续弹跳反馈</label>
+        <label><input :checked="jellyShakeEnabled" type="checkbox" :disabled="!jellyEnabled" @change="toggleJellyShake" /> 手机摇晃反馈（需设备授权）</label>
+        <label class="bbi-jelly-range">形变强度 <input v-model.number="jellyStrength" type="range" min="0.3" max="2" step="0.1" /></label>
+        <label class="bbi-jelly-range">拖动范围 <input v-model.number="jellyReach" type="range" min="0.4" max="2.2" step="0.1" /></label>
+        <p>当前为整张图片的弹性变形模式。局部网格变形、手绘选区和抹开模式仍在迁移中。关闭后恢复原有缩放与长按保存行为。</p>
       </div>
 
       <!-- 图片容器:zoomed 时滚动(触屏)/ 鼠标拖拽查看原图 -->
@@ -465,6 +534,8 @@ const promptText = computed(() => (props.prompt ?? '').trim());
   gap: 8px;
 }
 .bbi-lightbox__jelly input { accent-color: var(--bbi-accent); }
+.bbi-lightbox__jelly .bbi-jelly-range { display: grid; grid-template-columns: 72px 1fr; gap: 10px; }
+.bbi-lightbox__jelly .bbi-jelly-range input { width: 100%; }
 .bbi-lightbox__jelly p {
   margin: 0;
   color: oklch(1 0 0 / 0.68);
