@@ -55,7 +55,13 @@ async function convert() {
         raw: entry.raw,
       })),
     );
-    const references = [worldInfo, roles].filter(Boolean).join('\n\n');
+    const rosterEntries = charTagLib.entries.map(entry => ({
+      name: entry.name,
+      fandom: entry.fields.fandom,
+      raw: entry.raw,
+    }));
+    const resolvedWorldInfo = replaceRoleRosterTokens(worldInfo, rosterEntries);
+    const references = [resolvedWorldInfo, roles].filter(Boolean).join('\\n\\n');
     const messages = buildWorldbookTagMessages(description.value, references);
     const channel = getTagGenChannel();
     const raw = channel
