@@ -10,7 +10,7 @@ type ModelParams = Pick<NaiSettings, 'model' | 'modelParams' | 'steps' | 'scale'
 
 export function switchNaiModelParams(current: ModelParams, nextModel: NaiModel): Partial<ModelParams> {
   if (nextModel === current.model) return {};
-  const saved = { ...current.modelParams, [current.model]: {
+  const saved = { ...(current.modelParams ?? {}), [current.model]: {
     steps: current.steps, scale: current.scale, sampler: current.sampler,
     noiseSchedule: current.noiseSchedule, cfgRescale: current.cfgRescale,
   } };

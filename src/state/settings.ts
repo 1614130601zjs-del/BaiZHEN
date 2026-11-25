@@ -322,7 +322,7 @@ export interface NaiSettings extends BackendConn {
   key: string;
   model: NaiModel;
   /** 每个模型独立记忆的生成参数。 */
-  modelParams: Record<string, NaiModelParamSnapshot>;
+  modelParams?: Record<string, NaiModelParamSnapshot>;
   /** 负面提示词覆盖值;留空 = 按模型取官方负面词(见 nai.ts naiDefaultUndesired)。 */
   undesiredContent: string;
   sampler: string;
