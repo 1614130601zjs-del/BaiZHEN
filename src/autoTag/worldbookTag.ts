@@ -1,6 +1,5 @@
 import type { ChatMsg } from '@/api/client';
-
-const runtimeWorldInfoPath = '/scripts/world-info.js';
+import { getCheckWorldInfo } from '@/st/context';
 
 export const WORLDBOOK_TAG_SYSTEM = [
   '你是中文画面描述到 Danbooru 风格生图 Tag 的转换器。',
@@ -96,14 +95,12 @@ export async function fetchScopedWorldNames(): Promise<string[]> {
   const names = new Set<string>();
   try {
     const characterId = ctx?.characterId;
-    const card = characterId == null ? undefined : ctx?.characters?.[Number(characterId)];
+    const card = characterId == null ? undefined : ctx?.characters?.[Number(characterId)] as unknown as { data?: { extensions?: { world?: unknown } } };
     const characterWorld = card?.data?.extensions?.world;
     if (typeof characterWorld === 'string' && characterWorld.trim()) names.add(characterWorld.trim());
   } catch { /* character binding is optional */ }
   try {
-    // @ts-expect-error SillyTavern runtime module, intentionally resolved by the host at runtime.
-    const module = await import(/* @vite-ignore */ runtimeWorldInfoPath);
-    const globalSelect = module?.world_info?.globalSelect;
+    const globalSelect = ctx?.getWorldInfoNames?.() ?? [];
     if (Array.isArray(globalSelect)) {
       for (const name of globalSelect) if (typeof name === 'string' && name.trim()) names.add(name.trim());
     }
@@ -118,10 +115,8 @@ export async function fetchTriggeredWorldInfo(
   substitute: (value: string) => string = value => value,
 ): Promise<string> {
   try {
-    // @ts-expect-error SillyTavern exposes this runtime module; it is not part of the extension package.
-    const worldInfoModule = await import(/* @vite-ignore */ '/scripts/world-info.js');
-    const checkWorldInfo = worldInfoModule?.checkWorldInfo;
-    if (typeof checkWorldInfo !== 'function') return '';
+    const checkWorldInfo = await getCheckWorldInfo();
+    if (!checkWorldInfo) return '';
     const result = await checkWorldInfo([description.trim()], 1_000_000_000, true);
     const activated = result?.allActivatedEntries;
     if (!activated) return '';
