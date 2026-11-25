@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import BbiTextarea from '@/components/BbiTextarea.vue';
 import Icon from '@/components/Icon.vue';
 import ModalMask from '@/components/ModalMask.vue';
@@ -9,6 +9,8 @@ import { settings } from '@/state/settings';
 import { getContext } from '@/st/context';
 import { copyText } from '@/st/clipboard';
 
+const PREF_KEY = 'baibai_image_llm_tag_preferences';
+const prefsReady = ref(false);
 const emit = defineEmits<{ (e:'close'):void; (e:'converted', value:string):void }>();
 const open = ref(false);
 const description = ref('');
@@ -34,7 +36,7 @@ function presetRows(): PresetBorrowEntry[] {
   if (!raw || !Array.isArray(raw.prompts)) return [];
   const orderList = Array.isArray(raw.prompt_order) ? raw.prompt_order : [];
   const order = orderList.find(item => String(item.character_id) === '100000')?.order ?? orderList[0]?.order ?? [];
-  const byId = new Map(raw.prompts.map(item => [String(item.identifier ?? ''), item]));
+  const byId = new Map(raw.prompts.map(item => [String(item.identifier ?? ''), item] as const));
   const ids = new Set<string>();
   const rows: PresetBorrowEntry[] = [];
   for (const item of order) {
@@ -91,7 +93,35 @@ async function convert():Promise<void> {
 }
 function apply():void { if (result.value) emit('converted',result.value); }
 function copyResult():void { if (result.value) void copyText(result.value, '已复制'); }
-onMounted(()=>{ void loadSources(); requestAnimationFrame(()=>{open.value=true;}); });
+watch([useWorldbook, excludedWorlds, excludedEntries, borrowedPresetIds, extraRules], () => {
+  if (!prefsReady.value) return;
+  const ctx = getContext();
+  if (!ctx?.extensionSettings) return;
+  ctx.extensionSettings[PREF_KEY] = {
+    useWorldbook: useWorldbook.value,
+    excludedWorlds: [...excludedWorlds.value],
+    excludedEntries: [...excludedEntries.value],
+    borrowedPresetIds: [...borrowedPresetIds.value],
+    extraRules: extraRules.value,
+  };
+  ctx.saveSettingsDebounced?.();
+}, { deep: true });
+onMounted(()=>{
+  const raw = getContext()?.extensionSettings?.[PREF_KEY] as {
+    useWorldbook?:unknown; excludedWorlds?:unknown; excludedEntries?:unknown;
+    borrowedPresetIds?:unknown; extraRules?:unknown;
+  } | undefined;
+  if (raw && typeof raw === 'object') {
+    if (typeof raw.useWorldbook === 'boolean') useWorldbook.value = raw.useWorldbook;
+    if (Array.isArray(raw.excludedWorlds)) excludedWorlds.value = raw.excludedWorlds.filter((v):v is string=>typeof v==='string');
+    if (Array.isArray(raw.excludedEntries)) excludedEntries.value = raw.excludedEntries.filter((v):v is string=>typeof v==='string');
+    if (Array.isArray(raw.borrowedPresetIds)) borrowedPresetIds.value = raw.borrowedPresetIds.filter((v):v is string=>typeof v==='string');
+    if (typeof raw.extraRules === 'string') extraRules.value = raw.extraRules;
+  }
+  prefsReady.value = true;
+  void loadSources();
+  requestAnimationFrame(()=>{open.value=true;});
+});
 </script>
 
 <template>
