@@ -14,7 +14,7 @@ import { ARTIST_PREVIEW_FOLDER, listUserImageFolders, listUserImages, probeUserI
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { canExportGalleryToDirectory, exportGalleryImages, pickGalleryExportDirectory } from './export';
 import PromptGalleryPanel from './PromptGalleryPanel.vue';
-import { assignImagesToGalleryAlbum, createGalleryAlbum, deleteGalleryAlbum, loadGalleryAlbums, removeImagesFromGalleryAlbum, renameGalleryAlbum, saveGalleryAlbums, setGalleryAlbumCover, type GalleryAlbum } from './albums';
+import { assignImagesToGalleryAlbum, createGalleryAlbum, deleteGalleryAlbum, loadGalleryAlbums, removeImagesFromGalleryAlbum, removeGalleryImageFromAllAlbums, renameGalleryAlbum, saveGalleryAlbums, setGalleryAlbumCover, type GalleryAlbum } from './albums';
 
 /**
  * 图库页 —— 按角色名分组浏览已生成的图片（GALLERY-STORAGE-DESIGN.md）。
@@ -89,6 +89,47 @@ function albumCoverSrc(album: GalleryAlbum): string {
 function persistAlbums(next: ReturnType<typeof loadGalleryAlbums>): void {
   galleryAlbums.value = next;
   if (!saveGalleryAlbums(next)) toastr.warning('相册组织数据未能保存到本地存储。', '柏宝绘');
+}
+
+const albumCoverTargetId = ref('');
+const albumCoverInput = ref<HTMLInputElement | null>(null);
+function triggerAlbumCoverUpload(albumId: string): void {
+  albumCoverTargetId.value = albumId;
+  albumCoverInput.value?.click();
+}
+async function uploadAlbumCover(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  const album = galleryAlbums.value.albums.find(item => item.id === albumCoverTargetId.value);
+  if (!file || !album || !file.type.startsWith('image/')) return;
+  if (file.size > 12 * 1024 * 1024) { toastr.warning('封面图片不能超过 12 MB。', '柏宝绘'); return; }
+  try {
+    const data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('读取封面失败'));
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.readAsDataURL(file);
+    });
+    const resized = await new Promise<string>((resolve, reject) => {
+      const image = new Image();
+      image.onerror = () => reject(new Error('无法解析封面图片'));
+      image.onload = () => {
+        const side = 512, scale = Math.max(side / image.naturalWidth, side / image.naturalHeight);
+        const width = image.naturalWidth * scale, height = image.naturalHeight * scale;
+        const canvas = document.createElement('canvas'); canvas.width = side; canvas.height = side;
+        const context = canvas.getContext('2d');
+        if (!context) { reject(new Error('无法创建封面画布')); return; }
+        context.drawImage(image, (side - width) / 2, (side - height) / 2, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.86));
+      };
+      image.src = data;
+    });
+    persistAlbums(setGalleryAlbumCover(galleryAlbums.value, album.id, undefined, resized));
+    toastr.success('封面已上传并裁成方形。', '柏宝绘');
+  } catch (error) {
+    toastr.error(error instanceof Error ? error.message : String(error), '柏宝绘');
+  }
 }
 function createAlbum(): void {
   const name = window.prompt('新建相册名称')?.trim();
@@ -599,6 +640,7 @@ async function deleteSelected(): Promise<void> {
       sizes.value = nextSizes;
     }
 
+    if (done.size) { let nextAlbums = galleryAlbums.value; for (const key of done) nextAlbums = removeGalleryImageFromAllAlbums(nextAlbums, key); persistAlbums(nextAlbums); }
     selected.value = new Set([...selected.value].filter(key => !done.has(key)));
     if (!selected.value.size) selecting.value = false;
 
@@ -680,9 +722,10 @@ async function open(image: GalleryImage): Promise<void> {
             <span v-else class="gal-album-cover-empty">ALBUM</span>
           </button>
           <strong>{{ album.name }}</strong><small>{{ album.imageKeys.length }} 张</small>
-          <div class="gal-album-actions"><button class="bbi-btn bbi-btn-sm" type="button" @click="renameAlbum(album)">改名</button><button class="bbi-btn bbi-btn-sm bbi-btn-danger" type="button" @click="removeAlbum(album)">删除</button></div>
+          <div class="gal-album-actions"><button class="bbi-btn bbi-btn-sm" type="button" @click="renameAlbum(album)">改名</button><button class="bbi-btn bbi-btn-sm" type="button" @click="triggerAlbumCoverUpload(album.id)">封面上传</button><button class="bbi-btn bbi-btn-sm bbi-btn-danger" type="button" @click="removeAlbum(album)">删除</button></div>
         </article>
       </div>
+      <input ref="albumCoverInput" class="gal-cover-file" type="file" accept="image/*" hidden @change="uploadAlbumCover" />
       <p v-else class="gal-state-inline">自定义相册可独立整理图片，不影响角色目录或原图文件。</p>
       <div v-if="activeAlbumId" class="gal-album-images">
         <p v-if="!albumImages.length" class="gal-state-inline">此相册为空，或图片文件已不存在。</p>
@@ -864,7 +907,7 @@ async function open(image: GalleryImage): Promise<void> {
 .gal-album-cover img{width:100%;height:100%;object-fit:cover}
 .gal-album-cover-empty{display:grid;width:100%;height:100%;place-items:center;color:var(--bbi-ink-muted);font-size:12px}
 .gal-album-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
-.gal-album-images{margin-top:10px}
+.gal-album-images{margin-top:10px}.gal-cover-file{display:none}
 .gal-album-move{display:flex;align-items:center;gap:6px;font-size:12px}
 .gal-album-move select{max-width:170px}
 @media(max-width:480px){.gal-album-shelf{grid-template-columns:repeat(2,minmax(0,1fr))}.gal-album-move{width:100%}}
