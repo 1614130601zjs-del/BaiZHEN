@@ -429,6 +429,8 @@ export interface UiPrefs {
   showOrb: boolean;
   /** 悬浮球自定义图标(ST 服务器图片路径;空=默认画笔图标)。跨设备同步。 */
   orbImage: string;
+  /** 手机摇晃时悬浮球弹性摆动。 */
+  orbShake: boolean;
   /** 悬浮球形状:bookmark 书签(默认)/ circle 圆 / square 方。 */
   orbShape: string;
   /** 悬浮球静止时不透明度(百分比 20–100,默认 62)。唤起/拖动时一律全显。 */
@@ -1672,6 +1674,7 @@ function defaults(): ImageSettings {
       showTopBar: false,
       showOrb: false,
       orbImage: '',
+      orbShake: false,
       orbShape: 'bookmark',
       orbOpacity: 62,
       orbSize: 48,
@@ -2389,6 +2392,7 @@ function normalize(raw: unknown): ImageSettings {
     showTopBar: typeof ru.showTopBar === 'boolean' ? ru.showTopBar : d.ui.showTopBar,
     showOrb: typeof ru.showOrb === 'boolean' ? ru.showOrb : d.ui.showOrb,
     orbImage: typeof ru.orbImage === 'string' ? ru.orbImage : d.ui.orbImage,
+    orbShake: typeof ru.orbShake === 'boolean' ? ru.orbShake : d.ui.orbShake,
     orbShape: typeof ru.orbShape === 'string' ? ru.orbShape : d.ui.orbShape,
     // 透明度:钳到 20–100,缺失/非法回退默认(太低会看不见,设 20 下限)
     orbOpacity:

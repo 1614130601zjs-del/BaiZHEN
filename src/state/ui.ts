@@ -49,6 +49,8 @@ interface UiState {
   showOrb: boolean;
   /** 悬浮球自定义图标(ST 服务器图片路径;空=默认画笔图标) */
   orbImage: string;
+  /** 手机摇晃时悬浮球弹性摆动 */
+  orbShake: boolean;
   /** 悬浮球形状:bookmark / circle / square */
   orbShape: OrbShape;
   /** 悬浮球静止不透明度(百分比 20–100) */
@@ -98,6 +100,7 @@ export const ui = reactive<UiState>({
   showTopBar: settings.ui.showTopBar,
   showOrb: settings.ui.showOrb,
   orbImage: settings.ui.orbImage,
+  orbShake: settings.ui.orbShake,
   orbShape: validOrbShape(settings.ui.orbShape),
   orbOpacity: settings.ui.orbOpacity,
   orbSize: settings.ui.orbSize,
@@ -111,6 +114,7 @@ onSettingsReady(() => {
   ui.showTopBar = settings.ui.showTopBar;
   ui.showOrb = settings.ui.showOrb;
   ui.orbImage = settings.ui.orbImage;
+  ui.orbShake = settings.ui.orbShake;
   ui.orbShape = validOrbShape(settings.ui.orbShape);
   ui.orbOpacity = settings.ui.orbOpacity;
   ui.orbSize = settings.ui.orbSize;
@@ -125,6 +129,7 @@ watch(
     ui.showTopBar,
     ui.showOrb,
     ui.orbImage,
+    ui.orbShake,
     ui.orbShape,
     ui.orbOpacity,
     ui.orbSize,
@@ -136,6 +141,7 @@ watch(
     settings.ui.showTopBar = ui.showTopBar;
     settings.ui.showOrb = ui.showOrb;
     settings.ui.orbImage = ui.orbImage;
+    settings.ui.orbShake = ui.orbShake;
     settings.ui.orbShape = ui.orbShape;
     settings.ui.orbOpacity = ui.orbOpacity;
     settings.ui.orbSize = ui.orbSize;

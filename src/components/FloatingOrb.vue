@@ -51,7 +51,9 @@ function loadPos(): OrbPos {
 
 const pos = reactive<OrbPos>(loadPos());
 const dragging = ref(false);
-const awake = ref(false); // hover/聚焦/拖动 → 贴边态整条滑出
+const awake = ref(false);
+const shaking = ref(false);
+let shakeTimer: ReturnType<typeof setTimeout> | undefined; // hover/聚焦/拖动 → 贴边态整条滑出
 let activePointer: number | null = null;
 let startX = 0;
 let startY = 0;
@@ -164,21 +166,33 @@ function onKey(e: KeyboardEvent) {
   }
 }
 
-const onResize = () => {
-  clampToViewport();
-  savePos();
-};
+function onDeviceMotion(event: DeviceMotionEvent): void {
+  if (!ui.orbShake || dragging.value || !ui.showOrb) return;
+  const a = event.acceleration;
+  const g = event.accelerationIncludingGravity;
+  const intensity = Math.abs(a?.x ?? g?.x ?? 0) + Math.abs(a?.y ?? g?.y ?? 0) + Math.abs(a?.z ?? g?.z ?? 0);
+  if (intensity < 18) return;
+  shaking.value = true;
+  if (shakeTimer) clearTimeout(shakeTimer);
+  shakeTimer = setTimeout(() => { shaking.value = false; }, 520);
+}
+const onResize = () => { clampToViewport(); savePos(); };
 onMounted(() => {
   clampToViewport();
   window.addEventListener('resize', onResize);
+  window.addEventListener('devicemotion', onDeviceMotion);
 });
-onUnmounted(() => window.removeEventListener('resize', onResize));
+onUnmounted(() => {
+  window.removeEventListener('resize', onResize);
+  window.removeEventListener('devicemotion', onDeviceMotion);
+  if (shakeTimer) clearTimeout(shakeTimer);
+});
 </script>
 
 <template>
   <div
     class="bbi-orb"
-    :class="[`shape-${ui.orbShape}`, { 'is-dragging': dragging, 'has-image': !!orbImage }]"
+    :class="[`shape-${ui.orbShape}`, { 'is-dragging': dragging, 'has-image': !!orbImage, 'is-shaking': shaking }]"
     :style="orbStyle"
     role="button"
     tabindex="0"
@@ -243,8 +257,17 @@ onUnmounted(() => window.removeEventListener('resize', onResize));
   outline: none;
   color: var(--bbi-accent);
 }
-.bbi-orb:active {
+ .bbi-orb:active {
   cursor: grabbing;
+}
+.bbi-orb.is-shaking:not(.is-dragging) { animation: bbi-orb-jelly 520ms cubic-bezier(.2,.8,.25,1); }
+@keyframes bbi-orb-jelly {
+  0% { rotate: 0deg; scale: 1; }
+  18% { rotate: -9deg; scale: .94 1.08; }
+  42% { rotate: 7deg; scale: 1.06 .95; }
+  66% { rotate: -4deg; scale: .98 1.03; }
+  84% { rotate: 2deg; scale: 1.01 .99; }
+  100% { rotate: 0deg; scale: 1; }
 }
 
 .bbi-orb-icon {

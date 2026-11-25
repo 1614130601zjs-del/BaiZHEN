@@ -110,6 +110,18 @@ const streamInlinePreview = computed({
 });
 function normalizeBatchSizeInput(){settings.autoTag.streamAnalysisBatchSize=normalizeStreamBatchSize(settings.autoTag.streamAnalysisBatchSize);}
 
+async function setOrbShake(event: Event): Promise<void> {
+  const enabled = (event.target as HTMLInputElement).checked;
+  if (enabled && typeof DeviceMotionEvent !== 'undefined') {
+    const motion = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<string> };
+    if (typeof motion.requestPermission === 'function') {
+      try { if (await motion.requestPermission() !== 'granted') { ui.orbShake = false; return; } }
+      catch { ui.orbShake = false; return; }
+    }
+  }
+  ui.orbShake = enabled;
+}
+
 /* —— 渠道:列表只读展示,编辑/新建都在弹窗里进行,避免一长列表平铺误触。
    渠道列表与柏宝书共享(见 state/settings.ts 的共享存储),任一端改动自动同步。 —— */
 // editingId:正在编辑的「已有渠道」id;新建时为 null。仅用于「完成」时定位写回目标。
@@ -647,6 +659,11 @@ async function confirmUpdate() {
 
         <!-- 悬浮球外观:配置项多,开启后才收进小分组 -->
         <Collapsible v-if="ui.showOrb" title="悬浮球外观" :open="false">
+          <label class="bbi-switch-row">
+            <span class="bbi-field-label">手机摇晃时悬浮球弹性摆动</span>
+            <input :checked="ui.orbShake" @change="setOrbShake" type="checkbox" class="bbi-checkbox" />
+          </label>
+          <p class="bbi-field-hint">支持设备动作传感器的浏览器。部分 iPhone/iPad 浏览器会请求动作权限。</p>
           <div class="bbi-select-row">
             <span class="bbi-field-label">形状</span>
             <BbiSelect v-model="orbShapeSel" :options="ORB_SHAPES" aria-label="悬浮球形状" />
