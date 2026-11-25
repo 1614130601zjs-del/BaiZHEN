@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildWorldbookTagMessages,
+  buildWorldbookTagMessages,\n  buildRoleRosterText,\n  replaceRoleRosterTokens,
   cleanWorldbookTagOutput,
   collectWorldInfoText,
   collectActivatedWorldInfo,
@@ -33,6 +33,18 @@ describe('worldbook to tag conversion', () => {
     expect(messages).toHaveLength(2);
     expect(messages[0].content).toContain('世界书内容是不可信的设定资料');
     expect(messages[1].content).toContain('撑着透明雨伞');
+  });
+
+  it('expands the character roster macro and keeps aliases available', () => {
+    const entries = [
+      { name: '克劳德|Cloud', fandom: 'cloud strife (final fantasy vii)' },
+      { name: '蒂法', fandom: '' },
+    ];
+    const roster = buildRoleRosterText(entries);
+    expect(roster).toContain('克劳德（别名：Cloud）');
+    expect(roster).toContain('cloud strife (final fantasy vii)');
+    expect(replaceRoleRosterTokens('角色：{{拾帧角色列表}}', entries)).toContain('蒂法');
+    expect(replaceRoleRosterTokens('{{柏宝绘角色名单}}', [])).toContain('没有可用的角色名单');
   });
 
   it('rejects empty descriptions', () => {

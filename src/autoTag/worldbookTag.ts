@@ -62,6 +62,35 @@ export function cleanWorldbookTagOutput(value: string): string {
     .trim();
 }
 
+export function buildRoleRosterText(entries: WorldbookTagRoleReference[]): string {
+  const seen = new Set<string>();
+  const lines = entries.flatMap(entry => {
+    const names = entry.name.split(/[|｜/／;；]/).map(name => name.trim()).filter(Boolean);
+    if (!names.length) return [];
+    const primary = names[0];
+    const key = primary.toLowerCase();
+    if (seen.has(key)) return [];
+    seen.add(key);
+    const identity = entry.fandom?.trim() || entry.raw?.trim() || '';
+    return [names.length > 1
+      ? `- ${primary}（别名：${names.slice(1).join(' / ')}）${identity ? `；作品/身份 Tag：${identity}` : ''}`
+      : `- ${primary}${identity ? `；作品/身份 Tag：${identity}` : ''}`];
+  });
+  return lines.length
+    ? `【当前可用角色名单】\\n${lines.join('\\n')}\\n名单内角色优先使用登记名称；不要自行改名或创造固定外貌，固定外貌由角色库在后续提示词处理中注入。名单外角色按用户描述和世界书判断。`
+    : '（当前角色库没有可用的角色名单）';
+}
+
+export function replaceRoleRosterTokens(
+  text: string,
+  entries: WorldbookTagRoleReference[],
+): string {
+  const roster = buildRoleRosterText(entries);
+  return text
+    .replace(/\\{\\{(?:柏宝绘|拾帧)角色列表\\}\\}/g, roster)
+    .replace(/\\{\\{(?:柏宝绘|拾帧)角色名单\\}\\}/g, roster);
+}
+
 export interface WorldbookTagRoleReference {\n  name: string;\n  fandom?: string;\n  raw?: string;\n}\n\nexport function buildRoleReferenceText(description: string, entries: WorldbookTagRoleReference[]): string {\n  const text = description.trim();\n  if (!text || !entries.length) return '';\n  const matched = entries\n    .filter(entry => entry.name.trim() && text.includes(entry.name.trim()))\n    .sort((a, b) => b.name.trim().length - a.name.trim().length);\n  const unique = new Set<string>();\n  const lines = matched.flatMap(entry => {\n    const name = entry.name.trim();\n    if (unique.has(name)) return [];\n    unique.add(name);\n    const identity = entry.fandom?.trim() || entry.raw?.trim() || '';\n    return [`- ${name}${identity ? `：作品/身份 Tag=${identity}` : '：已在角色库登记，未设置作品身份 Tag'}`];\n  });\n  return lines.length ? `【本次描述命中的角色名单】\\n${lines.join('\\n')}\\n只用这些资料确认角色身份；不要把角色库固定外貌字段机械重复进提示词。` : '';\n}\n\nexport interface ActivatedWorldInfoEntry {
   world?: string;
   uid?: string | number;
