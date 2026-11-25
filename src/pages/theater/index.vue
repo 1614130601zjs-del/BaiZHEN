@@ -11,6 +11,7 @@ import { settings } from '@/state/settings';
 import { buildGenerationModeSystem, captureGenerationMode, getGenerationModeWorldNames, type GenerationModeSnapshot } from '@/modes/dispatcher';
 import { parseTheaterOutput, resolveTheaterSourceChatId, type ParsedTheaterOutput } from '@/theater/format';
 import ComicBubbleEditor, { type ComicBubble } from '@/theater/ComicBubbleEditor.vue';
+import { collectEggAvatarNames, addEggAvatarName, hideEggAvatarName, normalizeEggAvatarUrl, setEggAvatar } from './eggAvatars';
 
 interface TheaterRecord extends ParsedTheaterOutput {
   id: string;
@@ -45,6 +46,55 @@ const rawOutput = ref('');
 const current = ref<TheaterRecord | null>(null);
 const promptDraft = ref('');
 const records = ref<TheaterRecord[]>([]);
+const avatarNameDraft = ref('');
+const avatarFileInput = ref<HTMLInputElement | null>(null);
+const avatarTargetName = ref('');
+const avatarStatus = ref('');
+const avatarPanelOpen = ref(false);
+function avatarSettings(): Record<string, unknown> {
+  const context = getContext();
+  if (!context?.extensionSettings) return {};
+  const raw = context.extensionSettings['baibai_image_egg_avatars'] as Record<string, unknown> | undefined;
+  if (!raw || typeof raw !== 'object') context.extensionSettings['baibai_image_egg_avatars'] = {};
+  return context.extensionSettings['baibai_image_egg_avatars'] as Record<string, unknown>;
+}
+function avatarBlocks(): Array<{ room?: { narrator?: string }; messages?: Array<{ speaker?: string }> }> {
+  return records.value.flatMap(record => Array.isArray(record.eggBlocks) ? record.eggBlocks : []);
+}
+const eggAvatarNames = computed(() => collectEggAvatarNames(avatarBlocks(), avatarSettings() as never));
+function avatarUrl(name: string): string { return normalizeEggAvatarUrl((avatarSettings().eggAvatars as Record<string, unknown> | undefined)?.[name]); }
+function persistAvatarSettings(): void { getContext()?.saveSettingsDebounced?.(); }
+function addAvatarName(): void {
+  const name = avatarNameDraft.value.trim(); if (!name) return;
+  const next = addEggAvatarName(avatarSettings() as never, name);
+  Object.assign(avatarSettings(), next); avatarNameDraft.value = ''; persistAvatarSettings(); avatarStatus.value = '已添加名字，可点击头像上传图片。';
+}
+function hideAvatarName(name: string): void {
+  const next = hideEggAvatarName(avatarSettings() as never, name);
+  Object.assign(avatarSettings(), next); persistAvatarSettings(); avatarStatus.value = '已隐藏并移除自定义头像；聊天室历史内容保留。';
+}
+function chooseAvatar(name: string): void { avatarTargetName.value = name; avatarFileInput.value?.click(); }
+async function uploadEggAvatar(event: Event): Promise<void> {
+  const inputEl = event.target as HTMLInputElement, file = inputEl.files?.[0]; inputEl.value = '';
+  if (!file || !avatarTargetName.value) return;
+  if (!file.type.startsWith('image/')) { avatarStatus.value = '请选择图片文件。'; return; }
+  if (file.size > 10 * 1024 * 1024) { avatarStatus.value = '图片不能超过 10 MB。'; return; }
+  try {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader(); reader.onload = () => resolve(String(reader.result || '')); reader.onerror = () => reject(new Error('读取图片失败')); reader.readAsDataURL(file);
+    });
+    const cropped = await new Promise<string>((resolve, reject) => {
+      const img = new Image(); img.onload = () => {
+        const side = Math.min(img.naturalWidth, img.naturalHeight), sx = (img.naturalWidth - side) / 2, sy = (img.naturalHeight - side) / 2;
+        const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 512;
+        const ctx = canvas.getContext('2d'); if (!ctx) { reject(new Error('无法处理图片')); return; }
+        ctx.drawImage(img, sx, sy, side, side, 0, 0, 512, 512); resolve(canvas.toDataURL('image/jpeg', .88));
+      }; img.onerror = () => reject(new Error('图片解码失败')); img.src = dataUrl;
+    });
+    const next = setEggAvatar(avatarSettings() as never, avatarTargetName.value, cropped);
+    Object.assign(avatarSettings(), next); persistAvatarSettings(); avatarStatus.value = '头像已保存（正方形裁切）。';
+  } catch (cause) { avatarStatus.value = cause instanceof Error ? cause.message : String(cause); }
+}
 
 function store(): TheaterStore {
   const extensionSettings = getContext()?.extensionSettings;
@@ -271,7 +321,25 @@ async function removeRecord(record: TheaterRecord): Promise<void> {
     <header class="page-head">
       <div><h2>小剧场</h2><p>根据当前聊天、角色卡和世界书生成插画与独立聊天室快照。</p></div>
     </header>
-    <section class="composer">
+    <section class="avatar-library">
+  <header class="avatar-lib-head"><button type="button" @click="avatarPanelOpen = !avatarPanelOpen">{{ avatarPanelOpen ? '收起' : '展开' }}彩蛋头像库</button><span>{{ eggAvatarNames.length }} 个名字</span></header>
+  <div v-if="avatarPanelOpen" class="avatar-lib-body">
+    <div class="avatar-add"><input v-model="avatarNameDraft" placeholder="手动添加名字（尚未出现的角色也可以）" @keydown.enter.prevent="addAvatarName"><button @click="addAvatarName">添加</button></div>
+    <input ref="avatarFileInput" type="file" accept="image/*" hidden @change="uploadEggAvatar">
+    <div class="avatar-grid">
+      <div v-for="name in eggAvatarNames" :key="name" class="avatar-card">
+        <button class="avatar-pick" @click="chooseAvatar(name)" :title="avatarUrl(name) ? '点击替换头像' : '点击上传头像'">
+          <img v-if="avatarUrl(name)" :src="avatarUrl(name)" alt=""><span v-else class="avatar-placeholder">{{ name.slice(0,1) || '?' }}</span>
+          <small>{{ name }}</small>
+        </button>
+        <button class="avatar-hide" @click="hideAvatarName(name)">移除</button>
+      </div>
+    </div>
+    <p v-if="avatarStatus" class="avatar-status">{{ avatarStatus }}</p>
+    <p class="avatar-note">头像仅保存在柏宝绘插件设置中，不依赖配套 Android App；移除名字不会删除小剧场历史记录。</p>
+  </div>
+</section>
+<section class="composer">
       <div class="mode-row">
         <label><input v-model="mode" type="radio" value="scene"> 画面词</label>
         <label><input v-model="mode" type="radio" value="plot"> 剧情词</label>
@@ -322,7 +390,7 @@ async function removeRecord(record: TheaterRecord): Promise<void> {
           <h4>{{ block.room.roomName || '聊天室' }}</h4>
           <p class="room-meta">{{ [block.room.count ? block.room.count + ' 人' : '', block.room.owner ? '群主：' + block.room.owner : '', block.room.narrator ? '解说：' + block.room.narrator : '', block.room.narratorDesc].filter(Boolean).join(' · ') }}</p>
           <div v-for="(message, i) in block.messages" :key="i" class="bubble-row" :class="message.side">
-            <span class="speaker">{{ message.speaker }}</span><span class="bubble">{{ message.text }}</span>
+            <span class="speaker-line"><img v-if="avatarUrl(message.speaker)" class="egg-speaker-avatar" :src="avatarUrl(message.speaker)" alt=""><span class="speaker">{{ message.speaker }}</span></span><span class="bubble">{{ message.text }}</span>
           </div>
         </div>
       </div>
@@ -340,7 +408,7 @@ async function removeRecord(record: TheaterRecord): Promise<void> {
 </template>
 
 <style scoped>
-.theater-page{display:flex;flex-direction:column;gap:16px;padding:16px;color:var(--SmartThemeBodyColor)}
+.avatar-library{border:1px solid var(--SmartThemeBorderColor);border-radius:10px;padding:10px;background:var(--SmartThemeBlurTintColor)}.avatar-lib-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.avatar-lib-head span,.avatar-note,.avatar-status{font-size:11px;opacity:.72}.avatar-lib-body{margin-top:10px}.avatar-add{display:flex;gap:6px;margin-bottom:10px}.avatar-add input{min-width:0;flex:1;border:1px solid var(--SmartThemeBorderColor);border-radius:8px;padding:8px;background:var(--SmartThemeBlurTintColor);color:inherit}.avatar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}.avatar-card{display:flex;flex-direction:column;align-items:center;gap:4px}.avatar-pick{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;padding:5px!important}.avatar-pick img,.avatar-placeholder{width:56px;height:56px;object-fit:cover;border-radius:50%;display:grid;place-items:center}.avatar-placeholder{background:var(--SmartThemeQuoteColor);font-size:20px}.avatar-pick small{max-width:100%;overflow-wrap:anywhere}.avatar-hide{font-size:10px;padding:3px 7px!important}.speaker-line{display:flex;align-items:center;gap:5px}.egg-speaker-avatar{width:24px;height:24px;object-fit:cover;border-radius:50%}.theater-page{display:flex;flex-direction:column;gap:16px;padding:16px;color:var(--SmartThemeBodyColor)}
 .page-head h2{margin:0;font-size:18px}.page-head p,.status,.room-meta{opacity:.72;font-size:12px}
 .composer,.result,.history{border:1px solid var(--SmartThemeBorderColor);border-radius:12px;padding:14px;background:var(--SmartThemeBlurTintColor)}
 .mode-row{display:flex;gap:18px;margin-bottom:10px}.style-row{margin:8px 0 10px}.style-row label{display:flex;align-items:center;gap:8px;font-size:12px}.style-row select{border:1px solid var(--SmartThemeBorderColor);border-radius:8px;padding:6px;background:var(--SmartThemeBlurTintColor);color:inherit}.composer textarea{width:100%;box-sizing:border-box;resize:vertical;border:1px solid var(--SmartThemeBorderColor);border-radius:8px;padding:10px;background:var(--SmartThemeBlurTintColor);color:inherit}
