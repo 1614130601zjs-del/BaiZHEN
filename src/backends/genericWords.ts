@@ -36,7 +36,7 @@ function picked(settings: GenericWordsSettings, kind: GenericWordGender): Generi
 }
 
 /** Apply Shizhen-style shared prompt groups to a generation request without mutating its input. */
-export function applyGenericWords<T extends GenericWordInput>(input: T, settings: GenericWordsSettings): T {
+export function applyGenericWords<T extends GenericWordInput>(input: T, settings: GenericWordsSettings): T & GenericWordInput {
   if (!settings.on || input.artistTarget === 'egg') return input;
   const position = settings.position === 'front' ? 'front' : 'back';
   const any = settings.anyOn ? picked(settings, 'any') : null;
@@ -69,5 +69,5 @@ export function applyGenericWords<T extends GenericWordInput>(input: T, settings
   if (detected.size === 1) negatives.add(picked(settings, [...detected][0])?.negative ?? '');
   else if (detected.size > 1) for (const gender of detected) negatives.add(picked(settings, gender)?.negative ?? '');
   for (const extra of negatives) if (extra.trim()) negative = mergeTags(negative, extra, 'back');
-  return { ...input, prompt, negative, characters } as T;
+  return { ...input, prompt, negative, characters } as T & GenericWordInput;
 }
