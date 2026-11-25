@@ -4,7 +4,8 @@ import BbiTextarea from '@/components/BbiTextarea.vue';
 import Icon from '@/components/Icon.vue';
 import { requestCompletion, requestViaMainApi } from '@/api/client';
 import { getTagGenChannel } from '@/state/settings';
-import { fetchTriggeredWorldInfo, fetchScopedWorldNames, buildWorldbookTagMessages, buildRoleReferenceText, replaceRoleRosterTokens, cleanWorldbookTagOutput } from '@/autoTag/worldbookTag';\nimport { charTagLib, hydrateCharTags } from '@/state/charTags';
+import { fetchTriggeredWorldInfo, fetchScopedWorldNames, buildWorldbookTagMessages, buildRoleReferenceText, replaceRoleRosterTokens, cleanWorldbookTagOutput } from '@/autoTag/worldbookTag';
+import { charTagLib, hydrateCharTags } from '@/state/charTags';
 import { getContext } from '@/st/context';
 
 const description = ref('');
