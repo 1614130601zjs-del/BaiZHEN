@@ -99,6 +99,71 @@ function persistAlbums(next: ReturnType<typeof loadGalleryAlbums>): void {
 }
 
 const albumCoverTargetId = ref('');
+const cropOpen = ref(false);
+const cropSource = ref('');
+const cropImage = ref<HTMLImageElement | null>(null);
+const cropViewport = ref<HTMLDivElement | null>(null);
+const cropZoom = ref(1);
+const cropX = ref(50);
+const cropY = ref(50);
+const cropNatural = ref({ width: 0, height: 0 });
+const cropDragging = ref<{ x: number; y: number; left: number; top: number } | null>(null);
+function cropMetrics() {
+  const viewport = cropViewport.value, image = cropImage.value;
+  if (!viewport || !image || !cropNatural.value.width) return null;
+  const scale = Math.max(viewport.clientWidth / cropNatural.value.width, viewport.clientHeight / cropNatural.value.height) * cropZoom.value;
+  const width = cropNatural.value.width * scale, height = cropNatural.value.height * scale;
+  const maxX = Math.max(0, width - viewport.clientWidth), maxY = Math.max(0, height - viewport.clientHeight);
+  return { width, height, maxX, maxY };
+}
+function updateCropPosition() {
+  const image = cropImage.value, metrics = cropMetrics();
+  if (!image || !metrics) return;
+  image.style.width = metrics.width + 'px'; image.style.height = metrics.height + 'px';
+  image.style.left = (-metrics.maxX * cropX.value / 100) + 'px';
+  image.style.top = (-metrics.maxY * cropY.value / 100) + 'px';
+}
+function openCrop(album: GalleryAlbum) {
+  albumCoverTargetId.value = album.id;
+  const source = album.coverData || (album.coverKey ? groups.value.flatMap(g => g.images).find(i => i.key === album.coverKey)?.src : '') || albumCoverSrc(album);
+  if (!source) { toastr.info('请先上传封面或选择相册图片。', '柏宝绘'); triggerAlbumCoverUpload(album.id); return; }
+  cropSource.value = source; cropZoom.value = 1; cropX.value = 50; cropY.value = 50;
+  const img = new Image();
+  img.onload = () => { cropNatural.value = { width: img.naturalWidth, height: img.naturalHeight }; cropOpen.value = true; requestAnimationFrame(updateCropPosition); };
+  img.onerror = () => toastr.error('封面图片读取失败。', '柏宝绘');
+  img.src = source;
+}
+function closeCrop() { cropOpen.value = false; cropSource.value = ''; cropDragging.value = null; }
+function cropPointerDown(event: PointerEvent) {
+  const image = cropImage.value, viewport = cropViewport.value;
+  if (!image || !viewport) return;
+  cropDragging.value = { x: event.clientX, y: event.clientY, left: parseFloat(image.style.left) || 0, top: parseFloat(image.style.top) || 0 };
+  viewport.setPointerCapture?.(event.pointerId);
+}
+function cropPointerMove(event: PointerEvent) {
+  const drag = cropDragging.value, image = cropImage.value, viewport = cropViewport.value, metrics = cropMetrics();
+  if (!drag || !image || !viewport || !metrics) return;
+  const left = Math.max(-metrics.maxX, Math.min(0, drag.left + event.clientX - drag.x));
+  const top = Math.max(-metrics.maxY, Math.min(0, drag.top + event.clientY - drag.y));
+  image.style.left = left + 'px'; image.style.top = top + 'px';
+  cropX.value = metrics.maxX ? Math.round(-left / metrics.maxX * 100) : 50;
+  cropY.value = metrics.maxY ? Math.round(-top / metrics.maxY * 100) : 50;
+}
+function cropPointerEnd() { cropDragging.value = null; }
+function saveCrop() {
+  const source = cropSource.value, albumId = albumCoverTargetId.value;
+  if (!source || !albumId) return;
+  const width = 512, height = 512, scale = Math.max(width / cropNatural.value.width, height / cropNatural.value.height) * cropZoom.value;
+  const sw = width / scale, sh = height / scale, maxSX = Math.max(0, cropNatural.value.width - sw), maxSY = Math.max(0, cropNatural.value.height - sh);
+  const sx = maxSX * cropX.value / 100, sy = maxSY * cropY.value / 100, canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx || !cropImage.value) { toastr.error('无法处理封面图片。', '柏宝绘'); return; }
+  ctx.drawImage(cropImage.value, sx, sy, sw, sh, 0, 0, width, height);
+  persistAlbums(setGalleryAlbumCover(galleryAlbums.value, albumId, undefined, canvas.toDataURL('image/jpeg', .88)));
+  closeCrop(); toastr.success('封面裁剪已保存。', '柏宝绘');
+}
+
 const albumCoverInput = ref<HTMLInputElement | null>(null);
 function triggerAlbumCoverUpload(albumId: string): void {
   albumCoverTargetId.value = albumId;
@@ -737,11 +802,24 @@ async function open(image: GalleryImage): Promise<void> {
             <span v-else class="gal-album-cover-empty">ALBUM</span>
           </button>
           <strong>{{ album.name }}</strong><small>{{ album.imageKeys.length }} 张</small>
-          <div class="gal-album-actions"><button class="bbi-btn bbi-btn-sm" type="button" @click="renameAlbum(album)">改名</button><button class="bbi-btn bbi-btn-sm" type="button" @click="triggerAlbumCoverUpload(album.id)">封面上传</button><button class="bbi-btn bbi-btn-sm bbi-btn-danger" type="button" @click="removeAlbum(album)">删除</button></div>
+          <div class="gal-album-actions"><button class="bbi-btn bbi-btn-sm" type="button" @click="renameAlbum(album)">改名</button><button class="bbi-btn bbi-btn-sm" type="button" @click="triggerAlbumCoverUpload(album.id)">封面上传</button><button class="bbi-btn bbi-btn-sm" type="button" @click="openCrop(album)">裁剪封面</button><button class="bbi-btn bbi-btn-sm bbi-btn-danger" type="button" @click="removeAlbum(album)">删除</button></div>
         </article>
       </div>
       <p v-else class="gal-state-inline">自定义相册可独立整理图片，不影响角色目录或原图文件。</p>
       <input ref="albumCoverInput" class="gal-cover-file" type="file" accept="image/*" hidden @change="uploadAlbumCover" />
+      <div v-if="cropOpen" class="gal-crop-overlay" role="dialog" aria-modal="true" aria-label="调整相册封面" @click.self="closeCrop">
+        <div class="gal-crop-dialog">
+          <h3>调整封面取景</h3>
+          <div ref="cropViewport" class="gal-crop-viewport" @pointerdown="cropPointerDown" @pointermove="cropPointerMove" @pointerup="cropPointerEnd" @pointercancel="cropPointerEnd" @lostpointercapture="cropPointerEnd">
+            <img ref="cropImage" :src="cropSource" alt="封面裁剪预览" draggable="false">
+            <div class="gal-crop-frame"></div>
+          </div>
+          <label class="gal-crop-control">缩放 <input v-model.number="cropZoom" type="range" min="1" max="3" step="0.05" @input="updateCropPosition"><span>{{ cropZoom.toFixed(2) }}×</span></label>
+          <label class="gal-crop-control">水平位置 <input v-model.number="cropX" type="range" min="0" max="100" step="1" @input="updateCropPosition"><span>{{ cropX }}%</span></label>
+          <label class="gal-crop-control">垂直位置 <input v-model.number="cropY" type="range" min="0" max="100" step="1" @input="updateCropPosition"><span>{{ cropY }}%</span></label>
+          <div class="gal-crop-actions"><button class="bbi-btn bbi-btn-sm" type="button" @click="closeCrop">取消</button><button class="bbi-btn bbi-btn-sm" type="button" @click="cropZoom = 1; cropX = 50; cropY = 50; updateCropPosition()">重置</button><button class="bbi-btn bbi-btn-sm" type="button" @click="saveCrop">保存封面</button></div>
+        </div>
+      </div>
       <div v-if="activeAlbumId" class="gal-album-images">
         <p v-if="!albumImages.length" class="gal-state-inline">此相册为空，或图片文件已不存在。</p>
         <ul v-else class="gal-grid" :class="{ 'gal-album-spread-grid': albumLayout === 'spread', 'gal-album-flip-grid': albumLayout === 'flip' }">
@@ -924,6 +1002,14 @@ async function open(image: GalleryImage): Promise<void> {
 .gal-album-cover-empty{display:grid;width:100%;height:100%;place-items:center;color:var(--bbi-ink-muted);font-size:12px}
 .gal-album-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
 .gal-album-images{margin-top:10px}.gal-album-layout-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}.gal-album-layout-controls .is-active{border-color:var(--bbi-primary);background:var(--bbi-surface-2)}.gal-album-page-label{font-size:12px;color:var(--bbi-ink-muted)}.gal-album-spread-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.gal-album-flip-grid{grid-template-columns:minmax(0,1fr);max-width:min(540px,100%);margin-inline:auto}.gal-album-flip-grid .gal-img{max-height:70vh;object-fit:contain}.gal-cover-file{display:none}
+.gal-crop-overlay{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:14px;background:rgba(0,0,0,.62)}
+.gal-crop-dialog{width:min(520px,100%);max-height:90vh;overflow:auto;padding:14px;border:1px solid var(--bbi-border);border-radius:14px;background:var(--bbi-surface);box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.gal-crop-dialog h3{margin:0 0 12px;font-size:16px}
+.gal-crop-viewport{position:relative;width:min(100%,420px);aspect-ratio:1;margin:0 auto 14px;overflow:hidden;background:#111;touch-action:none;cursor:grab}
+.gal-crop-viewport:active{cursor:grabbing}.gal-crop-viewport img{position:absolute;left:0;top:0;max-width:none;max-height:none;user-select:none;pointer-events:none}
+.gal-crop-frame{position:absolute;inset:0;border:1px solid rgba(255,255,255,.9);box-shadow:0 0 0 999px rgba(0,0,0,.22);pointer-events:none}
+.gal-crop-control{display:grid;grid-template-columns:70px 1fr 52px;gap:8px;align-items:center;margin:10px 0;font-size:12px}.gal-crop-control input{width:100%}.gal-crop-control span{text-align:right;color:var(--bbi-ink-muted)}
+.gal-crop-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
 .gal-album-move{display:flex;align-items:center;gap:6px;font-size:12px}
 .gal-album-move select{max-width:170px}
 @media(max-width:480px){.gal-album-shelf{grid-template-columns:repeat(2,minmax(0,1fr))}.gal-album-move{width:100%}}
