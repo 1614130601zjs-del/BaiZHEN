@@ -73,6 +73,11 @@ const error = ref('');
 const partialFailed = ref(0);
 const query = ref('');
 const galleryAlbums = ref(loadGalleryAlbums());
+const albumShelfPage = ref(0);
+const albumShelfPageSize = 9;
+const albumShelfPageCount = computed(() => Math.max(1, Math.ceil(galleryAlbums.value.albums.length / albumShelfPageSize)));
+const visibleShelfAlbums = computed(() => galleryAlbums.value.albums.slice(albumShelfPage.value * albumShelfPageSize, (albumShelfPage.value + 1) * albumShelfPageSize));
+function changeAlbumShelfPage(delta: number): void { albumShelfPage.value = Math.max(0, Math.min(albumShelfPageCount.value - 1, albumShelfPage.value + delta)); }
 const activeAlbumId = ref('');
 const albumLayout = ref<'grid' | 'spread' | 'flip'>('grid');
 const albumPage = ref(0);
@@ -795,8 +800,8 @@ async function open(image: GalleryImage): Promise<void> {
         <button class="bbi-btn bbi-btn-sm" type="button" :disabled="albumPage <= 0" @click="changeAlbumPage(-1)">上一页</button>
         <button class="bbi-btn bbi-btn-sm" type="button" :disabled="albumPage >= albumPageCount - 1" @click="changeAlbumPage(1)">下一页</button>
       </div>
-      <div v-else-if="galleryAlbums.albums.length" class="gal-album-shelf">
-        <article v-for="album in galleryAlbums.albums" :key="album.id" class="gal-album-card">
+      <div v-else-if="galleryAlbums.albums.length" class="gal-album-shelf-wrap"><div class="gal-album-shelf-pager" v-if="albumShelfPageCount > 1"><button class="bbi-btn bbi-btn-sm" type="button" :disabled="albumShelfPage <= 0" @click="changeAlbumShelfPage(-1)">上一页</button><span class="gal-album-page-label">{{ albumShelfPage + 1 }} / {{ albumShelfPageCount }}</span><button class="bbi-btn bbi-btn-sm" type="button" :disabled="albumShelfPage >= albumShelfPageCount - 1" @click="changeAlbumShelfPage(1)">下一页</button></div><div class="gal-album-shelf">
+        <article v-for="album in visibleShelfAlbums" :key="album.id" class="gal-album-card">
           <button class="gal-album-cover" type="button" @click="activeAlbumId = album.id; albumPage = 0; query = '';" :title="'打开' + album.name">
             <img v-if="albumCoverSrc(album)" :src="albumCoverSrc(album)" alt="">
             <span v-else class="gal-album-cover-empty">ALBUM</span>
@@ -1001,7 +1006,7 @@ async function open(image: GalleryImage): Promise<void> {
 .gal-album-cover img{width:100%;height:100%;object-fit:cover}
 .gal-album-cover-empty{display:grid;width:100%;height:100%;place-items:center;color:var(--bbi-ink-muted);font-size:12px}
 .gal-album-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:center}
-.gal-album-images{margin-top:10px}.gal-album-layout-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}.gal-album-layout-controls .is-active{border-color:var(--bbi-primary);background:var(--bbi-surface-2)}.gal-album-page-label{font-size:12px;color:var(--bbi-ink-muted)}.gal-album-spread-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.gal-album-flip-grid{grid-template-columns:minmax(0,1fr);max-width:min(540px,100%);margin-inline:auto}.gal-album-flip-grid .gal-img{max-height:70vh;object-fit:contain}.gal-cover-file{display:none}
+.gal-album-shelf-pager{display:flex;align-items:center;justify-content:center;gap:8px;margin:8px 0}.gal-album-images{margin-top:10px}.gal-album-layout-controls{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:8px 0}.gal-album-layout-controls .is-active{border-color:var(--bbi-primary);background:var(--bbi-surface-2)}.gal-album-page-label{font-size:12px;color:var(--bbi-ink-muted)}.gal-album-spread-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.gal-album-flip-grid{grid-template-columns:minmax(0,1fr);max-width:min(540px,100%);margin-inline:auto}.gal-album-flip-grid .gal-img{max-height:70vh;object-fit:contain}.gal-cover-file{display:none}
 .gal-crop-overlay{position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:14px;background:rgba(0,0,0,.62)}
 .gal-crop-dialog{width:min(520px,100%);max-height:90vh;overflow:auto;padding:14px;border:1px solid var(--bbi-border);border-radius:14px;background:var(--bbi-surface);box-shadow:0 12px 40px rgba(0,0,0,.3)}
 .gal-crop-dialog h3{margin:0 0 12px;font-size:16px}
