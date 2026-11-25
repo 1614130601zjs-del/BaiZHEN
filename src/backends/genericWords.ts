@@ -8,10 +8,10 @@ export interface GenericWordInput {
   artistTarget?: 'body' | 'statusBar' | 'egg';
 }
 
-const normalizeTag = (value: string) => value.trim().toLowerCase().replace(/\\s+/g, ' ');
+const normalizeTag = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
 function mergeTags(base: string, extra: string, position: 'front' | 'back'): string {
-  const left = base.trim().replace(/[,，\\s]+$/g, '');
-  const right = extra.trim().replace(/[,，\\s]+$/g, '');
+  const left = base.trim().replace(/[,，\s]+$/g, '');
+  const right = extra.trim().replace(/[,，\s]+$/g, '');
   if (!right) return left;
   if (!left) return right;
   const seen = new Set(left.split(/[,，]+/).map(normalizeTag).filter(Boolean));
@@ -21,8 +21,8 @@ function mergeTags(base: string, extra: string, position: 'front' | 'back'): str
 }
 function detectGender(text: string): Exclude<GenericWordGender, 'any'> | '' {
   const value = text.toLowerCase();
-  const female = /\\b(?:[1-9]\\s*girls?|girls?|females?|women|woman|lady)\\b/.test(value) || /女性|女生|少女|女孩|女人/.test(value);
-  const male = /\\b(?:[1-9]\\s*boys?|boys?|males?|men|man|guy)\\b/.test(value) || /男性|男生|少年|男孩|男人/.test(value);
+  const female = /\b(?:[1-9]\s*girls?|girls?|females?|women|woman|lady)\b/.test(value) || /女性|女生|少女|女孩|女人/.test(value);
+  const male = /\b(?:[1-9]\s*boys?|boys?|males?|men|man|guy)\b/.test(value) || /男性|男生|少年|男孩|男人/.test(value);
   return female === male ? '' : female ? 'female' : 'male';
 }
 function picked(settings: GenericWordsSettings, kind: GenericWordGender): GenericWordSet | null {

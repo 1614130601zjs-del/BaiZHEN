@@ -25,8 +25,7 @@ describe('applyGenericWords', () => {
     expect(result.prompt).toBe('2people, masterpiece');
     expect(result.characters?.[0].tag).toContain('slim waist');
     expect(result.characters?.[1].tag).toContain('broad shoulders');
-    expect(result.negative).toContain('bad anatomy');
-    expect(result.negative).toContain('bad hands');
+    expect(result.negative).toBe('low quality, bad anatomy, bad hands');
   });
   it('supports front insertion and deduplicates tags', () => {
     const result = applyGenericWords({ prompt: 'masterpiece, 1girl' }, config({ position: 'front' }));
