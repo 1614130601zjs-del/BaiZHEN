@@ -74,6 +74,9 @@ const partialFailed = ref(0);
 const query = ref('');
 const galleryAlbums = ref(loadGalleryAlbums());
 const activeAlbumId = ref('');
+const albumVisibleCount = ref(24);
+const albumVisibleImages = computed(() => albumImages.value.slice(0, albumVisibleCount.value));
+function showMoreAlbumImages(): void { albumVisibleCount.value = Math.min(albumVisibleCount.value + 24, albumImages.value.length); }
 const albumImages = computed(() => {
   const album = galleryAlbums.value.albums.find(item => item.id === activeAlbumId.value);
   if (!album) return [];
@@ -84,7 +87,7 @@ function albumCoverSrc(album: GalleryAlbum): string {
   if (album.coverData) return album.coverData;
   const all = groups.value.flatMap(group => group.images);
   const cover = album.coverKey ? all.find(image => image.key === album.coverKey) : undefined;
-  return cover?.src || album.imageKeys.map(key => all.find(image => image.key === key)?.src).find(Boolean) || '';
+  return cover?.src || album.imageKeys.map(key => all.find(image => image.key === key)?.src).find((src): src is string => Boolean(src)) || '';
 }
 function persistAlbums(next: ReturnType<typeof loadGalleryAlbums>): void {
   galleryAlbums.value = next;
@@ -717,7 +720,7 @@ async function open(image: GalleryImage): Promise<void> {
       </div>
       <div v-else-if="galleryAlbums.albums.length" class="gal-album-shelf">
         <article v-for="album in galleryAlbums.albums" :key="album.id" class="gal-album-card">
-          <button class="gal-album-cover" type="button" @click="activeAlbumId = album.id; query = '';" :title="'打开' + album.name">
+          <button class="gal-album-cover" type="button" @click="activeAlbumId = album.id; albumVisibleCount = 24; query = '';" :title="'打开' + album.name">
             <img v-if="albumCoverSrc(album)" :src="albumCoverSrc(album)" alt="">
             <span v-else class="gal-album-cover-empty">ALBUM</span>
           </button>
@@ -730,12 +733,13 @@ async function open(image: GalleryImage): Promise<void> {
       <div v-if="activeAlbumId" class="gal-album-images">
         <p v-if="!albumImages.length" class="gal-state-inline">此相册为空，或图片文件已不存在。</p>
         <ul v-else class="gal-grid">
-          <li v-for="image in albumImages" :key="image.key" class="gal-cell">
+          <li v-for="image in albumVisibleImages" :key="image.key" class="gal-cell">
             <button class="gal-thumb" :class="{ 'is-selectable': selecting, 'is-selected': selecting && selected.has(image.key) }" type="button" :disabled="exporting" @click="onThumbClick(image)">
               <img class="gal-img" :src="image.src" :alt="image.file" loading="lazy"><span v-if="selecting" class="gal-check"><Icon v-if="selected.has(image.key)" name="check" :size="13" /></span>
             </button>
           </li>
         </ul>
+        <button v-if="albumImages.length > albumVisibleImages.length" class="bbi-btn bbi-btn-sm gal-more" type="button" @click="showMoreAlbumImages">再显示 {{ Math.min(24, albumImages.length - albumVisibleImages.length) }} 张</button>
       </div>
     </section>
 
