@@ -9,6 +9,7 @@ import {
 } from '@/state/charTags';
 import { getTagGenChannel } from '@/state/settings';
 import { comicFixedFields } from '@/comic/characters';
+import { findWorkEntry, initLibraries, libraries } from '@/state/libraries';
 
 /**
  * 角色固定外貌库的「锚定」侧。
