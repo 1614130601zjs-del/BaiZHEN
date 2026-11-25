@@ -2314,7 +2314,7 @@ function normalizeNai(raw: unknown, def: NaiSettings): NaiSettings {
     noiseSchedule:
       typeof o.noiseSchedule === 'string' && o.noiseSchedule ? o.noiseSchedule : def.noiseSchedule,
     qualityToggle: typeof o.qualityToggle === 'boolean' ? o.qualityToggle : def.qualityToggle,
-    ucPreset: Math.round(clampNumber(o.ucPreset, def.ucPreset, 0, 4)),
+    ucPreset: Math.round(clampNumber(o.ucPreset, def.ucPreset ?? 3, 0, 4)),
     seed: Math.round(clampNumber(o.seed, def.seed, 0, 4294967295)),
     varietyBoost: typeof o.varietyBoost === 'boolean' ? o.varietyBoost : def.varietyBoost,
     normalizeRefStrength:
