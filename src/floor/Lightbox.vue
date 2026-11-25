@@ -119,10 +119,10 @@ function stopJellyMotion(): void {
 }
 
 async function enableJellyMotion(): Promise<void> {
+  if (typeof DeviceMotionEvent === 'undefined') return;
   const motion = DeviceMotionEvent as typeof DeviceMotionEvent & {
     requestPermission?: () => Promise<'granted' | 'denied'>;
   };
-  if (typeof DeviceMotionEvent === 'undefined') return;
   if (typeof motion.requestPermission === 'function') {
     try {
       if (await motion.requestPermission() !== 'granted') return;
